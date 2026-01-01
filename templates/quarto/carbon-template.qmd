@@ -16,24 +16,21 @@ format:
         \usepackage{xcolor}
         \usepackage{fancyhdr}
         \usepackage{graphicx}
-        \usepackage{titlesec}
         \usepackage{tcolorbox}
         \usepackage{listings}
+        \usepackage{sectsty}
 
-        % IBM Plex Fonts (fallback to system fonts if not available)
-        \setmainfont{IBM Plex Sans}[
-          UprightFont = *-Regular,
-          BoldFont = *-Bold,
-          ItalicFont = *-Italic,
-          Extension = .ttf,
-          Path = /usr/share/fonts/truetype/ibm-plex/,
-          FallBack = Liberation Sans
-        ]
-        \setmonofont{IBM Plex Mono}[
-          Extension = .ttf,
-          Path = /usr/share/fonts/truetype/ibm-plex/,
-          FallBack = Liberation Mono
-        ]
+        % Use system fonts (Liberation Sans/Mono as fallback)
+        \IfFontExistsTF{IBM Plex Sans}{
+          \setmainfont{IBM Plex Sans}
+        }{
+          \setmainfont{Liberation Sans}
+        }
+        \IfFontExistsTF{IBM Plex Mono}{
+          \setmonofont{IBM Plex Mono}
+        }{
+          \setmonofont{Liberation Mono}
+        }
 
         % IBM Carbon Colors
         \definecolor{carbonBlue}{HTML}{0f62fe}
@@ -50,27 +47,17 @@ format:
         \definecolor{carbonCyan}{HTML}{1192e8}
 
         % Section Formatting
-        \titleformat{\section}
-          {\color{carbonBlack}\fontsize{32}{38}\selectfont\bfseries}
-          {\thesection}{1em}{}
-          [\vspace{2pt}{\color{carbonBlue}\titlerule[2pt]}\vspace{12pt}]
-
-        \titleformat{\subsection}
-          {\color{carbonBlack}\fontsize{24}{28}\selectfont\bfseries}
-          {\thesubsection}{1em}{}
-          [\vspace{2pt}{\color{carbonBlue}\titlerule[1.5pt]}\vspace{8pt}]
-
-        \titleformat{\subsubsection}
-          {\color{carbonBlack}\fontsize{18}{22}\selectfont\bfseries}
-          {\thesubsubsection}{1em}{}
+        \sectionfont{\color{carbonBlack}\fontsize{32}{38}\selectfont}
+        \subsectionfont{\color{carbonBlack}\fontsize{24}{28}\selectfont}
+        \subsubsectionfont{\color{carbonBlack}\fontsize{18}{22}\selectfont}
 
         % Header and Footer
         \pagestyle{fancy}
         \fancyhf{}
-        \fancyhead[R]{\color{carbonGray70}\small\textit{{{title}}}}
-        \fancyfoot[L]{\color{carbonGray70}\small {{author}}}
+        \fancyhead[R]{\color{carbonGray70}\small\textit{ {{title}} }}
+        \fancyfoot[L]{\color{carbonGray70}\small {{author}} }
         \fancyfoot[C]{\color{carbonGray70}\small\thepage}
-        \fancyfoot[R]{\color{carbonGray70}\small {{date}}}
+        \fancyfoot[R]{\color{carbonGray70}\small {{date}} }
         \renewcommand{\headrulewidth}{0.5pt}
         \renewcommand{\footrulewidth}{0.5pt}
         \renewcommand{\headrule}{\hbox to\headwidth{\color{carbonGray20}\leaders\hrule height \headrulewidth\hfill}}

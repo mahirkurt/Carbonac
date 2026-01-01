@@ -35,7 +35,8 @@ export async function convertToQuarto(inputPath, outputPath = null) {
     let template = await readFile(templatePath);
 
     console.log('✨ Applying Carbon Design System styling...');
-    // Replace template variables
+    // Replace template variables (preserve markdown/LaTeX syntax)
+    Mustache.escape = (text) => text; // Disable HTML escaping
     const renderedContent = Mustache.render(template, {
       title: metadata.title || 'Untitled',
       subtitle: metadata.subtitle || '',
