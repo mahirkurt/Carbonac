@@ -101,13 +101,15 @@ export async function convertToQuarto(inputPath, outputPath = null, options = {}
 if (import.meta.url === `file://${process.argv[1]}`) {
   const inputPath = process.argv[2];
   const outputPath = process.argv[3];
+  const template = process.argv[4];
 
   if (!inputPath) {
-    console.error('Usage: node convert-quarto.js <input.md> [output.pdf]');
+    console.error('Usage: node convert-quarto.js <input.md> [output.pdf] [template.qmd]');
+    console.error('Templates: carbon-template.qmd (basic), carbon-advanced.qmd (full typography), carbon-colors.qmd (color system)');
     process.exit(1);
   }
 
-  convertToQuarto(inputPath, outputPath)
+  convertToQuarto(inputPath, outputPath, { template, verbose: true })
     .then(output => {
       console.log(`\n🎉 Success! PDF created at: ${output}`);
     })

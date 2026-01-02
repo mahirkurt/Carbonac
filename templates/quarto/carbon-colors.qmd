@@ -1,0 +1,396 @@
+---
+title: "{{title}}"
+subtitle: "{{subtitle}}"
+author: "{{author}}"
+date: "{{date}}"
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 16pt
+    geometry:
+      - top=48pt
+      - bottom=48pt
+      - left=48pt
+      - right=48pt
+    include-in-header:
+      text: |
+        \usepackage{fontspec}
+        \usepackage{xcolor}
+        \usepackage{fancyhdr}
+        \usepackage{graphicx}
+        \usepackage{tcolorbox}
+        \usepackage{listings}
+        \usepackage{sectsty}
+        \usepackage{titling}
+        \usepackage{parskip}
+        \usepackage{enumitem}
+        \usepackage{booktabs}
+        \usepackage{array}
+
+        % ============================================
+        % IBM PLEX FONT FAMILY
+        % ============================================
+
+        \IfFontExistsTF{IBM Plex Sans}{
+          \setmainfont{IBM Plex Sans}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold,
+            ItalicFont = *-Italic,
+            BoldItalicFont = *-SemiBoldItalic
+          ]
+        }{
+          \setmainfont{Liberation Sans}
+        }
+
+        \IfFontExistsTF{IBM Plex Mono}{
+          \setmonofont{IBM Plex Mono}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold
+          ]
+        }{
+          \setmonofont{Liberation Mono}
+        }
+
+        % ============================================
+        % CARBON COLOR PALETTE - 10 Families
+        % ============================================
+
+        % Blue Family (Primary Interactive)
+        \definecolor{blue10}{HTML}{edf5ff}
+        \definecolor{blue20}{HTML}{d0e2ff}
+        \definecolor{blue30}{HTML}{a6c8ff}
+        \definecolor{blue40}{HTML}{78a9ff}
+        \definecolor{blue50}{HTML}{4589ff}
+        \definecolor{blue60}{HTML}{0f62fe}
+        \definecolor{blue70}{HTML}{0043ce}
+        \definecolor{blue80}{HTML}{002d9c}
+        \definecolor{blue90}{HTML}{001d6c}
+        \definecolor{blue100}{HTML}{001141}
+
+        % Gray Family (Neutral)
+        \definecolor{gray10}{HTML}{f4f4f4}
+        \definecolor{gray20}{HTML}{e0e0e0}
+        \definecolor{gray30}{HTML}{c6c6c6}
+        \definecolor{gray40}{HTML}{a8a8a8}
+        \definecolor{gray50}{HTML}{8d8d8d}
+        \definecolor{gray60}{HTML}{6f6f6f}
+        \definecolor{gray70}{HTML}{525252}
+        \definecolor{gray80}{HTML}{393939}
+        \definecolor{gray90}{HTML}{262626}
+        \definecolor{gray100}{HTML}{161616}
+
+        % Red Family (Danger/Error)
+        \definecolor{red10}{HTML}{fff1f1}
+        \definecolor{red20}{HTML}{ffd7d9}
+        \definecolor{red30}{HTML}{ffb3b8}
+        \definecolor{red40}{HTML}{ff8389}
+        \definecolor{red50}{HTML}{fa4d56}
+        \definecolor{red60}{HTML}{da1e28}
+        \definecolor{red70}{HTML}{a2191f}
+        \definecolor{red80}{HTML}{750e13}
+        \definecolor{red90}{HTML}{520408}
+        \definecolor{red100}{HTML}{2d0709}
+
+        % Green Family (Success)
+        \definecolor{green10}{HTML}{defbe6}
+        \definecolor{green20}{HTML}{a7f0ba}
+        \definecolor{green30}{HTML}{6fdc8c}
+        \definecolor{green40}{HTML}{42be65}
+        \definecolor{green50}{HTML}{24a148}
+        \definecolor{green60}{HTML}{198038}
+        \definecolor{green70}{HTML}{0e6027}
+        \definecolor{green80}{HTML}{044317}
+        \definecolor{green90}{HTML}{022d0d}
+        \definecolor{green100}{HTML}{071908}
+
+        % Purple Family
+        \definecolor{purple10}{HTML}{f6f2ff}
+        \definecolor{purple20}{HTML}{e8daff}
+        \definecolor{purple30}{HTML}{d4bbff}
+        \definecolor{purple40}{HTML}{be95ff}
+        \definecolor{purple50}{HTML}{a56eff}
+        \definecolor{purple60}{HTML}{8a3ffc}
+        \definecolor{purple70}{HTML}{6929c4}
+        \definecolor{purple80}{HTML}{491d8b}
+        \definecolor{purple90}{HTML}{31135e}
+        \definecolor{purple100}{HTML}{1c0f30}
+
+        % Cyan Family
+        \definecolor{cyan10}{HTML}{e5f6ff}
+        \definecolor{cyan20}{HTML}{bae6ff}
+        \definecolor{cyan30}{HTML}{82cfff}
+        \definecolor{cyan40}{HTML}{33b1ff}
+        \definecolor{cyan50}{HTML}{1192e8}
+        \definecolor{cyan60}{HTML}{0072c3}
+        \definecolor{cyan70}{HTML}{00539a}
+        \definecolor{cyan80}{HTML}{003a6d}
+        \definecolor{cyan90}{HTML}{012749}
+        \definecolor{cyan100}{HTML}{061727}
+
+        % Teal Family
+        \definecolor{teal10}{HTML}{d9fbfb}
+        \definecolor{teal20}{HTML}{9ef0f0}
+        \definecolor{teal30}{HTML}{3ddbd9}
+        \definecolor{teal40}{HTML}{08bdba}
+        \definecolor{teal50}{HTML}{009d9a}
+        \definecolor{teal60}{HTML}{007d79}
+        \definecolor{teal70}{HTML}{005d5d}
+        \definecolor{teal80}{HTML}{004144}
+        \definecolor{teal90}{HTML}{022b30}
+        \definecolor{teal100}{HTML}{081a1c}
+
+        % Magenta Family
+        \definecolor{magenta10}{HTML}{fff0f7}
+        \definecolor{magenta20}{HTML}{ffd6e8}
+        \definecolor{magenta30}{HTML}{ffafd2}
+        \definecolor{magenta40}{HTML}{ff7eb6}
+        \definecolor{magenta50}{HTML}{ee5396}
+        \definecolor{magenta60}{HTML}{d02670}
+        \definecolor{magenta70}{HTML}{9f1853}
+        \definecolor{magenta80}{HTML}{740937}
+        \definecolor{magenta90}{HTML}{510224}
+        \definecolor{magenta100}{HTML}{2a0a18}
+
+        % Yellow Family (Warning)
+        \definecolor{yellow10}{HTML}{fcf4d6}
+        \definecolor{yellow20}{HTML}{fddc69}
+        \definecolor{yellow30}{HTML}{f1c21b}
+        \definecolor{yellow40}{HTML}{d2a106}
+        \definecolor{yellow50}{HTML}{b28600}
+        \definecolor{yellow60}{HTML}{8e6a00}
+        \definecolor{yellow70}{HTML}{684e00}
+        \definecolor{yellow80}{HTML}{483700}
+        \definecolor{yellow90}{HTML}{302400}
+        \definecolor{yellow100}{HTML}{1c1500}
+
+        % Orange Family
+        \definecolor{orange10}{HTML}{fff2e8}
+        \definecolor{orange20}{HTML}{ffd9be}
+        \definecolor{orange30}{HTML}{ffb784}
+        \definecolor{orange40}{HTML}{ff832b}
+        \definecolor{orange50}{HTML}{eb6200}
+        \definecolor{orange60}{HTML}{ba4e00}
+        \definecolor{orange70}{HTML}{8a3800}
+        \definecolor{orange80}{HTML}{5e2900}
+        \definecolor{orange90}{HTML}{3e1a00}
+        \definecolor{orange100}{HTML}{231000}
+
+        % ============================================
+        % THEME TOKENS - White Theme
+        % ============================================
+
+        \colorlet{themeBackground}{white}
+        \colorlet{themeLayer01}{gray10}
+        \colorlet{themeLayer02}{white}
+        \colorlet{themeBorderSubtle}{gray20}
+        \colorlet{themeBorderStrong}{gray50}
+        \colorlet{themeTextPrimary}{gray100}
+        \colorlet{themeTextSecondary}{gray70}
+        \colorlet{themeTextPlaceholder}{gray40}
+        \colorlet{themeTextHelper}{gray60}
+        \colorlet{themeTextError}{red60}
+        \colorlet{themeLinkPrimary}{blue60}
+        \colorlet{themeInteractive}{blue60}
+        \colorlet{themeFocus}{blue60}
+
+        % ============================================
+        % TYPOGRAPHY SCALE
+        % ============================================
+
+        \setlength{\parindent}{0pt}
+        \setlength{\parskip}{0.5em}
+        \linespread{1.5}
+
+        % Heading 1 → Heading 06 (42pt)
+        \sectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{42}{50}\selectfont%
+          \fontseries{l}\selectfont%
+        }
+
+        % Heading 2 → Heading 05 (32pt)
+        \subsectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{32}{40}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % Heading 3 → Heading 04 (28pt)
+        \subsubsectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{28}{36}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % ============================================
+        % HEADER AND FOOTER
+        % ============================================
+
+        \pagestyle{fancy}
+        \fancyhf{}
+
+        \fancyhead[L]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          \textit{ {{title}} }%
+        }
+
+        \fancyfoot[L]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          {{author}}%
+        }
+        \fancyfoot[C]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          \thepage%
+        }
+        \fancyfoot[R]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          {{date}}%
+        }
+
+        \renewcommand{\headrulewidth}{0.5pt}
+        \renewcommand{\footrulewidth}{0.5pt}
+        \renewcommand{\headrule}{%
+          \hbox to\headwidth{%
+            \color{themeBorderSubtle}\leaders\hrule height \headrulewidth\hfill%
+          }%
+        }
+        \renewcommand{\footrule}{%
+          \hbox to\headwidth{%
+            \color{themeBorderSubtle}\leaders\hrule height \footrulewidth\hfill%
+          }%
+        }
+
+        % ============================================
+        % CODE BLOCKS
+        % ============================================
+
+        \lstset{
+          basicstyle=\fontsize{14}{20}\ttfamily\color{themeTextPrimary},
+          backgroundcolor=\color{themeLayer01},
+          frame=single,
+          rulecolor=\color{themeBorderSubtle},
+          framesep=16pt,
+          breaklines=true,
+          commentstyle=\color{themeTextSecondary},
+          keywordstyle=\color{purple60}\bfseries,
+          stringstyle=\color{green50},
+          numberstyle=\tiny\color{gray50},
+          numbers=left,
+          numbersep=12pt,
+          tabsize=2,
+          xleftmargin=16pt,
+          xrightmargin=16pt
+        }
+
+        % Inline code
+        \let\oldtexttt\texttt
+        \renewcommand{\texttt}[1]{%
+          \colorbox{themeLayer01}{%
+            \color{themeLinkPrimary}%
+            \fontsize{12}{16}\ttfamily#1%
+          }%
+        }
+
+        % ============================================
+        % BLOCKQUOTES
+        % ============================================
+
+        \renewenvironment{quote}{%
+          \begin{tcolorbox}[
+            colback=themeLayer01,
+            colframe=themeInteractive,
+            leftrule=4pt,
+            rightrule=0pt,
+            toprule=0pt,
+            bottomrule=0pt,
+            arc=4pt,
+            boxsep=16pt,
+            left=16pt,
+            right=16pt,
+            top=12pt,
+            bottom=12pt
+          ]%
+          \itshape\color{themeTextSecondary}%
+        }{%
+          \end{tcolorbox}%
+        }
+
+        % ============================================
+        % LISTS
+        % ============================================
+
+        \setlist[itemize]{%
+          label=\textcolor{themeInteractive}{\textbullet},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        \setlist[enumerate]{%
+          label=\textcolor{themeInteractive}{\arabic*.},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        % ============================================
+        % HYPERLINKS
+        % ============================================
+
+        \usepackage{hyperref}
+        \hypersetup{
+          colorlinks=true,
+          linkcolor=themeLinkPrimary,
+          urlcolor=themeLinkPrimary,
+          citecolor=themeLinkPrimary,
+          pdfborder={0 0 0}
+        }
+
+        % ============================================
+        % TITLE PAGE
+        % ============================================
+
+        \pretitle{%
+          \begin{center}%
+          \color{themeInteractive}\rule{\textwidth}{4pt}\par
+          \vspace{32pt}%
+          \color{themeTextPrimary}\fontsize{42}{50}\selectfont\fontseries{l}\selectfont
+        }
+        \posttitle{%
+          \par\vspace{16pt}%
+          \end{center}%
+        }
+
+        \preauthor{%
+          \begin{center}%
+          \color{themeTextPrimary}\fontsize{16}{24}\selectfont\bfseries
+        }
+        \postauthor{%
+          \par\vspace{8pt}%
+          \end{center}%
+        }
+
+        \predate{%
+          \begin{center}%
+          \color{themeTextSecondary}\fontsize{14}{16}\selectfont
+        }
+        \postdate{%
+          \par\vspace{48pt}%
+          \begin{tcolorbox}[
+            colback=themeLayer01,
+            colframe=themeBorderSubtle,
+            arc=4pt,
+            boxsep=12pt
+          ]
+          \centering\color{themeTextSecondary}\fontsize{12}{16}\selectfont
+          \textit{Styled with IBM Carbon Design System (Color Template)}
+          \end{tcolorbox}
+          \end{center}%
+          \vfill
+        }
+---
+
+{{content}}
