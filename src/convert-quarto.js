@@ -20,24 +20,32 @@ const execAsync = promisify(exec);
  * Convert markdown to PDF using Quarto with Carbon Design System
  * @param {string} inputPath - Path to markdown file
  * @param {string} outputPath - Path to output PDF (optional)
+ * @param {object} options - Conversion options
+ * @param {string} options.template - Template filename (default: 'carbon-advanced.qmd')
+ * @param {boolean} options.verbose - Verbose output (default: true)
  * @returns {Promise<string>} Path to generated PDF
  */
-export async function convertToQuarto(inputPath, outputPath = null) {
+export async function convertToQuarto(inputPath, outputPath = null, options = {}) {
   try {
-    console.log('📄 Reading markdown file...');
+    const {
+      template = 'carbon-advanced.qmd',
+      verbose = true
+    } = options;
+
+    if (verbose) console.log('📄 Reading markdown file...');
     const markdownContent = await readFile(inputPath);
 
-    console.log('🔍 Parsing markdown...');
+    if (verbose) console.log('🔍 Parsing markdown...');
     const { metadata, content } = parseMarkdown(markdownContent);
 
-    console.log('📋 Loading Carbon template...');
-    const templatePath = getTemplatePath('quarto', 'carbon-template.qmd');
-    let template = await readFile(templatePath);
+    if (verbose) console.log(`📋 Loading Carbon template: ${template}...`);
+    const templatePath = getTemplatePath('quarto', template);
+    let templateContent = await readFile(templatePath);
 
-    console.log('✨ Applying Carbon Design System styling...');
+    if (verbose) console.log('✨ Applying Carbon Design System styling...');
     // Replace template variables (preserve markdown/LaTeX syntax)
     Mustache.escape = (text) => text; // Disable HTML escaping
-    const renderedContent = Mustache.render(template, {
+    const renderedContent = Mustache.render(templateContent, {
       title: metadata.title || 'Untitled',
       subtitle: metadata.subtitle || '',
       author: metadata.author || 'Anonymous',
@@ -54,10 +62,15 @@ export async function convertToQuarto(inputPath, outputPath = null) {
     await writeFile(tempQmdPath, renderedContent);
 
     // Determine output path
-    const finalOutputPath = outputPath || getOutputPath(inputPath, 'quarto');
-    await ensureDir(path.dirname(finalOutputPath));
+    if (!outputPath) {
+      const inputFilename = path.basename(inputPath, path.extname(inputPath));
+      const templateName = template.replace('.qmd', '').replace('carbon-', '');
+      const outputFilename = `${inputFilename}-quarto-${templateName}.pdf`;
+      outputPath = path.join(projectRoot, 'output', outputFilename);
+    }
+    await ensureDir(path.dirname(outputPath));
 
-    console.log('🚀 Rendering with Quarto...');
+    if (verbose) console.log('🚀 Rendering with Quarto...');
 
     // Quarto renders to the same directory as the input file
     // We'll render first, then move the PDF
@@ -66,17 +79,17 @@ export async function convertToQuarto(inputPath, outputPath = null) {
       { cwd: tempDir }
     );
 
-    if (stderr && !stderr.includes('WARNING')) {
+    if (stderr && !stderr.includes('WARNING') && verbose) {
       console.warn('⚠️  Quarto warnings:', stderr);
     }
 
     // Move the generated PDF to the desired location
     const tempPdfPath = path.join(tempDir, 'temp.pdf');
     const moveCommand = process.platform === 'win32' ? 'move' : 'mv';
-    await execAsync(`${moveCommand} "${tempPdfPath}" "${finalOutputPath}"`);
+    await execAsync(`${moveCommand} "${tempPdfPath}" "${outputPath}"`);
 
-    console.log(`✅ PDF generated successfully: ${finalOutputPath}`);
-    return finalOutputPath;
+    if (verbose) console.log(`✅ PDF generated successfully: ${outputPath}`);
+    return outputPath;
 
   } catch (error) {
     console.error('❌ Error converting to PDF with Quarto:', error.message);

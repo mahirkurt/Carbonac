@@ -21,28 +21,34 @@ const execAsync = promisify(exec);
  * Convert markdown to PDF using Typst with Carbon Design System
  * @param {string} inputPath - Path to markdown file
  * @param {string} outputPath - Path to output PDF (optional)
+ * @param {object} options - Conversion options
  * @returns {Promise<string>} Path to generated PDF
  */
-export async function convertToTypst(inputPath, outputPath = null) {
+export async function convertToTypst(inputPath, outputPath = null, options = {}) {
   try {
-    console.log('📄 Reading markdown file...');
+    const {
+      template = 'carbon-advanced.typ', // Use advanced template by default
+      verbose = true
+    } = options;
+
+    if (verbose) console.log('📄 Reading markdown file...');
     const markdownContent = await readFile(inputPath);
 
-    console.log('🔍 Parsing markdown...');
+    if (verbose) console.log('🔍 Parsing markdown...');
     const { metadata, content } = parseMarkdown(markdownContent);
 
-    console.log('🎨 Converting to Typst format...');
+    if (verbose) console.log('🎨 Converting to Typst format...');
     const typstContent = markdownToTypst(content);
 
-    console.log('📋 Loading Carbon template...');
-    const templatePath = getTemplatePath('typst', 'carbon-template.typ');
-    let template = await readFile(templatePath);
+    if (verbose) console.log(`📋 Loading Carbon template: ${template}...`);
+    const templatePath = getTemplatePath('typst', template);
+    let templateContent = await readFile(templatePath);
 
-    console.log('✨ Applying Carbon Design System styling...');
+    if (verbose) console.log('✨ Applying Carbon Design System styling...');
     // Replace template variables (use raw content, don't escape)
     // We manually handle escaping in markdownToTypst
     Mustache.escape = (text) => text; // Disable HTML escaping
-    const renderedContent = Mustache.render(template, {
+    const renderedContent = Mustache.render(templateContent, {
       title: metadata.title || 'Untitled',
       subtitle: metadata.subtitle || '',
       author: metadata.author || 'Anonymous',
@@ -59,13 +65,14 @@ export async function convertToTypst(inputPath, outputPath = null) {
     await writeFile(tempTypstPath, renderedContent);
 
     // Determine output path
-    const finalOutputPath = outputPath || getOutputPath(inputPath, 'typst');
+    const suffix = template.replace('.typ', '').replace('carbon-', '');
+    const finalOutputPath = outputPath || getOutputPath(inputPath, `typst-${suffix}`);
     await ensureDir(path.dirname(finalOutputPath));
 
-    console.log('🚀 Compiling with Typst...');
+    if (verbose) console.log('🚀 Compiling with Typst...');
     await execAsync(`typst compile "${tempTypstPath}" "${finalOutputPath}"`);
 
-    console.log(`✅ PDF generated successfully: ${finalOutputPath}`);
+    if (verbose) console.log(`✅ PDF generated successfully: ${finalOutputPath}`);
     return finalOutputPath;
 
   } catch (error) {
@@ -78,13 +85,15 @@ export async function convertToTypst(inputPath, outputPath = null) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const inputPath = process.argv[2];
   const outputPath = process.argv[3];
+  const template = process.argv[4];
 
   if (!inputPath) {
-    console.error('Usage: node convert-typst.js <input.md> [output.pdf]');
+    console.error('Usage: node convert-typst.js <input.md> [output.pdf] [template.typ]');
+    console.error('Templates: carbon-template.typ (basic), carbon-advanced.typ (full type scale)');
     process.exit(1);
   }
 
-  convertToTypst(inputPath, outputPath)
+  convertToTypst(inputPath, outputPath, { template, verbose: true })
     .then(output => {
       console.log(`\n🎉 Success! PDF created at: ${output}`);
     })

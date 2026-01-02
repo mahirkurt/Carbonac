@@ -91,13 +91,16 @@ export function markdownToTypst(content) {
   typstContent = typstContent.replace(/^##\s+(.+)$/gm, '== $1');
   typstContent = typstContent.replace(/^#\s+(.+)$/gm, '= $1');
 
+  // Bold-Italic (must be processed first)
+  typstContent = typstContent.replace(/\*\*\*(.+?)\*\*\*/g, '*_$1_*');
+  typstContent = typstContent.replace(/___(.+?)___/g, '*_$1_*');
+
   // Bold
   typstContent = typstContent.replace(/\*\*(.+?)\*\*/g, '*$1*');
   typstContent = typstContent.replace(/__(.+?)__/g, '*$1*');
 
   // Italic
   typstContent = typstContent.replace(/\*(.+?)\*/g, '_$1_');
-  typstContent = typstContent.replace(/_(.+?)_/g, '_$1_');
 
   // Code blocks
   typstContent = typstContent.replace(/```(\w+)?\n([\s\S]*?)```/g, '```$1\n$2```');
