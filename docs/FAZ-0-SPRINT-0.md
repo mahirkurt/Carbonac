@@ -81,11 +81,15 @@ Gorevler:
 - template secimi UI -> backend -> converter hizasi
 - template isim standardi (carbon-advanced, carbon-template)
 - token mapping gereksinimleri (typografi, renk, spacing)
+- print token pack taslagi (baseline, safe-area, caption/footnote)
+- pattern library taslagi (ExecutiveSummary, SurveyChartPage, WhatToDo)
 - template registry MVP ihtiyac listesi
 
 Cikti:
 - Template Strategy Notu
 - Token Mapping Taslak
+- Print Token Pack Taslak
+- Pattern Library Taslak
 
 ### 4.4 AI Danisman
 Ama: AI anahtari ve cagrilarin server tarafinda yonetilmesi.
@@ -131,6 +135,9 @@ Gorevler:
 - Minimum senaryo test listesi
 - Log format (request id, job id, error code)
 - Metric listesi (latency, success rate, file size)
+- PDF lint checklist taslagi (overflow, widows/orphans, min font)
+- PDF erisilebilirlik preflight listesi (heading, reading order, link)
+- Kalite metrikleri (Carbon Adherence, Layout Health, Readability)
 
 Cikti:
 - Test Checklist
@@ -151,7 +158,7 @@ Cikti:
 - API hosting modeli: Express API + Worker.
 - Conversion queue: Redis + BullMQ.
 - Storage: Supabase bucket path standardi.
-- AI saglayici: Gemini 3 Pro (server-side).
+- AI saglayici: Gemini 3 Pro (preview) + 2.5 Pro fallback (server-side).
 - Preview motoru: Paged.js.
 
 Referans: `docs/SPRINT-0-DELIVERABLES.md`.

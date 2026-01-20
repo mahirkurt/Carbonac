@@ -28,10 +28,12 @@ Kapsam disi:
 - Baski/PDF motoru: Paged.js (print CSS + sayfalandirma)
 - Storage: Supabase buckets, standard path
 - Preview: Paged.js render + PDF download
-- AI provider: Gemini 3 Pro (server-side proxy)
+- AI provider: Gemini 3 Pro (preview) + 2.5 Pro fallback (server-side proxy)
 - API base URL: `VITE_API_URL`
 - Error format: unified error payload (code, message, details, request_id)
 - Logging: request_id + job_id zorunlu
+- Print token pack + pattern library: PDF tasarim standardi
+- PDF kalite zinciri: statik lint + Gemini QA self-healing
 
 ## 3. Hedef Mimari Bilesenler
 1) Ingestion: upload, metadata, type detection, validation
@@ -49,6 +51,9 @@ Kapsam disi:
 - API availability: >= 99.5%
 - Error rate: < 1% (5xx)
 - Docs coverage: SoT ve plan dokumanlari guncel
+- Carbon Adherence Score: >= 85
+- Layout Health Score: >= 90
+- Readability Score: >= 80
 
 ## 5. Varsayimlar ve Bagimliliklar
 - Paged.js ve headless Chromium runtime kullanilabilir ve lisans uyumludur
@@ -110,6 +115,7 @@ Kabul kriterleri:
 Ama: WYSIWYG farkini azaltan preview ve editor kalitesi.
 Sprint 3 Epics:
 - Paged.js preview/print polish + self-healing
+- PDF lint + accessibility preflight (heading/order/link)
 - Editor iyilestirmeleri (shortcuts, autosave)
 - Frontmatter wizard
 Sprint 4 Epics:
@@ -127,7 +133,8 @@ Sprint 5 Epics:
 - Template versioning ve rollback
 - Template preview (mini PDF/PNG)
 Sprint 6 Epics:
-- Token mapping katmani (typografi/renk/spacing)
+- Token mapping katmani (typografi/renk/spacing) + print token pack
+- Pattern library (HeroStat, SurveyChartPage, WhatToDo)
 - Tema paketleri: white, g10, g90, g100
 - UI template galerisi + filtre
 Kabul kriterleri:
@@ -177,12 +184,15 @@ Storage:
 - Template ID standardi: carbon-<variant>
 - Ortak token sozlugu: typography, color, spacing
 - Engine mapping: typst + quarto ayni tokenlari kullanir
+- Print token pack: baseline, safe-area, caption/footnote, chart spacing
+- Pattern library: repeatable PDF modulleri (ExecutiveSummary, SurveyChartPage)
 
 ## 12. AI Servis Katmani
 - Endpointler: POST /api/ai/analyze, POST /api/ai/ask
 - Rate limit ve audit log
 - Prompt setleri versionlanir
 - Gemini 3 Pro: spatial reasoning + data storytelling + print CSS logic
+- Art director iki asama: DocumentPlan (semantik) + LayoutPlan (uzamsal)
 - Veri sinirlari: max input size, pii redaction
 
 ## 13. Security ve Compliance
@@ -204,6 +214,7 @@ Storage:
 - E2E: upload -> convert -> preview
 - Golden file: PDF snapshot karsilastirma
 - Regression checklist her sprint
+- PDF lint checklist (layout/contrast/typography)
 
 ## 16. Release ve Rollback
 - Feature flags (critical path)

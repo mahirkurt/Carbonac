@@ -23,6 +23,7 @@ Kapsam disi:
 - signed URL uretimi ve storage lifecycle (Sprint 2)
 - Paged.js preview/print polish (Sprint 3)
 - Template registry ve token mapping (Sprint 5-6)
+- Print token pack + pattern library (Sprint 5-6)
 - Billing ve usage limitleri (Sprint 7-8)
 
 ## 2. Sprint 0 Kararlari (Uygulanan)

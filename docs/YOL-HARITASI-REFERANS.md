@@ -19,7 +19,8 @@ yetenekleri ve Paged.js'in baski muhendisligi ayni mimaride birlestirilir.
 **Nihai Teknoloji Stack'i:**
 - Rendering Motoru: React + Carbon Components (gorunum icin tek kaynak)
 - Baski Motoru: Paged.js (print CSS ile sayfalandirma)
-- Beyin (Art Director): Gemini 3 Pro (icerik, layout, CSS mantigi, veri hikayelestirme)
+- Beyin (Art Director): Gemini 3 Pro (preview) + 2.5 Pro fallback
+- Kalite Zinciri: PDF lint + Gemini QA (self-healing)
 
 ---
 
@@ -106,6 +107,19 @@ interface LayoutInstruction {
 }
 ```
 
+**Ek: Iki Asamali Planlama (onerilen)**
+- DocumentPlan: bolum amaci, pattern secimi (WhatToDo, CaseStudy, SurveyChartPage)
+- LayoutPlan: grid/colSpan/offset + page-break directives
+
+Bu ayrim, determinism ve QA karsilastirmasini guclendirir.
+
+### Adim 2.1: Print Token Pack + Pattern Library
+PDF tasarim standardini sabitlemek icin iki temel paket:
+- `tokens/print.json`: tipografi (pt), spacing, caption/footnote, baseline, safe-area
+- `patterns/`: ExecutiveSummary, HeroStatWithQuote, SurveyChartPage, WhatToDo, CaseStudyModule
+
+Bu paket, Carbon tokenlarini print guardrail'leri ile birlestirir.
+
 ### Adim 3: React + Paged.js Entegrasyonu
 AI'dan gelen talimatlari ekrana basan ve sayfalayan motor.
 
@@ -157,7 +171,10 @@ Gemini 3 Pro'nun multimodal yetenegi, kalite kontrolu otomatiklestirir.
 
 Is akisi:
 1. Draft render (HTML/PDF)
-2. Screenshot analizi (headless Chromium)
+2. Statik PDF lint (overflow, widows/orphans, min font, contrast)
+3. Screenshot analizi (headless Chromium)
+4. Gemini QA (layout hatasi tespiti)
+5. CSS auto-fix + yeniden render
 3. Gemini QA: "Metin tasmasi, kotu kirilim var mi?"
 4. Auto-correction: `break-inside: avoid` gibi kurallar eklenir
 5. Tekrar render

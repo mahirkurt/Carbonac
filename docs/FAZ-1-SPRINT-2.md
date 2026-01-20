@@ -33,7 +33,7 @@ Kapsam disi:
 - Auth: Supabase JWT (Authorization: Bearer)
 - Rendering: React + Carbon Components
 - Baski/PDF: Paged.js (print CSS + sayfalandirma)
-- AI provider: Gemini 3 Pro (server-side proxy)
+- AI provider: Gemini 3 Pro (preview) + 2.5 Pro fallback (server-side proxy)
 - API base URL: VITE_API_URL
 - Error format ve logging standardi (request_id + job_id)
 
@@ -66,6 +66,7 @@ Error payload:
 - Cikti: layout JSON (grid system, component listesi, layoutProps)
 - Ek: executive summary + key insight metinleri
 - Not: Gemini 3 Pro (preview) varsayilan, JSON cikmazsa 2.5 Pro fallback.
+- Oneri: DocumentPlan (semantik) + LayoutPlan (uzamsal) iki asamali ciktı.
 
 Ornek JSON (ozet):
 ```

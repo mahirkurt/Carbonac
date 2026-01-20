@@ -10,11 +10,13 @@
 | D-03 | Auth: Supabase JWT, Authorization: Bearer | Tek auth kaynagi ve mevcut altyapi | API token dogrulama gerekir |
 | D-04 | Storage: Supabase buckets ve standard path | Outputlar paylasilabilir, lifecycle net | Path standardi zorunlu |
 | D-05 | Rendering + PDF: React + Carbon Components + Paged.js | Tek kaynak gorunum + matbaa kalitesi | Print CSS ve Paged.js entegrasyonu gerekir |
-| D-06 | AI provider: Gemini 3 Pro (server-side proxy) | Uzamsal muhakeme ve layout kararlari | API key server tarafinda tutulur |
+| D-06 | AI provider: Gemini 3 Pro (preview) + 2.5 Pro fallback | Uzamsal muhakeme ve layout kararlari | API key server tarafinda tutulur |
 | D-07 | API Base URL: VITE_API_URL ile tek hedef | Netlify functions bagimliligi kaldirilir | FE servis refaktor gerekir |
 | D-08 | Template naming: carbon-<variant> | Engine paritesi ve template secimi | UI/BE/Converter hizasi gerekir |
 | D-09 | Error format: unified error payload | Operasyon ve FE hata yonetimi | Backend standardi gerekir |
 | D-10 | Logging: request_id + job_id | Debug ve izlenebilirlik | Middleware gerekir |
+| D-11 | Print token pack + pattern library | PDF tasarim standardini sabitler | Template registry ile baglanti kurulur |
+| D-12 | PDF kalite zinciri: statik lint + Gemini QA | Self-healing icin determinism | QA pipeline gerektirir |
 
 ## 2. API Contract (Draft)
 Base URL:
@@ -162,6 +164,7 @@ create index if not exists idx_job_events_job_id on public.job_events(job_id);
 - Template IDs: carbon-advanced, carbon-template, carbon-grid, carbon-colors, carbon-components, carbon-dataviz, carbon-theme-g100.
 - Renderer picks template module + print CSS: React component + Paged.js style seti
 - UI shows template list from static config (Sprint 1: registry)
+- Pattern library: ExecutiveSummary, SurveyChartPage, WhatToDo gibi moduller
 
 ## 7. Token Mapping Draft (Summary)
 Common tokens:
@@ -171,10 +174,11 @@ Common tokens:
 Mapping:
 - react/carbon: map to component props + design tokens
 - paged.js: map to print CSS variables + @page kurallari
+- print pack: baseline, safe-area, caption/footnote, chart spacing
 
 ## 8. AI Service Plan (Summary)
 - Endpoint: POST /api/ai/analyze, POST /api/ai/ask
-- Server-side call to Gemini 3 Pro API
+- Server-side call: Gemini 3 Pro (preview) + 2.5 Pro fallback
 - Rate limit per user (e.g. 60 req/hour)
 - Logs: request_id, user_id, latency
 - Prompt content limit: 20k chars
@@ -191,6 +195,8 @@ Mapping:
 - Job failure and retry
 - Template selection applied
 - Paged.js preview + PDF download calisir
+- PDF lint (overflow, widows/orphans, min font)
+- PDF accessibility preflight (heading/order/link/contrast)
 
 ## 11. Sprint 0 Summary
 Sprint 0 deliverables tamamlandi:

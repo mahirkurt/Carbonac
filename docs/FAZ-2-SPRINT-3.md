@@ -3,7 +3,7 @@
 > Bu dokuman `docs/PROJE-TALIMATLARI.md`, `docs/SPRINT-0-DELIVERABLES.md` ve `docs/IS-PLANI.md` ile uyumlu olmak zorundadir.
 
 ## 0. Hizli Ozet
-Sprint 3, editor/preview kalitesini artirir: Paged.js preview polish, visual self-healing (AI QA) ve frontmatter wizard.
+Sprint 3, editor/preview kalitesini artirir: Paged.js preview polish, PDF lint + visual self-healing (AI QA) ve frontmatter wizard.
 
 ## 1. Amac ve Kapsam
 Sprint 3, Phase 2 baslangic adimi olarak preview ile PDF arasindaki farklari azaltir ve editor deneyimini guclendirir.
@@ -48,6 +48,10 @@ Kapsam disi:
 - Gemini QA promptu ile layout hatalari (overflow, orphan/widow, overlap) tespit edilir.
 - Tespit edilen sorunlar CSS class olarak uygulanir (avoid-break, force-break).
 - Maksimum 2 iterasyon, sonra rapor kaydi.
+
+### 4.2.1 Statik PDF Lint
+- Overflow, widows/orphans, min font-size, contrast.
+- Erişilebilirlik preflight: heading order, reading order, bookmarks, link ayiklama.
 
 ### 4.3 Frontmatter Wizard
 - Wizard adimlari: baslik, yazar, tarih, documentType, tone, layoutProfile, printProfile.
@@ -99,6 +103,8 @@ Tasks:
 - [ ] Gemini QA prompt + JSON issue listesi
 - [ ] CSS class map (avoid-break, force-break)
 - [ ] Max 2 iterasyon, QA raporu kaydi
+- [ ] Statik PDF lint (overflow/contrast/typography)
+- [ ] Accessibility preflight (heading/order/link)
 Acceptance:
 - [ ] En az 1 senaryoda layout hatasi azalir
 

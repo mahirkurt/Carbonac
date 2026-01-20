@@ -80,9 +80,10 @@ Worker opsiyonel (profile ile):
 docker compose -f docker-compose.raspberry.yml --profile worker up -d
 ```
 
-Not: Worker icin Paged.js ve headless Chromium gereklidir. Container imajina eklenmediyse worker host uzerinden calistirilabilir.
+Not: Worker icin Paged.js ve headless Chromium gereklidir. `PUPPETEER_SKIP_DOWNLOAD=1` ve `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` ayarlidir.
 Not: Compose dosyasi named volume kullanir; output ve temp verileri Raspberry uzerinde saklanir.
-Not: Redis servisi compose icinde yoktur; `REDIS_URL` ile uzak Redis kullanilir.
+Not: Redis servisi compose icinde vardir; `REDIS_URL=redis://redis:6379` kullanilir.
+Not: API/worker `.env` ile calisir (Supabase/Gemini anahtarlari dahil).
 
 ## 5. Raspberry Repo Araclari (Bridge)
 Raspberry repo (D:\Repositories\Raspberry) ile entegre komut calistirmak icin:
