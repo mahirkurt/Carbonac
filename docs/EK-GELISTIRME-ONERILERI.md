@@ -101,6 +101,7 @@ Aşağıdaki liste; Carbonac'ın template registry'sini beslemek için **yüksek
 |---------|----------|
 | IBM ROI of AI Report (Dec 2024) (77 sayfa) | "KEY FINDINGS" + section numbering + veri grafikleri + "Data Deep Dive" gibi modüller |
 | IBM Sports Survey Report 2025 (78 sayfa) | Chart sayfalarında **büyük yüzde + soru etiketi + örneklem büyüklüğü** tekrar eden data viz page paterni |
+| IBM Global AI Adoption Index Report (Dec 2023) | Metodoloji + örneklem büyüklüğü (sample size) formatını standartlaştırmak için iyi referans |
 
 ### 3.7 Investor Relations Sınıfı
 
@@ -200,10 +201,12 @@ Carbon; tipografi, spacing ve renk yönetimini "token + theme" yaklaşımıyla s
 - **Kolon sistemi**: Carbon Grid mantığını PDF'ye sabitle (örn. 12 kolon + sabit gutter)
 - **Baseline grid**: Body line-height'ı baseline'a kilitle (printte ritim artar)
 - **Cilt payı**: Left/right margin farkı SoT'de var; buna "tablo/şekil genişlik sınırı" eklenmeli (tablo cilt payına taşmasın)
+- **2x grid referansı**: Carbon'ın 2x grid yaklaşımı baseline ve spacing guardrail'leri için doğrudan uygulanabilir [17]
 
 ### 5.3 Tipografi: Carbon Type Tokens → Print pt Eşlemesi
 
 [Carbon type sets (productive/expressive)][12] kavramını PDF'ye uyarlayın.
+Yeni Carbon sayfaları, type set ayrımını daha net ve güncel örneklerle tanımlar [18].
 
 **Önerilen yaklaşım:**
 
@@ -315,6 +318,7 @@ Roadmap'te header/footer string set yaklaşımı zaten var.
 
 - Footer: `| Foreword | Summary | … |` + `Sayfa X/Y` ([IBV örneği][1])
 - Header: Sol/sağ sayfada doc title / chapter title (roadmap örneği)
+- Not: Running header/footer için Paged.js margin box + string-set yaklaşımı referans alınmalı [19]
 
 ### 6.4 Data-Viz Page Template Standardını Kilitleyin
 
@@ -381,6 +385,7 @@ SoT'de font embedding zorunlu; printte linklerin URL olarak yazdırılması gibi
 
 - **Brand compliance lint:** Logo clearspace, yanlış lockup, eksik trademark satırı, eksik copyright (IBM Garage/Logo guideline referansları)
 - **Legal footer pack:** Copyright, trademarks, source references; template türüne göre otomatik
+- Ek kaynaklar: IBM Design Language portalı ve stratejik partner logo rehberi [20][21]
 
 ### 6.9 Ölçülebilir Kalite Metrikleri Ekleyin
 
@@ -542,6 +547,8 @@ Carbon ekosistemi erişilebilirliği bileşen düzeyinde gömülü ele alır; PD
 - [ ] Kontrast yeterli mi (özellikle veri görsellerinde)?
 - [ ] Tablolarda başlık satırı / hizalama / satır yüksekliği düzenli mi?
 - [ ] Yer imleri (bookmarks) ve meta veriler (başlık, yazar, konu) var mı?
+- [ ] PDF erişilebilirlik checklist'i (tagging, reading order, form fields) tamam mı? [22]
+- [ ] Reading order kontrolleri (Heading tags -> bookmarks) doğrulandı mı? [23]
 
 ---
 
@@ -561,6 +568,14 @@ Carbon ekosistemi erişilebilirliği bileşen düzeyinde gömülü ele alır; PD
 | IBM Proxy Statement 2023 | [ibm.com/investor/att/pdf/IBM_Proxy_2023.pdf][6] |
 | IBM Annual Report 2022 | [ibm.com/investor/att/pdf/IBM_Annual_Report_2022.pdf][7] |
 | IBM Newsroom | [newsroom.ibm.com][8] |
+| IBM Global AI Adoption Index Report (Dec 2023) | [filecache.mediaroom.com][24] |
+| Carbon 2x Grid | [v10.carbondesignsystem.com/guidelines/2x-grid/implementation/][17] |
+| Carbon Type Sets (v11) | [v11.carbondesignsystem.com/guidelines/typography/type-sets][18] |
+| Paged.js Margin Boxes & String-Set | [pagedjs.org/en/documentation/7-generated-content-in-margin-boxes/][19] |
+| IBM Design Language | [ibm.com/design/language][20] |
+| IBM Logo Guidelines (Strategic Partners) | [ibm.com/design/language/files/IBM_logo_guidelines_strategic_partners_v_1_2.pdf][21] |
+| Adobe PDF Accessibility Checklist | [webstandards.ca.gov][22] |
+| Adobe Reading Order Tool | [helpx.adobe.com][23] |
 
 [1]: https://www.ibm.com/downloads/documents/us-en/1550f812c451680b "The enterprise in 2030"
 [2]: https://www.ibm.com/downloads/documents/us-en/11630e2b96302ccc "5 Trends for 2025"
@@ -578,3 +593,11 @@ Carbon ekosistemi erişilebilirliği bileşen düzeyinde gömülü ele alır; PD
 [14]: https://carbondesignsystem.com/data-visualization/chart-types/ "Data visualization: Chart types"
 [15]: https://carbondesignsystem.com/data-visualization/chart-anatomy/ "Chart anatomy"
 [16]: https://carbondesignsystem.com/data-visualization/color-palettes/ "Data visualization color palettes"
+[17]: https://v10.carbondesignsystem.com/guidelines/2x-grid/implementation/ "2x Grid"
+[18]: https://v11.carbondesignsystem.com/guidelines/typography/type-sets "Type sets"
+[19]: https://pagedjs.org/en/documentation/7-generated-content-in-margin-boxes/ "Paged.js margin boxes"
+[20]: https://www.ibm.com/design/language/ "IBM Design Language"
+[21]: https://www.ibm.com/design/language/files/IBM_logo_guidelines_strategic_partners_v_1_2.pdf "IBM Logo Guidelines for Strategic Partners"
+[22]: https://webstandards.ca.gov/wp-content/uploads/sites/8/2025/03/adobe-pdf-accessibility-checklist.pdf "Adobe PDF Accessibility Checklist"
+[23]: https://helpx.adobe.com/acrobat/using/touch-reading-order-tool-pdfs.html "Reading Order tool for PDFs"
+[24]: https://filecache.mediaroom.com/mr5mr_ibmspgi/179414/download/IBM%20Global%20AI%20Adoption%20Index%20Report%20Dec.%202023.pdf "IBM Global AI Adoption Index Report"
