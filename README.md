@@ -1,87 +1,90 @@
-# Carbon Markdown to PDF
+# Carbon AI Report Engine
 
-🎨 Professional markdown to PDF converter using IBM Carbon Design System, Typst, and Quarto.
+🎨 IBM Carbon Design System + Gemini 3 Pro + Paged.js ile akilli, matbaa kalitesinde PDF rapor ureten platform.
 
 ## Features
 
-- ✨ **IBM Carbon Design System** - Beautiful, consistent styling
-- 📄 **Typst Support** - Modern typesetting system
-- 📊 **Quarto Support** - Scientific publishing system
-- 🎓 **Academic Focus** - Perfect for research papers, reports, and documentation
-- 🌈 **Carbon Color Palette** - Professional color schemes
-- 📝 **Typography** - IBM Plex font family integration
+- ✨ **React + Carbon Components** - Gorunum icin tek kaynak, tutarli tasarim
+- 🧠 **Gemini 3 Pro Art Director** - Uzamsal muhakeme, data storytelling, layout JSON
+- 📰 **Paged.js Print CSS** - A4/A3 sayfalama, bleed, crop/cross marks
+- 📦 **Queue + Worker** - Redis + BullMQ ile is akisi ve retry
+- ☁️ **Supabase Storage** - Standard path, signed URL download
+- 🎨 **Tema Desteği** - White, G10, G90, G100
 
 ## Installation
 
 ### System Dependencies
 
-```bash
-# Install Typst
-curl -fsSL https://typst.app/install.sh | sh
-
-# Install Quarto
-# Linux
-wget https://github.com/quarto-dev/quarto-cli/releases/latest/download/quarto-linux-amd64.deb
-sudo dpkg -i quarto-linux-amd64.deb
-```
+- Node.js 18+ (AI/worker icin 20+ onerilir)
+- Headless Chromium (server-side PDF uretimi icin)
 
 ### Node Dependencies
 
 ```bash
 npm install
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
 ## Usage
 
-### CLI
+### Backend + Worker
 
 ```bash
-# Convert using Typst
-node src/cli.js examples/sample.md --engine typst
-
-# Convert using Quarto
-node src/cli.js examples/sample.md --engine quarto
-
-# Convert using both
-node src/cli.js examples/sample.md --engine both
+node backend/server.js
+node backend/worker.js
 ```
 
-### Programmatic
+### Frontend
 
-```javascript
-import { convertToTypst, convertToQuarto } from './src/index.js';
-
-await convertToTypst('input.md', 'output.pdf');
-await convertToQuarto('input.md', 'output.pdf');
+```bash
+cd frontend
+npm run dev
 ```
+
+### API Ornek
+
+```bash
+curl -X POST http://localhost:3001/api/convert/to-pdf \
+  -H "Content-Type: application/json" \
+  -d '{
+    "documentId": "uuid",
+    "markdown": "# Rapor",
+    "settings": {
+      "template": "carbon-advanced",
+      "theme": "white",
+      "layoutProfile": "asymmetric",
+      "printProfile": "pagedjs-a4"
+    }
+  }'
+```
+
+## Raspberry Remote Runtime
+
+Raspberry Pi uzerinden Docker ile calistirma:
+- `docs/RASPBERRY-DOCKER.md`
+
+## Documentation Map
+
+- Source of truth and AI agent instructions: `docs/PROJE-TALIMATLARI.md`
+- Sprint 0 decisions + API contract: `docs/SPRINT-0-DELIVERABLES.md`
+- Phase/sprint plan: `docs/IS-PLANI.md`
+- Sprint detail plans: `docs/FAZ-0-SPRINT-0.md`, `docs/FAZ-1-SPRINT-1.md`, `docs/FAZ-1-SPRINT-2.md`
+- Remote runtime runbook: `docs/RASPBERRY-DOCKER.md`
+- Long-term reference roadmap: `docs/YOL-HARITASI-REFERANS.md`
 
 ## Project Structure
 
 ```
 .
-├── src/
-│   ├── cli.js              # Command-line interface
-│   ├── index.js            # Main exports
-│   ├── convert-typst.js    # Typst converter
-│   ├── convert-quarto.js   # Quarto converter
-│   └── utils/              # Utilities
-├── templates/
-│   ├── typst/              # Typst templates
-│   └── quarto/             # Quarto templates
-├── styles/
-│   └── carbon/             # Carbon design styles
-├── examples/               # Example markdown files
-└── output/                 # Generated PDFs
+├── backend/              # API + worker
+├── frontend/             # React UI
+├── docs/                 # Source of truth + plans
+├── styles/               # Carbon design styles
+├── templates/            # Template registry (plan)
+├── output/               # Generated PDFs
+└── src/                  # Shared utils + AI modules
 ```
-
-## Carbon Design Integration
-
-This project uses IBM Carbon Design System components:
-
-- **Colors**: `@carbon/colors` - Professional color palette
-- **Typography**: `@carbon/type` - IBM Plex font families
-- **Layout**: `@carbon/layout` - Spacing and grid system
-- **Themes**: `@carbon/themes` - White, G10, G90, G100 themes
 
 ## License
 

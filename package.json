@@ -1,7 +1,7 @@
 {
   "name": "carbon-markdown-pdf",
   "version": "1.0.0",
-  "description": "Convert markdown to beautiful academic PDFs using IBM Carbon Design System, Typst, and Quarto",
+  "description": "Convert markdown to print-ready PDFs using IBM Carbon Design System, Gemini 3 Pro, and Paged.js",
   "main": "src/index.js",
   "type": "module",
   "bin": {
@@ -9,9 +9,8 @@
     "carbon-advisor": "./src/ai/advisor-cli.js"
   },
   "scripts": {
-    "convert:typst": "node src/convert-typst.js",
-    "convert:quarto": "node src/convert-quarto.js",
-    "convert:both": "npm run convert:typst && npm run convert:quarto",
+    "convert:paged": "node src/convert-paged.js",
+    "convert": "node src/cli.js",
     "example": "node src/cli.js examples/sample.md",
     "advisor": "node src/ai/advisor-cli.js",
     "advisor:analyze": "node src/ai/advisor-cli.js analyze",
@@ -24,10 +23,10 @@
     "pdf",
     "carbon",
     "ibm",
-    "typst",
-    "quarto",
-    "academic",
-    "report"
+    "pagedjs",
+    "print",
+    "report",
+    "gemini"
   ],
   "author": "",
   "license": "MIT",
@@ -36,11 +35,15 @@
     "@carbon/layout": "^11.22.1",
     "@carbon/themes": "^11.35.1",
     "@carbon/type": "^11.28.1",
+    "@puppeteer/browsers": "^2.3.0",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "gray-matter": "^4.0.3",
     "marked": "^12.0.0",
     "mustache": "^4.2.0",
+    "pagedjs": "^0.4.3",
+    "puppeteer": "^22.15.0",
+    "puppeteer-core": "^22.15.0",
     "yaml": "^2.3.4"
   },
   "devDependencies": {

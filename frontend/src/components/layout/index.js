@@ -3,7 +3,7 @@
  */
 
 export { default as AppHeader } from './AppHeader';
-export { default as AppSidebar, ENGINE_OPTIONS, TEMPLATE_OPTIONS } from './AppSidebar';
+export { default as AppSidebar, LAYOUT_PROFILE_OPTIONS, PRINT_PROFILE_OPTIONS } from './AppSidebar';
 export { default as EditorPanel } from './EditorPanel';
 export { default as PreviewPanel } from './PreviewPanel';
 export { default as AppFooter } from './AppFooter';

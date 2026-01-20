@@ -3,13 +3,14 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import path from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { readFile } from './utils/file-utils.js';
-import { convertToTypst } from './convert-typst.js';
-import { convertToQuarto } from './convert-quarto.js';
+import { convertToPaged } from './convert-paged.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 
 // Read package.json for version
 const packageJsonPath = path.join(__dirname, '../package.json');
@@ -33,13 +34,15 @@ ${chalk.blue('╚═════════════════════
 
 program
   .name('carbon-pdf')
-  .description('Convert markdown to beautiful PDFs using IBM Carbon Design System')
+  .description('Convert markdown to print-ready PDFs using Carbon + Paged.js')
   .version(version)
   .addHelpText('beforeAll', banner);
 
 program
   .argument('<input>', 'Input markdown file')
-  .option('-e, --engine <engine>', 'Conversion engine: typst, quarto, or both', 'both')
+  .option('--layout-profile <profile>', 'Layout profile: symmetric, asymmetric, dashboard', 'symmetric')
+  .option('--print-profile <profile>', 'Print profile: pagedjs-a4, pagedjs-a3', 'pagedjs-a4')
+  .option('--theme <theme>', 'Theme: white, g10, g90, g100', 'white')
   .option('-o, --output <output>', 'Output PDF file path')
   .option('-v, --verbose', 'Verbose output')
   .action(async (input, options) => {
@@ -48,47 +51,24 @@ program
       console.log(chalk.bold.white('Starting conversion...\n'));
 
       const inputPath = path.resolve(input);
-      const { engine, output, verbose } = options;
+      const { layoutProfile, printProfile, theme, output, verbose } = options;
 
       if (verbose) {
         console.log(chalk.gray(`Input: ${inputPath}`));
-        console.log(chalk.gray(`Engine: ${engine}`));
+        console.log(chalk.gray(`Layout profile: ${layoutProfile}`));
+        console.log(chalk.gray(`Print profile: ${printProfile}`));
+        console.log(chalk.gray(`Theme: ${theme}`));
         console.log(chalk.gray(`Output: ${output || 'auto'}\n`));
       }
 
-      if (engine === 'typst' || engine === 'both') {
-        console.log(chalk.blue.bold('\n━━━ Typst Conversion ━━━\n'));
-        try {
-          const typstOutput = await convertToTypst(
-            inputPath,
-            output || null
-          );
-          console.log(chalk.green.bold(`\n✓ Typst PDF: ${typstOutput}`));
-        } catch (error) {
-          console.error(chalk.red.bold(`\n✗ Typst conversion failed: ${error.message}`));
-          if (engine === 'typst') process.exit(1);
-        }
-      }
-
-      if (engine === 'quarto' || engine === 'both') {
-        console.log(chalk.blue.bold('\n━━━ Quarto Conversion ━━━\n'));
-        try {
-          const quartoOutput = await convertToQuarto(
-            inputPath,
-            output || null
-          );
-          console.log(chalk.green.bold(`\n✓ Quarto PDF: ${quartoOutput}`));
-        } catch (error) {
-          console.error(chalk.red.bold(`\n✗ Quarto conversion failed: ${error.message}`));
-          if (engine === 'quarto') process.exit(1);
-        }
-      }
-
-      if (engine !== 'typst' && engine !== 'quarto' && engine !== 'both') {
-        console.error(chalk.red.bold(`\n✗ Unknown engine: ${engine}`));
-        console.log(chalk.yellow('Valid engines: typst, quarto, both'));
-        process.exit(1);
-      }
+      console.log(chalk.blue.bold('\n━━━ Paged.js Conversion ━━━\n'));
+      const pagedOutput = await convertToPaged(inputPath, output || null, {
+        layoutProfile,
+        printProfile,
+        theme,
+        verbose,
+      });
+      console.log(chalk.green.bold(`\n✓ PDF: ${pagedOutput}`));
 
       console.log(chalk.green.bold('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
       console.log(chalk.green.bold('✓ Conversion completed successfully!'));
@@ -112,22 +92,36 @@ program
     console.log(banner);
     console.log(chalk.bold.white('System Information:\n'));
 
-    // Check Typst
+    const readPackageVersion = (packageName) => {
+      try {
+        return require(`${packageName}/package.json`).version;
+      } catch {
+        return null;
+      }
+    };
+
+    // Check Paged.js
     try {
-      const { execSync } = await import('child_process');
-      const typstVersion = execSync('typst --version', { encoding: 'utf-8' }).trim();
-      console.log(chalk.green('✓'), chalk.bold('Typst:'), typstVersion);
+      const pagedVersion = readPackageVersion('pagedjs');
+      if (pagedVersion) {
+        console.log(chalk.green('✓'), chalk.bold('Paged.js:'), `v${pagedVersion}`);
+      } else {
+        console.log(chalk.red('✗'), chalk.bold('Paged.js:'), 'Not installed');
+      }
     } catch {
-      console.log(chalk.red('✗'), chalk.bold('Typst:'), 'Not installed');
+      console.log(chalk.red('✗'), chalk.bold('Paged.js:'), 'Not installed');
     }
 
-    // Check Quarto
+    // Check Puppeteer
     try {
-      const { execSync } = await import('child_process');
-      const quartoVersion = execSync('quarto --version', { encoding: 'utf-8' }).trim();
-      console.log(chalk.green('✓'), chalk.bold('Quarto:'), quartoVersion);
+      const puppeteerVersion = readPackageVersion('puppeteer');
+      if (puppeteerVersion) {
+        console.log(chalk.green('✓'), chalk.bold('Puppeteer:'), `v${puppeteerVersion}`);
+      } else {
+        console.log(chalk.red('✗'), chalk.bold('Puppeteer:'), 'Not installed');
+      }
     } catch {
-      console.log(chalk.red('✗'), chalk.bold('Quarto:'), 'Not installed');
+      console.log(chalk.red('✗'), chalk.bold('Puppeteer:'), 'Not installed');
     }
 
     console.log(chalk.green('✓'), chalk.bold('Node.js:'), process.version);
@@ -210,13 +204,13 @@ The formula for the area of a circle: A = πr²
 > "Design is not just what it looks like and feels like. Design is how it works."
 > — Steve Jobs
 
-## Tables
+## Layout Profiles
 
-| Feature | Typst | Quarto |
-|---------|-------|--------|
-| Speed | Fast | Moderate |
-| Syntax | Simple | Rich |
-| Output | PDF | Multiple |
+| Profile | Use Case |
+|---------|----------|
+| symmetric | Balanced editorial layout |
+| asymmetric | Text + insight callouts |
+| dashboard | Dense data grids |
 
 ## Links
 
@@ -224,7 +218,7 @@ Visit [IBM Carbon Design System](https://carbondesignsystem.com) for more inform
 
 ## Conclusion
 
-This template demonstrates professional document styling using IBM's Carbon Design System, providing a modern and accessible reading experience.
+This template demonstrates professional document styling using IBM's Carbon Design System with Paged.js print rules for production-ready output.
 `;
 
     const examplePath = path.join(process.cwd(), 'example.md');

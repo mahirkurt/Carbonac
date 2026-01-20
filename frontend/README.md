@@ -82,8 +82,8 @@ Frontend, backend CLI ile API üzerinden iletişim kurar:
 
 ```javascript
 // PDF Dönüştürme
-POST /api/convert
-Body: { markdown, engine, template }
+POST /api/convert/to-pdf
+Body: { markdown, settings: { layoutProfile, printProfile, theme } }
 
 // AI Advisor
 POST /api/advisor/analyze

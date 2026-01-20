@@ -1,0 +1,128 @@
+:root {
+  --cds-text-primary: #161616;
+  --cds-text-secondary: #525252;
+  --cds-border-subtle: #e0e0e0;
+  --report-max-width: 960px;
+  --report-gap: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  color: var(--cds-text-primary);
+  background: #ffffff;
+}
+
+.report {
+  width: 100%;
+}
+
+.report-cover {
+  max-width: var(--report-max-width);
+  margin: 0 auto;
+  padding: 24px 0 16px;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.report-title {
+  font-size: 32px;
+  margin: 0 0 8px;
+  string-set: doc-title content(text);
+}
+
+.report-subtitle {
+  font-size: 18px;
+  margin: 0 0 16px;
+  color: var(--cds-text-secondary);
+}
+
+.report-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--cds-text-secondary);
+}
+
+.report-content {
+  max-width: var(--report-max-width);
+  margin: 0 auto;
+  padding: var(--report-gap) 0;
+  line-height: 1.6;
+}
+
+.report-content h1,
+.report-content h2 {
+  string-set: chapter-title content(text);
+}
+
+.report-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.report-content pre {
+  background: #f4f4f4;
+  padding: 12px;
+  overflow: auto;
+}
+
+.report-content code {
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.95em;
+}
+
+.report-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.ai-insight {
+  border: 1px solid var(--cds-border-subtle);
+  border-left: 4px solid #0f62fe;
+  padding: 16px;
+  margin: 0 0 var(--report-gap);
+  background: #f8f8f8;
+}
+
+.ai-insight__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.ai-insight__summary {
+  margin: 0 0 12px;
+}
+
+.ai-insight__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.report-content th,
+.report-content td {
+  border: 1px solid var(--cds-border-subtle);
+  padding: 8px;
+  text-align: left;
+}
+
+.layout--asymmetric .report-content {
+  max-width: 1100px;
+}
+
+.layout--dashboard .report-content {
+  max-width: 1200px;
+}
+
+.avoid-break {
+  break-inside: avoid;
+}
+
+.force-break {
+  break-before: page;
+}

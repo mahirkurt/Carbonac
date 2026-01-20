@@ -3,12 +3,10 @@
  * Main module exports
  */
 
-export { convertToTypst } from './convert-typst.js';
-export { convertToQuarto } from './convert-quarto.js';
+export { convertToPaged } from './convert-paged.js';
 export {
   parseMarkdown,
   markdownToHtml,
-  markdownToTypst,
   getCarbonTheme,
   extractToc
 } from './utils/markdown-parser.js';
@@ -29,41 +27,28 @@ export {
 } from './ai/carbon-advisor.js';
 
 /**
- * Convert markdown to PDF using specified engine
+ * Convert markdown to PDF using the Paged.js pipeline
  * @param {string} inputPath - Path to markdown file
  * @param {object} options - Conversion options
  * @returns {Promise<string|object>} Path(s) to generated PDF(s)
  */
 export async function convertMarkdownToPdf(inputPath, options = {}) {
   const {
-    engine = 'both',  // 'typst', 'quarto', or 'both'
     outputPath = null,
+    layoutProfile = 'symmetric',
+    printProfile = 'pagedjs-a4',
+    theme = 'white',
   } = options;
 
-  const { convertToTypst } = await import('./convert-typst.js');
-  const { convertToQuarto } = await import('./convert-quarto.js');
+  const { convertToPaged } = await import('./convert-paged.js');
 
-  if (engine === 'typst') {
-    return await convertToTypst(inputPath, outputPath);
-  } else if (engine === 'quarto') {
-    return await convertToQuarto(inputPath, outputPath);
-  } else if (engine === 'both') {
-    const results = await Promise.allSettled([
-      convertToTypst(inputPath, outputPath ? outputPath.replace('.pdf', '-typst.pdf') : null),
-      convertToQuarto(inputPath, outputPath ? outputPath.replace('.pdf', '-quarto.pdf') : null)
-    ]);
-
-    return {
-      typst: results[0].status === 'fulfilled' ? results[0].value : results[0].reason,
-      quarto: results[1].status === 'fulfilled' ? results[1].value : results[1].reason
-    };
-  } else {
-    throw new Error(`Unknown engine: ${engine}. Use 'typst', 'quarto', or 'both'.`);
-  }
+  return await convertToPaged(inputPath, outputPath, {
+    layoutProfile,
+    printProfile,
+    theme,
+  });
 }
 
 export default {
-  convertMarkdownToPdf,
-  convertToTypst,
-  convertToQuarto
+  convertMarkdownToPdf
 };

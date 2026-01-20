@@ -1,208 +1,105 @@
-# Carbon Markdown to PDF - Kullanım Kılavuzu
+# Carbonac - Kullanım Kılavuzu
 
 ## Hızlı Başlangıç
 
 ### 1. Kurulum
 
-Sistem bağımlılıkları zaten kurulu:
-- ✅ Typst 0.11.1
-- ✅ Quarto 1.4.549
-- ✅ Node.js bağımlılıkları
+Gereksinimler:
+- Node.js 18+ (AI/worker için 20+ önerilir)
+- Headless Chromium (server-side PDF üretimi için)
 
-### 2. Temel Kullanım
+Kurulum:
+```bash
+npm install
+cd backend && npm install
+cd ../frontend && npm install
+```
 
-#### CLI ile PDF Oluşturma
+### 2. Backend + Worker
 
 ```bash
-# Typst ile dönüştürme (hızlı)
-node src/cli.js examples/sample.md --engine typst
-
-# Quarto ile dönüştürme (LaTeX tabanlı)
-node src/cli.js examples/sample.md --engine quarto
-
-# Her iki motor ile birden
-node src/cli.js examples/sample.md --engine both
-
-# Özel çıktı yolu
-node src/cli.js examples/sample.md --engine typst -o my-report.pdf
-
-# Detaylı çıktı
-node src/cli.js examples/sample.md --verbose
+node backend/server.js
+node backend/worker.js
 ```
 
-#### Sistem Bilgisi
+### 3. Frontend
 
 ```bash
-node src/cli.js info
+cd frontend
+npm run dev
 ```
+Uygulama `http://localhost:3000` adresinde çalışır.
 
-#### Örnek Dosya Oluşturma
+## Temel Akış
+
+1. Dosya yükleme veya markdown içerik oluşturma
+2. Gemini 3 Pro art director ile layout JSON üretimi
+3. React + Carbon render
+4. Paged.js ile PDF üretimi
+5. Supabase storage ve signed URL ile download
+
+## API Kullanımı
+
+### PDF Üretimi
 
 ```bash
-node src/cli.js example
+curl -X POST http://localhost:3001/api/convert/to-pdf \
+  -H "Content-Type: application/json" \
+  -d '{
+    "documentId": "uuid",
+    "markdown": "# Rapor",
+    "settings": {
+      "template": "carbon-advanced",
+      "theme": "white",
+      "layoutProfile": "asymmetric",
+      "printProfile": "pagedjs-a4"
+    }
+  }'
 ```
 
-### 3. Markdown Dosyası Hazırlama
-
-Markdown dosyanızın başına frontmatter ekleyin:
-
-```markdown
----
-title: "Araştırma Raporu Başlığı"
-subtitle: "Alt Başlık"
-author: "Yazar Adı"
-date: "Ocak 2026"
----
-
-# Giriş
-
-Buraya içerik yazın...
+Yanıt:
+```json
+{ "jobId": "uuid", "status": "queued" }
 ```
 
-## Özellikler
+### Job Durumu
 
-### IBM Carbon Design System
-
-- **Renkler**: Profesyonel Carbon renk paleti
-- **Tipografi**: IBM Plex Sans, Serif ve Mono fontları
-- **Layout**: 8px grid sistemi
-- **Erişilebilirlik**: WCAG 2.1 AA uyumlu
-
-### Desteklenen Markdown Özellikleri
-
-- ✅ Başlıklar (H1-H6)
-- ✅ Kalın ve italik metin
-- ✅ Kod blokları (syntax highlighting)
-- ✅ Satır içi kod
-- ✅ Listeler (sıralı ve sırasız)
-- ✅ Tablolar
-- ✅ Alıntılar (blockquotes)
-- ✅ Bağlantılar
-- ✅ Matematiksel formüller
-
-### Programatik Kullanım
-
-```javascript
-import { convertToTypst, convertToQuarto } from './src/index.js';
-
-// Typst ile dönüştürme
-await convertToTypst('input.md', 'output.pdf');
-
-// Quarto ile dönüştürme
-await convertToQuarto('input.md', 'output.pdf');
+```bash
+curl http://localhost:3001/api/jobs/<jobId>
 ```
 
-## Karşılaştırma: Typst vs Quarto
+### Download
 
-| Özellik | Typst | Quarto |
-|---------|-------|--------|
-| Hız | ⚡ Çok hızlı | 🐢 Yavaş (LaTeX) |
-| Sözdizimi | Basit | Zengin |
-| Çıktı | PDF | PDF, HTML, DOCX |
-| Font desteği | Sistem fontları | LaTeX fontları |
-| Kurulum | Minimal | TinyTeX gerekir |
-
-## Örnekler
-
-### Akademik Makale
-
-```markdown
----
-title: "Yapay Zeka ve Gelecek"
-subtitle: "Makine Öğrenmesinin Etkileri"
-author: "Dr. Ahmet Yılmaz"
-date: "2026"
----
-
-# Özet
-
-Bu çalışma yapay zekanın toplumsal etkilerini inceler...
-
-## Giriş
-
-Yapay zeka teknolojisi...
+```bash
+curl -L http://localhost:3001/api/jobs/<jobId>/download -o report.pdf
 ```
 
-### Teknik Dokümantasyon
+## Ortam Değişkenleri
 
-```markdown
----
-title: "API Dokümantasyonu"
-author: "Geliştirme Ekibi"
-date: "v1.0.0"
----
+Backend:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_BUCKET_DOCUMENTS` (varsayılan: documents)
+- `SUPABASE_BUCKET_PDFS` (varsayılan: pdfs)
+- `REDIS_URL`
+- `JOB_QUEUE_NAME`
 
-# API Referansı
+Frontend:
+- `VITE_API_URL`
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## Kimlik Doğrulama
+## Paged.js Print CSS Notları
 
-\`\`\`python
-import requests
-
-response = requests.post(
-    'https://api.example.com/auth',
-    json={'username': 'user', 'password': 'pass'}
-)
-\`\`\`
-```
-
-## İpuçları
-
-1. **Font Uyarıları**: IBM Plex fontları sistem yüklü değilse, Typst sistem fontlarına geri döner
-2. **Hex Kodlar**: Markdown içinde renk kodları (#RRGGBB) otomatik olarak escape edilir
-3. **Büyük Dosyalar**: Typst büyük dosyalar için daha hızlıdır
-4. **Matematiksel Formüller**: Her iki motor da LaTeX tarzı formülleri destekler
+- `@page` ile A4/A3, margin, bleed ve mark kontrolü
+- `.avoid-break` ve `.force-break` sınıfları ile sayfa kırılımları
+- `@page :left/:right` ile cilt payı ve header/footer
 
 ## Sorun Giderme
 
-### Typst Hatası
-
-```bash
-# Typst versiyonunu kontrol edin
-typst --version
-
-# Template dosyasını kontrol edin
-cat templates/typst/carbon-template.typ
-```
-
-### Quarto Hatası
-
-```bash
-# TinyTeX kurulu mu?
-quarto install tinytex
-
-# Quarto versiyonu
-quarto --version
-```
-
-## Gelişmiş Özellikler
-
-### Özel Tema Oluşturma
-
-`styles/carbon/theme.js` dosyasını düzenleyerek kendi temanızı oluşturabilirsiniz:
-
-```javascript
-export const customTheme = {
-  colors: {
-    primary: '#YOUR_COLOR',
-    // ...
-  }
-};
-```
-
-### Template Özelleştirme
-
-- Typst template: `templates/typst/carbon-template.typ`
-- Quarto template: `templates/quarto/carbon-template.qmd`
-
-## Performans
-
-- **Typst**: ~1 saniye (orta boy belge)
-- **Quarto**: ~5-10 saniye (LaTeX derleme)
-
-## Lisans
-
-MIT License - Serbestçe kullanabilir ve değiştirebilirsiniz.
+- Redis bağlantısı: `REDIS_URL` değerini kontrol edin
+- PDF çıktısı yoksa: headless Chromium erişimi ve `CHROMIUM_PATH` kontrolü
+- Storage hatası: Supabase bucket izinlerini kontrol edin
 
 ## Destek
 

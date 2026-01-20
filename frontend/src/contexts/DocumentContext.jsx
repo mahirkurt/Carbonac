@@ -5,6 +5,48 @@
 
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = API_BASE_URL.replace(/\/$/, '');
+
+function buildApiUrl(path) {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+  if (!API_URL) {
+    return path;
+  }
+  return path.startsWith('/') ? `${API_URL}${path}` : `${API_URL}/${path}`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pollJobStatus(jobId, options = {}) {
+  const maxAttempts = options.maxAttempts || 60;
+  let intervalMs = options.intervalMs || 1000;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+    if (!response.ok) {
+      throw new Error('Job status request failed.');
+    }
+
+    const payload = await response.json();
+    if (payload.status === 'completed') {
+      return payload;
+    }
+    if (payload.status === 'failed' || payload.status === 'cancelled') {
+      throw new Error(payload.error?.message || 'Job failed.');
+    }
+
+    await sleep(intervalMs);
+    intervalMs = Math.min(Math.floor(intervalMs * 1.5), 5000);
+  }
+
+  throw new Error('Job polling timed out.');
+}
+
 // Document workflow steps
 export const WORKFLOW_STEPS = {
   UPLOAD: 'upload',           // Step 1: Upload document
@@ -67,8 +109,8 @@ const initialState = {
   wizardAnswers: {},
   
   // Output
-  selectedEngine: 'typst',
-  selectedTemplate: 'carbon-advanced',
+  selectedLayoutProfile: 'symmetric',
+  selectedPrintProfile: 'pagedjs-a4',
   generatedPdf: null,
   outputPath: null,
 };
@@ -86,8 +128,8 @@ const ActionTypes = {
   ADD_WIZARD_MESSAGE: 'ADD_WIZARD_MESSAGE',
   SET_WIZARD_ANSWER: 'SET_WIZARD_ANSWER',
   NEXT_WIZARD_QUESTION: 'NEXT_WIZARD_QUESTION',
-  SET_ENGINE: 'SET_ENGINE',
-  SET_TEMPLATE: 'SET_TEMPLATE',
+  SET_LAYOUT_PROFILE: 'SET_LAYOUT_PROFILE',
+  SET_PRINT_PROFILE: 'SET_PRINT_PROFILE',
   SET_OUTPUT: 'SET_OUTPUT',
   RESET: 'RESET',
 };
@@ -180,16 +222,16 @@ function documentReducer(state, action) {
         wizardCurrentQuestion: state.wizardCurrentQuestion + 1,
       };
 
-    case ActionTypes.SET_ENGINE:
+    case ActionTypes.SET_LAYOUT_PROFILE:
       return {
         ...state,
-        selectedEngine: action.payload,
+        selectedLayoutProfile: action.payload,
       };
 
-    case ActionTypes.SET_TEMPLATE:
+    case ActionTypes.SET_PRINT_PROFILE:
       return {
         ...state,
-        selectedTemplate: action.payload,
+        selectedPrintProfile: action.payload,
       };
 
     case ActionTypes.SET_OUTPUT:
@@ -267,7 +309,7 @@ export function DocumentProvider({ children }) {
         });
       }, 500);
 
-      const response = await fetch('/api/convert/to-markdown', {
+      const response = await fetch(buildApiUrl('/api/convert/to-markdown'), {
         method: 'POST',
         body: formData,
       });
@@ -314,12 +356,12 @@ export function DocumentProvider({ children }) {
     dispatch({ type: ActionTypes.NEXT_WIZARD_QUESTION });
   }, []);
 
-  const setEngine = useCallback((engine) => {
-    dispatch({ type: ActionTypes.SET_ENGINE, payload: engine });
+  const setLayoutProfile = useCallback((profile) => {
+    dispatch({ type: ActionTypes.SET_LAYOUT_PROFILE, payload: profile });
   }, []);
 
-  const setTemplate = useCallback((template) => {
-    dispatch({ type: ActionTypes.SET_TEMPLATE, payload: template });
+  const setPrintProfile = useCallback((profile) => {
+    dispatch({ type: ActionTypes.SET_PRINT_PROFILE, payload: profile });
   }, []);
 
   const setOutput = useCallback((pdf, path) => {
@@ -333,32 +375,51 @@ export function DocumentProvider({ children }) {
   // Generate PDF based on settings
   const generatePdf = useCallback(async () => {
     try {
-      const response = await fetch('/api/convert/to-pdf', {
+      const response = await fetch(buildApiUrl('/api/convert/to-pdf'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           markdown: state.markdownContent,
-          engine: state.selectedEngine,
-          template: state.selectedTemplate,
-          settings: state.reportSettings,
+          settings: {
+            ...state.reportSettings,
+            layoutProfile: state.selectedLayoutProfile,
+            printProfile: state.selectedPrintProfile,
+          },
         }),
       });
 
       if (!response.ok) {
-        throw new Error('PDF generation failed');
+        throw new Error('PDF job creation failed');
       }
 
-      const blob = await response.blob();
+      const jobPayload = await response.json();
+      const jobId = jobPayload.jobId;
+      if (!jobId) {
+        throw new Error('Job id missing in response');
+      }
+
+      const jobStatus = await pollJobStatus(jobId);
+      const downloadPath =
+        jobStatus.result?.signedUrl ||
+        jobStatus.result?.downloadUrl ||
+        `/api/jobs/${jobId}/download`;
+
+      const downloadResponse = await fetch(buildApiUrl(downloadPath));
+      if (!downloadResponse.ok) {
+        throw new Error('PDF download failed');
+      }
+
+      const blob = await downloadResponse.blob();
       const url = URL.createObjectURL(blob);
-      
+
       setOutput(blob, url);
       return url;
     } catch (error) {
       throw error;
     }
-  }, [state.markdownContent, state.selectedEngine, state.selectedTemplate, state.reportSettings, setOutput]);
+  }, [state.markdownContent, state.selectedLayoutProfile, state.selectedPrintProfile, state.reportSettings, setOutput]);
 
   const value = {
     // State
@@ -378,8 +439,8 @@ export function DocumentProvider({ children }) {
     addWizardMessage,
     setWizardAnswer,
     nextWizardQuestion,
-    setEngine,
-    setTemplate,
+    setLayoutProfile,
+    setPrintProfile,
     setOutput,
     generatePdf,
     reset,

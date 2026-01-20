@@ -11,3 +11,6 @@ build/
 *.aux
 *.out
 *.toc
+
+# Local Netlify folder
+.netlify

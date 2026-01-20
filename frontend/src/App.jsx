@@ -80,18 +80,17 @@ const PricingModal = lazy(() => import('./components/pricing/PricingModal'));
 const DocumentUploader = lazy(() => import('./components/document/DocumentUploader'));
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
 
-// Engine options
-const engineOptions = [
-  { id: 'typst', text: 'Typst (Hızlı)' },
-  { id: 'quarto', text: 'Quarto (LaTeX)' },
-  { id: 'both', text: 'Her İkisi' },
+// Layout profile options
+const layoutProfileOptions = [
+  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
 ];
 
-// Template options
-const templateOptions = [
-  { id: 'carbon-advanced', text: 'Carbon Advanced' },
-  { id: 'carbon-template', text: 'Carbon Basic' },
-  { id: 'carbon-theme-g100', text: 'Carbon G100 (Dark)' },
+// Print profile options
+const printProfileOptions = [
+  { id: 'pagedjs-a4', text: 'Paged.js A4' },
+  { id: 'pagedjs-a3', text: 'Paged.js A3' },
 ];
 
 // Workflow step configuration
@@ -263,30 +262,43 @@ function PreviewPanel() {
 
 // Settings Sidebar Component
 function SettingsSidebar() {
-  const { selectedEngine, selectedTemplate, setEngine, setTemplate, reportSettings } = useDocument();
+  const {
+    selectedLayoutProfile,
+    selectedPrintProfile,
+    setLayoutProfile,
+    setPrintProfile,
+    reportSettings,
+  } = useDocument();
   
+  const resolvedLayoutProfile = layoutProfileOptions.find(
+    (option) => option.id === selectedLayoutProfile
+  );
+  const resolvedPrintProfile = printProfileOptions.find(
+    (option) => option.id === selectedPrintProfile
+  );
+
   return (
     <aside className="settings-sidebar">
       <div className="settings-section">
-        <div className="settings-section__title">Dönüştürme Motoru</div>
+        <div className="settings-section__title">Yerleşim Profili</div>
         <Dropdown
-          id="engine-select"
-          items={engineOptions}
-          selectedItem={engineOptions.find(e => e.id === selectedEngine)}
-          onChange={({ selectedItem }) => setEngine(selectedItem.id)}
-          label="Motor Seçin"
+          id="layout-profile-select"
+          items={layoutProfileOptions}
+          selectedItem={resolvedLayoutProfile}
+          onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
+          label="Profil Seçin"
           titleText=""
         />
       </div>
 
       <div className="settings-section">
-        <div className="settings-section__title">Şablon</div>
+        <div className="settings-section__title">Baskı Profili</div>
         <Dropdown
-          id="template-select"
-          items={templateOptions}
-          selectedItem={templateOptions.find(t => t.id === selectedTemplate)}
-          onChange={({ selectedItem }) => setTemplate(selectedItem.id)}
-          label="Şablon Seçin"
+          id="print-profile-select"
+          items={printProfileOptions}
+          selectedItem={resolvedPrintProfile}
+          onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
+          label="Profil Seçin"
           titleText=""
         />
       </div>
@@ -331,7 +343,14 @@ function AppContent() {
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const { credits, subscription } = usePricing();
-  const { currentStep, reset } = useDocument();
+  const {
+    currentStep,
+    reset,
+    selectedLayoutProfile,
+    selectedPrintProfile,
+    setLayoutProfile,
+    setPrintProfile,
+  } = useDocument();
   
   const [showSettings, setShowSettings] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -560,19 +579,23 @@ function AppContent() {
         <Suspense fallback={null}>
           {showSettings && (
             <SettingsModal
-              open={showSettings}
+              isOpen={showSettings}
               onClose={() => setShowSettings(false)}
+              selectedLayoutProfile={selectedLayoutProfile}
+              onLayoutProfileChange={setLayoutProfile}
+              selectedPrintProfile={selectedPrintProfile}
+              onPrintProfileChange={setPrintProfile}
             />
           )}
           {showAuth && (
             <AuthModal
-              open={showAuth}
+              isOpen={showAuth}
               onClose={() => setShowAuth(false)}
             />
           )}
           {showPricing && (
             <PricingModal
-              open={showPricing}
+              isOpen={showPricing}
               onClose={() => setShowPricing(false)}
             />
           )}

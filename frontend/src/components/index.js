@@ -9,8 +9,8 @@ export {
   EditorPanel,
   PreviewPanel,
   AppFooter,
-  ENGINE_OPTIONS,
-  TEMPLATE_OPTIONS,
+  LAYOUT_PROFILE_OPTIONS,
+  PRINT_PROFILE_OPTIONS,
 } from './layout';
 
 // Accessibility components

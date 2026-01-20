@@ -16,7 +16,7 @@ import {
   Dropdown,
 } from '@carbon/react';
 import { useTheme, THEMES, THEME_LABELS } from '../../contexts/ThemeContext';
-import { ENGINE_OPTIONS } from './AppSidebar';
+import { LAYOUT_PROFILE_OPTIONS, PRINT_PROFILE_OPTIONS } from './AppSidebar';
 
 const THEME_OPTIONS = Object.values(THEMES).map((theme) => ({
   id: theme,
@@ -26,8 +26,10 @@ const THEME_OPTIONS = Object.values(THEMES).map((theme) => ({
 function SettingsModal({
   isOpen,
   onClose,
-  selectedEngine,
-  onEngineChange,
+  selectedLayoutProfile,
+  onLayoutProfileChange,
+  selectedPrintProfile,
+  onPrintProfileChange,
   showAdvisor,
   onToggleAdvisor,
   autoSave = true,
@@ -117,12 +119,20 @@ function SettingsModal({
           <TabPanel>
             <div className="settings-modal__section">
               <Dropdown
-                id="default-engine"
-                items={ENGINE_OPTIONS}
-                selectedItem={selectedEngine}
-                onChange={({ selectedItem }) => onEngineChange?.(selectedItem)}
-                label="Varsayılan Motor"
-                titleText="Varsayılan Dönüştürme Motoru"
+                id="default-layout-profile"
+                items={LAYOUT_PROFILE_OPTIONS}
+                selectedItem={LAYOUT_PROFILE_OPTIONS.find((item) => item.id === selectedLayoutProfile)}
+                onChange={({ selectedItem }) => onLayoutProfileChange?.(selectedItem?.id)}
+                label="Varsayılan Yerleşim Profili"
+                titleText="Yerleşim Profili"
+              />
+              <Dropdown
+                id="default-print-profile"
+                items={PRINT_PROFILE_OPTIONS}
+                selectedItem={PRINT_PROFILE_OPTIONS.find((item) => item.id === selectedPrintProfile)}
+                onChange={({ selectedItem }) => onPrintProfileChange?.(selectedItem?.id)}
+                label="Varsayılan Baskı Profili"
+                titleText="Baskı Profili"
               />
             </div>
           </TabPanel>

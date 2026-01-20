@@ -1,7 +1,5 @@
 import * as colors from '@carbon/colors';
 import * as themes from '@carbon/themes';
-import * as type from '@carbon/type';
-import * as layout from '@carbon/layout';
 
 // IBM Carbon Design System Theme Configuration
 export const carbonTheme = {

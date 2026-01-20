@@ -2,7 +2,7 @@
  * AppSidebar Component
  * 
  * Settings sidebar with conversion options.
- * Includes engine selection, template selection, file upload, and quick actions.
+ * Includes layout/print profile selection, file upload, and quick actions.
  */
 
 import React, { memo, useCallback } from 'react';
@@ -18,30 +18,36 @@ import {
   Template,
 } from '@carbon/icons-react';
 
-// Engine options
-const ENGINE_OPTIONS = [
-  { id: 'typst', text: 'Typst (Hızlı)' },
-  { id: 'quarto', text: 'Quarto (LaTeX)' },
-  { id: 'both', text: 'Her İkisi' },
+// Layout profile options
+const LAYOUT_PROFILE_OPTIONS = [
+  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
 ];
 
-// Template options
-const TEMPLATE_OPTIONS = [
-  { id: 'carbon-advanced', text: 'Carbon Advanced' },
-  { id: 'carbon-template', text: 'Carbon Basic' },
-  { id: 'carbon-theme-g100', text: 'Carbon G100 (Dark)' },
+// Print profile options
+const PRINT_PROFILE_OPTIONS = [
+  { id: 'pagedjs-a4', text: 'Paged.js A4' },
+  { id: 'pagedjs-a3', text: 'Paged.js A3' },
 ];
 
 function AppSidebar({
-  selectedEngine,
-  onEngineChange,
-  selectedTemplate,
-  onTemplateChange,
+  selectedLayoutProfile,
+  onLayoutProfileChange,
+  selectedPrintProfile,
+  onPrintProfileChange,
   onFileUpload,
   onConvert,
   onDownload,
   isConverting = false,
 }) {
+  const resolvedLayoutProfile = LAYOUT_PROFILE_OPTIONS.find(
+    (option) => option.id === selectedLayoutProfile
+  );
+  const resolvedPrintProfile = PRINT_PROFILE_OPTIONS.find(
+    (option) => option.id === selectedPrintProfile
+  );
+
   // Handle file input change
   const handleFileChange = useCallback((event) => {
     const file = event.target.files?.[0];
@@ -52,28 +58,28 @@ function AppSidebar({
 
   return (
     <aside className="settings-sidebar" aria-label="Dönüştürme ayarları">
-      {/* Engine Selection */}
+      {/* Layout Profile Selection */}
       <div className="settings-section">
-        <div className="settings-section__title">Dönüştürme Motoru</div>
+        <div className="settings-section__title">Yerleşim Profili</div>
         <Dropdown
-          id="engine-select"
-          items={ENGINE_OPTIONS}
-          selectedItem={selectedEngine}
-          onChange={({ selectedItem }) => onEngineChange?.(selectedItem)}
-          label="Motor Seçin"
+          id="layout-profile-select"
+          items={LAYOUT_PROFILE_OPTIONS}
+          selectedItem={resolvedLayoutProfile}
+          onChange={({ selectedItem }) => onLayoutProfileChange?.(selectedItem?.id)}
+          label="Profil Seçin"
           titleText=""
         />
       </div>
 
-      {/* Template Selection */}
+      {/* Print Profile Selection */}
       <div className="settings-section">
-        <div className="settings-section__title">Şablon</div>
+        <div className="settings-section__title">Baskı Profili</div>
         <Dropdown
-          id="template-select"
-          items={TEMPLATE_OPTIONS}
-          selectedItem={selectedTemplate}
-          onChange={({ selectedItem }) => onTemplateChange?.(selectedItem)}
-          label="Şablon Seçin"
+          id="print-profile-select"
+          items={PRINT_PROFILE_OPTIONS}
+          selectedItem={resolvedPrintProfile}
+          onChange={({ selectedItem }) => onPrintProfileChange?.(selectedItem?.id)}
+          label="Profil Seçin"
           titleText=""
         />
       </div>
@@ -141,4 +147,4 @@ function AppSidebar({
 export default memo(AppSidebar);
 
 // Export options for use in parent component
-export { ENGINE_OPTIONS, TEMPLATE_OPTIONS };
+export { LAYOUT_PROFILE_OPTIONS, PRINT_PROFILE_OPTIONS };

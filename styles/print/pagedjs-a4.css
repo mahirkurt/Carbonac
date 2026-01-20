@@ -1,0 +1,27 @@
+@page {
+  size: A4;
+  margin: 20mm;
+  bleed: 3mm;
+  marks: crop cross;
+
+  @bottom-center {
+    content: "Sayfa " counter(page) " / " counter(pages);
+    font-family: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size: 8pt;
+    color: var(--cds-text-secondary);
+  }
+}
+
+@page :left {
+  margin-right: 25mm;
+  @top-left {
+    content: string(chapter-title);
+  }
+}
+
+@page :right {
+  margin-left: 25mm;
+  @top-right {
+    content: string(doc-title);
+  }
+}
