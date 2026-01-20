@@ -9,9 +9,14 @@ const supabaseServiceKey =
 
 const pdfBucket = process.env.SUPABASE_BUCKET_PDFS || 'pdfs';
 const documentBucket = process.env.SUPABASE_BUCKET_DOCUMENTS || 'documents';
+const templatePreviewBucket =
+  process.env.SUPABASE_BUCKET_TEMPLATE_PREVIEWS || 'template-previews';
 const signedUrlTtl = Number.parseInt(process.env.SUPABASE_SIGNED_URL_TTL || '3600', 10);
 
 const storageEnabled = Boolean(supabaseUrl && supabaseServiceKey && pdfBucket);
+const templatePreviewEnabled = Boolean(
+  supabaseUrl && supabaseServiceKey && templatePreviewBucket
+);
 const supabase = storageEnabled
   ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false },
@@ -62,12 +67,59 @@ async function createPdfSignedUrl({ storagePath, expiresIn = signedUrlTtl }) {
   };
 }
 
+function buildTemplatePreviewPath({ templateKey, versionId, format = 'png' }) {
+  const safeKey = normalizeSegment(templateKey, 'template');
+  const safeVersion = normalizeSegment(versionId, 'version');
+  const ext = format || 'png';
+  return path.posix.join(safeKey, `${safeVersion}.${ext}`);
+}
+
+async function uploadTemplatePreview({ filePath, storagePath, contentType = 'image/png' }) {
+  if (!templatePreviewEnabled || !supabase) {
+    return null;
+  }
+  const buffer = await fs.readFile(filePath);
+  const { data, error } = await supabase.storage
+    .from(templatePreviewBucket)
+    .upload(storagePath, buffer, {
+      contentType,
+      upsert: true,
+    });
+  if (error) {
+    throw new Error(error.message || 'Template preview upload failed');
+  }
+  return data;
+}
+
+async function createTemplatePreviewSignedUrl({ storagePath, expiresIn = signedUrlTtl }) {
+  if (!templatePreviewEnabled || !supabase) {
+    return null;
+  }
+  const ttl = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : signedUrlTtl;
+  const { data, error } = await supabase.storage
+    .from(templatePreviewBucket)
+    .createSignedUrl(storagePath, ttl);
+  if (error) {
+    throw new Error(error.message || 'Template preview signed URL failed');
+  }
+  const expiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+  return {
+    signedUrl: data?.signedUrl,
+    expiresAt,
+  };
+}
+
 export {
   storageEnabled,
   pdfBucket,
   documentBucket,
+  templatePreviewBucket,
+  templatePreviewEnabled,
   signedUrlTtl,
   buildPdfStoragePath,
   uploadPdf,
   createPdfSignedUrl,
+  buildTemplatePreviewPath,
+  uploadTemplatePreview,
+  createTemplatePreviewSignedUrl,
 };

@@ -17,6 +17,7 @@
 | D-10 | Logging: request_id + job_id | Debug ve izlenebilirlik | Middleware gerekir |
 | D-11 | Print token pack + pattern library | PDF tasarim standardini sabitler | Template registry ile baglanti kurulur |
 | D-12 | PDF kalite zinciri: statik lint + Gemini QA | Self-healing icin determinism | QA pipeline gerektirir |
+| D-13 | CarbonPress uyumu: Press Pack + editorial states + preflight gate | Template/icerik versiyonlamasi ve release kontrolu | Release manifest ve publish akisi gerekir |
 
 ## 2. API Contract (Draft)
 Base URL:
@@ -165,6 +166,7 @@ create index if not exists idx_job_events_job_id on public.job_events(job_id);
 - Renderer picks template module + print CSS: React component + Paged.js style seti
 - UI shows template list from static config (Sprint 1: registry)
 - Pattern library: ExecutiveSummary, SurveyChartPage, WhatToDo gibi moduller
+- Press Pack: template + tokens + patterns + QA rules + sample content
 
 ## 7. Token Mapping Draft (Summary)
 Common tokens:
@@ -175,6 +177,7 @@ Mapping:
 - react/carbon: map to component props + design tokens
 - paged.js: map to print CSS variables + @page kurallari
 - print pack: baseline, safe-area, caption/footnote, chart spacing
+- content schema: docType, templateKey, layoutProfile, printProfile, theme, locale, version
 
 ## 8. AI Service Plan (Summary)
 - Endpoint: POST /api/ai/analyze, POST /api/ai/ask
@@ -197,6 +200,7 @@ Mapping:
 - Paged.js preview + PDF download calisir
 - PDF lint (overflow, widows/orphans, min font)
 - PDF accessibility preflight (heading/order/link/contrast)
+- Preflight gate: lint + AI QA fail ise publish yok
 
 ## 11. Sprint 0 Summary
 Sprint 0 deliverables tamamlandi:
@@ -206,3 +210,14 @@ Sprint 0 deliverables tamamlandi:
 - FE migration plani net
 - Template ve token mapping yaklasimi belirlendi
 - AI servis plan ve guvenlik notlari kayda girdi
+
+## 12. Mevcut Durum Profili (Snapshot)
+- Faz 0 tamam: karar ve planlar SoT ile hizali.
+- Faz 1 tamam: job pipeline + Paged.js + Gemini art director + signed URL akisi dogrulandi.
+- Faz 2 kismi: Sprint 3'te autosave + frontmatter wizard bekliyor; Sprint 4 tamam.
+- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam; Press Pack manifest bekliyor.
+
+## 13. Sonraki Adimlar (Odak)
+- Press Pack manifest ve block catalog kurallari.
+- Editorial/publish akisi + preflight gate tasarimi.
+- Frontmatter wizard ile content schema standardizasyonu.

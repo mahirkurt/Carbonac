@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { parseMarkdown } from '../utils/markdown-parser.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
@@ -10,6 +11,44 @@ const GEMINI_API_URL =
 const MAX_CONTENT_CHARS = 12000;
 const LAYOUT_PROFILES = new Set(['symmetric', 'asymmetric', 'dashboard']);
 const PRINT_PROFILES = new Set(['pagedjs-a4', 'pagedjs-a3']);
+const COMPONENT_TYPES = new Set(['carbonchart', 'richtext', 'highlightbox']);
+
+const layoutPropsSchema = z.object({
+  colSpan: z.coerce.number().int().min(1).max(16),
+  offset: z.coerce.number().int().min(0).max(15).optional(),
+}).passthrough();
+
+const keyInsightsSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    return [value];
+  }
+  return value;
+}, z.array(z.string()));
+
+const componentSchema = z.object({
+  type: z.string(),
+  layoutProps: layoutPropsSchema.optional(),
+  styleOverrides: z.object({
+    theme: z.enum(['white', 'g10', 'g90', 'g100']).optional(),
+  }).optional(),
+  data: z.unknown().optional(),
+  className: z.string().optional(),
+}).passthrough();
+
+const layoutJsonSchema = z.object({
+  layoutProfile: z.enum(['symmetric', 'asymmetric', 'dashboard']).optional(),
+  printProfile: z.enum(['pagedjs-a4', 'pagedjs-a3']).optional(),
+  gridSystem: z.enum(['symmetric', 'asymmetric', 'dashboard']).optional(),
+  components: z.array(componentSchema).optional(),
+  storytelling: z.object({
+    executiveSummary: z.string().optional(),
+    keyInsights: keyInsightsSchema.optional(),
+  }).optional(),
+  styleHints: z.object({
+    avoidBreakSelectors: z.array(z.string()).optional(),
+    forceBreakSelectors: z.array(z.string()).optional(),
+  }).optional(),
+}).passthrough();
 
 function normalizeLayoutProfile(value) {
   return LAYOUT_PROFILES.has(value) ? value : 'symmetric';
@@ -23,6 +62,7 @@ function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme }) {
   return `You are the art director for a print-ready report system.
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
+Tone: concise executive summary, no jargon, no emojis. Highlight any outliers or trends when data is present.
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -45,7 +85,7 @@ Output schema:
   ],
   "storytelling": {
     "executiveSummary": "Short executive summary.",
-    "keyInsights": ["Insight one", "Insight two"]
+    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"]
   },
   "styleHints": {
     "avoidBreakSelectors": ["table", "pre", "blockquote"],
@@ -76,6 +116,118 @@ function stripMarkdown(content) {
     .trim();
 }
 
+function parseNumericValue(value) {
+  if (!value) return null;
+  const cleaned = value
+    .replace(/[%$]/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+  if (!cleaned) return null;
+  const normalized = cleaned.includes(',') && !cleaned.includes('.')
+    ? cleaned.replace(',', '.')
+    : cleaned;
+  const numeric = Number(normalized.replace(/,/g, ''));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function parseTableRow(line) {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function isSeparatorLine(line) {
+  return /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(line || '');
+}
+
+function extractMarkdownTables(content) {
+  const lines = (content || '').split('\n');
+  const tables = [];
+  let i = 0;
+
+  while (i < lines.length - 1) {
+    const line = lines[i];
+    const nextLine = lines[i + 1];
+    if (line.includes('|') && isSeparatorLine(nextLine)) {
+      const header = parseTableRow(line);
+      const rows = [];
+      i += 2;
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+        rows.push(parseTableRow(lines[i]));
+        i += 1;
+      }
+      if (header.length > 0 && rows.length > 0) {
+        tables.push({ header, rows });
+      }
+      continue;
+    }
+    i += 1;
+  }
+
+  return tables;
+}
+
+function buildFallbackInsights(content) {
+  const tables = extractMarkdownTables(content);
+  const insights = [];
+
+  for (const table of tables) {
+    const { header, rows } = table;
+    if (!header.length || rows.length < 2) {
+      continue;
+    }
+
+    const columnValues = header.map(() => []);
+    rows.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        const numeric = parseNumericValue(cell);
+        if (numeric === null) return;
+        const label = row[0] && parseNumericValue(row[0]) === null
+          ? row[0].trim()
+          : `Satir ${rowIndex + 1}`;
+        columnValues[colIndex].push({ value: numeric, label });
+      });
+    });
+
+    columnValues.forEach((values, colIndex) => {
+      if (colIndex === 0 || values.length < 2) return;
+      const colName = header[colIndex] || `Kolon ${colIndex + 1}`;
+      const ordered = values.map((entry) => entry.value);
+      const isIncreasing = ordered.every((v, idx, arr) => idx === 0 || v >= arr[idx - 1]);
+      const isDecreasing = ordered.every((v, idx, arr) => idx === 0 || v <= arr[idx - 1]);
+      if (isIncreasing) {
+        insights.push(`${colName} kolonunda belirgin bir artan trend gorunuyor.`);
+      } else if (isDecreasing) {
+        insights.push(`${colName} kolonunda belirgin bir azalan trend gorunuyor.`);
+      }
+
+      if (values.length >= 3) {
+        const nums = values.map((entry) => entry.value);
+        const mean = nums.reduce((sum, n) => sum + n, 0) / nums.length;
+        const variance = nums.reduce((sum, n) => sum + (n - mean) ** 2, 0) / nums.length;
+        const stdDev = Math.sqrt(variance);
+        const maxEntry = values.reduce((best, entry) => (entry.value > best.value ? entry : best), values[0]);
+        const minEntry = values.reduce((best, entry) => (entry.value < best.value ? entry : best), values[0]);
+
+        if (maxEntry.value > mean + stdDev * 2) {
+          insights.push(`${colName} kolonunda ${maxEntry.label} aykiri derecede yuksek bir deger sergiliyor.`);
+        } else if (minEntry.value < mean - stdDev * 2) {
+          insights.push(`${colName} kolonunda ${minEntry.label} aykiri derecede dusuk bir deger sergiliyor.`);
+        }
+      }
+    });
+
+    if (insights.length >= 3) {
+      break;
+    }
+  }
+
+  return Array.from(new Set(insights)).slice(0, 3);
+}
+
 function summarizeContent(content) {
   const plain = stripMarkdown(content || '');
   if (!plain) return '';
@@ -88,7 +240,15 @@ function summarizeContent(content) {
 
 function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfile, theme }) {
   const executiveSummary = summarizeContent(content);
+  const keyInsights = buildFallbackInsights(content);
   const forceBreakSelectors = content.length > 800 ? ['h2'] : [];
+  const storytelling = (executiveSummary || keyInsights.length)
+    ? {
+        executiveSummary,
+        keyInsights,
+      }
+    : null;
+
   return {
     version: 'v1',
     layoutProfile,
@@ -96,12 +256,7 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
     gridSystem: layoutProfile,
     theme: theme || 'white',
     components: [],
-    storytelling: executiveSummary
-      ? {
-          executiveSummary,
-          keyInsights: [],
-        }
-      : null,
+    storytelling,
     styleHints: {
       avoidBreakSelectors: ['table', 'pre', 'blockquote'],
       forceBreakSelectors,
@@ -112,6 +267,39 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
   };
 }
 
+function normalizeComponents(components = []) {
+  if (!Array.isArray(components)) return [];
+  return components.map((component) => {
+    const next = { ...component };
+    const layoutProps = component.layoutProps && typeof component.layoutProps === 'object'
+      ? { ...component.layoutProps }
+      : {};
+    let colSpan = Number(layoutProps.colSpan);
+    if (!Number.isFinite(colSpan)) colSpan = 16;
+    colSpan = Math.max(1, Math.min(16, Math.round(colSpan)));
+    let offset = Number(layoutProps.offset);
+    if (!Number.isFinite(offset)) offset = 0;
+    offset = Math.max(0, Math.min(15, Math.round(offset)));
+    if (offset + colSpan > 16) {
+      colSpan = Math.max(1, 16 - offset);
+    }
+    next.layoutProps = { ...layoutProps, colSpan, offset };
+    if (typeof next.type === 'string' && !COMPONENT_TYPES.has(next.type.toLowerCase())) {
+      next.type = 'RichText';
+    }
+    return next;
+  });
+}
+
+function validateLayoutJson(input, fallback) {
+  const result = layoutJsonSchema.safeParse(input);
+  if (!result.success) {
+    console.warn('[art-director] layout JSON validation failed, using fallback.');
+    return fallback;
+  }
+  return result.data;
+}
+
 function normalizeLayoutJson(input, fallback, layoutProfile, printProfile) {
   const output = { ...fallback };
 
@@ -120,17 +308,18 @@ function normalizeLayoutJson(input, fallback, layoutProfile, printProfile) {
       output.gridSystem = input.gridSystem;
     }
     if (Array.isArray(input.components)) {
-      output.components = input.components;
+      output.components = normalizeComponents(input.components);
     }
     if (input.storytelling && typeof input.storytelling === 'object') {
+      const keyInsights = Array.isArray(input.storytelling.keyInsights)
+        ? input.storytelling.keyInsights.map((item) => item.trim()).filter(Boolean)
+        : output.storytelling?.keyInsights || [];
       output.storytelling = {
         executiveSummary:
           typeof input.storytelling.executiveSummary === 'string'
             ? input.storytelling.executiveSummary
             : output.storytelling?.executiveSummary || '',
-        keyInsights: Array.isArray(input.storytelling.keyInsights)
-          ? input.storytelling.keyInsights
-          : output.storytelling?.keyInsights || [],
+        keyInsights,
       };
     }
     if (input.styleHints && typeof input.styleHints === 'object') {
@@ -238,8 +427,9 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
   }
 
   const parsed = JSON.parse(jsonText);
+  const validated = validateLayoutJson(parsed, fallback);
   const normalized = normalizeLayoutJson(
-    parsed,
+    validated,
     fallback,
     resolvedLayoutProfile,
     resolvedPrintProfile

@@ -10,6 +10,27 @@ import sys
 from pathlib import Path
 
 
+def _load_env(path: Path, overwrite: bool = False) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key and (overwrite or key not in os.environ):
+            os.environ[key] = value
+
+
+def _load_carbonac_env() -> None:
+    env_path = os.getenv("CARBONAC_ENV_PATH")
+    if env_path:
+        _load_env(Path(env_path))
+        return
+    carbonac_root = Path(__file__).resolve().parents[2]
+    _load_env(carbonac_root / ".env")
+
+
 def resolve_raspberry_repo() -> Path:
     env_path = os.getenv("RASPBERRY_REPO_PATH")
     if env_path:
@@ -75,9 +96,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    _load_carbonac_env()
     args = build_parser().parse_args()
 
     repo_path = resolve_raspberry_repo()
+    _load_env(repo_path / ".env")
     ensure_repo_path(repo_path)
 
     from pi_manager import PiManager  # pylint: disable=import-error

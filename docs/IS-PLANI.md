@@ -34,6 +34,7 @@ Kapsam disi:
 - Logging: request_id + job_id zorunlu
 - Print token pack + pattern library: PDF tasarim standardi
 - PDF kalite zinciri: statik lint + Gemini QA self-healing
+- CarbonPress uyumu: Press Pack manifest + editorial akis + preflight gate
 
 ## 3. Hedef Mimari Bilesenler
 1) Ingestion: upload, metadata, type detection, validation
@@ -133,10 +134,15 @@ Sprint 5 Epics:
 - Template versioning ve rollback
 - Template preview (mini PDF/PNG)
 Sprint 6 Epics:
+- Press Pack manifest (template + tokens + patterns + QA rules + sample content)
+- Block catalog (content schema + pattern mapping)
+- Release metadata (output manifest + hash)
+- Editorial/publish akisi + preflight gate entegrasyonu
+- Template governance (versioning + approval workflow)
 - Token mapping katmani (typografi/renk/spacing) + print token pack
 - Pattern library (HeroStat, SurveyChartPage, WhatToDo)
 - Tema paketleri: white, g10, g90, g100
-- UI template galerisi + filtre
+- Governance UI (state + approval)
 Kabul kriterleri:
 - Template secimi end-to-end etkili
 - Token mapping ile engine parity saglanir
@@ -186,6 +192,8 @@ Storage:
 - Engine mapping: typst + quarto ayni tokenlari kullanir
 - Print token pack: baseline, safe-area, caption/footnote, chart spacing
 - Pattern library: repeatable PDF modulleri (ExecutiveSummary, SurveyChartPage)
+- Press Pack manifest: template + tokens + patterns + QA rules + sample content
+- Content schema: docType, templateKey, layoutProfile, printProfile, theme, locale, version
 
 ## 12. AI Servis Katmani
 - Endpointler: POST /api/ai/analyze, POST /api/ai/ask
@@ -220,6 +228,9 @@ Storage:
 - Feature flags (critical path)
 - Migration planlari ve rollback scriptleri
 - Versioning: templates ve API contract
+- Editorial states: draft -> review -> approved -> published
+- Preflight gate: lint + AI QA basarisizsa publish edilmez
+- Output manifest: template/version/tokens hash + QA sonucu
 
 ## 17. Riskler ve Onlemler
 - Runtime bagimliliklari: containerized runtime
@@ -235,3 +246,15 @@ Storage:
 - AI servis katmani
 - Observability dashboard
 - Dokumantasyon guncellemeleri
+
+## 19. Mevcut Durum Profili (Snapshot)
+- Faz 0 tamam: mimari kararlar, contract ve backlog kayitlari mevcut.
+- Faz 1 tamam: job pipeline + Paged.js + Gemini art director + signed URL akisi dogrulandi.
+- Faz 2 tamam: Sprint 3 preview/QA + autosave + frontmatter wizard tamam; Sprint 4 tamam.
+- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam, Press Pack manifest ve governance bekliyor.
+- Pi runtime stabil: Docker api/worker + Cloudflare SSH ile uzaktan calisma dogrulandi.
+
+## 20. Sonraki Adimlar (Oncelik)
+- Sprint 6 odagi: Press Pack manifest + block catalog + release metadata.
+- Editorial/publish akisi ve preflight gate'i release pipeline'a bagla.
+- Template governance: versioning kurallari + approval workflow.

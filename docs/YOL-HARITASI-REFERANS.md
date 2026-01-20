@@ -120,6 +120,14 @@ PDF tasarim standardini sabitlemek icin iki temel paket:
 
 Bu paket, Carbon tokenlarini print guardrail'leri ile birlestirir.
 
+### Adim 2.2: Press Pack + Editorial Preflight
+CarbonPress yaklasimini Carbonac'a uyarlayan ikinci katman:
+- **Press Pack**: template + print tokens + pattern set + QA rules + sample content
+- **Content schema**: docType, templateKey, layoutProfile, printProfile, theme, locale, version
+- **Release manifest**: template/version/tokens hash + QA sonucu + output metadata
+- **Editorial states**: draft -> review -> approved -> published
+- **Preflight gate**: lint + AI QA basarisizsa publish edilmez
+
 ### Adim 3: React + Paged.js Entegrasyonu
 AI'dan gelen talimatlari ekrana basan ve sayfalayan motor.
 
@@ -201,6 +209,8 @@ Bu dongu, "insan gozuyle kontrol" surecini simule eder.
 ### Faz 4: Template Registry (Sprint 5-6)
 - Template CRUD
 - Token mapping
+- Press Pack manifest + block catalog
+- Editorial preflight gate
 
 ### Faz 5: Urunlesme (Sprint 7-8)
 - Billing
@@ -208,7 +218,12 @@ Bu dongu, "insan gozuyle kontrol" surecini simule eder.
 
 ---
 
-## 6. Sonuc
+## 6. Mevcut Durum Profili (Snapshot)
+- Faz 1-2 tamam: job pipeline + Paged.js + signed URL akisi dogrulandi.
+- Faz 3 tamam: visual self-healing ve statik lint kurallari calisiyor.
+- Faz 4 kismi: template registry + preview + gallery tamam; Press Pack manifest ve editorial preflight bekliyor.
+
+## 7. Sonuc
 
 Bu plan, LaTeX/Typst gibi yaklasimlari eler ve web teknolojilerinin esnekligini
 Gemini 3 Pro'nun zekasi ile birlestirir. Hedef sadece rapor ureten bir arac degil,

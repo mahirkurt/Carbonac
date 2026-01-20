@@ -83,6 +83,8 @@ Gorevler:
 - token mapping gereksinimleri (typografi, renk, spacing)
 - print token pack taslagi (baseline, safe-area, caption/footnote)
 - pattern library taslagi (ExecutiveSummary, SurveyChartPage, WhatToDo)
+- Press Pack manifest taslagi (template + tokens + patterns + QA rules)
+- content schema taslagi (docType, templateKey, layoutProfile, printProfile, theme)
 - template registry MVP ihtiyac listesi
 
 Cikti:
@@ -90,6 +92,7 @@ Cikti:
 - Token Mapping Taslak
 - Print Token Pack Taslak
 - Pattern Library Taslak
+- Press Pack Manifest Taslak
 
 ### 4.4 AI Danisman
 Ama: AI anahtari ve cagrilarin server tarafinda yonetilmesi.
@@ -138,6 +141,7 @@ Gorevler:
 - PDF lint checklist taslagi (overflow, widows/orphans, min font)
 - PDF erisilebilirlik preflight listesi (heading, reading order, link)
 - Kalite metrikleri (Carbon Adherence, Layout Health, Readability)
+- Preflight gate prensipleri (lint + AI QA fail ise publish yok)
 
 Cikti:
 - Test Checklist
@@ -336,5 +340,14 @@ Acceptance:
 - AI Servis Plan: Backend (R), Product (C)
 - Deploy Karar: DevOps (R), Tech Lead (A)
 
-## 12. Son Not
+## 12. Guncel Durum Profili
+- Sprint 0 karar ve taslaklari tamamlandi; SoT ile uyumlu.
+- Press Pack ve content schema yalnizca taslak seviyesinde; implementasyon sonraki fazlarda.
+
+## 13. Sonraki Adimlar
+- Sprint 1-2: pipeline ve Paged.js kurallari tamamlandiktan sonra Press Pack manifest formatini netlestir.
+- Sprint 3: frontmatter wizard ile content schema'yi sahaya indir.
+- Sprint 5-6: template registry + Press Pack paketleme akisini bagla.
+
+## 14. Son Not
 Sprint 0 tamamlandiginda, Faz 1 icin teknik yol haritasi ve net backlog cikmis olmalidir.

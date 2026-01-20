@@ -7,6 +7,7 @@ Bu dokuman `docs/PROJE-TALIMATLARI.md` ile uyumlu olmak zorundadir.
 - Raspberry Pi uzerinde Docker kurulu ve calisir.
 - Yerel makinede Docker CLI kurulu.
 - Tunnel kullanilacaksa cloudflared kurulu.
+- Kalici Cloudflare SSH icin Access service token (client id/secret) hazir.
 - Alternatif olarak Tailscale opsiyonel (PI uzerinde ve komut calistiran makinada).
 - SSH konfigurasyonu: `pi-remote` host alias.
 - Uzak Redis URL'i `REDIS_URL` ile saglanir.
@@ -30,6 +31,14 @@ scripts/raspberry/setup-ssh.ps1
 Baglanti testi:
 ```
 ssh pi-remote "echo ok"
+```
+
+Kalici Cloudflare SSH (service token) icin `.env`:
+```
+PI_HOSTNAME=ssh.cureonics.com
+CLOUDFLARE_ACCESS_CLIENT_ID=...
+CLOUDFLARE_ACCESS_CLIENT_SECRET=...
+PI_PROXY_COMMAND=cloudflared access ssh --hostname %h --id $CLOUDFLARE_ACCESS_CLIENT_ID --secret $CLOUDFLARE_ACCESS_CLIENT_SECRET
 ```
 
 ## 2.1 Baglanti Modlari (Local/Tailscale/Tunnel)
@@ -112,3 +121,11 @@ VITE_API_URL=http://raspberrypi.local:3001
 - SSH hatasi: `ssh -v pi-remote` ile kontrol edin.
 - Docker context: `docker context use raspberry`
 - Redis baglantisi: `REDIS_URL` degerini uzak Redis endpointi olarak ayarlayin.
+
+## 8. Guncel Durum Profili
+- Cloudflare tunnel + service token ile tunnel baglantisi stabil.
+- Pi uzerinde Docker API/worker kurulumlari dogrulandi.
+
+## 9. Sonraki Adimlar
+- Raspberry `.env` ile Carbonac `.env` senkronu korunmali.
+- Worker image rebuild ve smoke testleri periyodik calistirilmali.

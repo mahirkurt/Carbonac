@@ -3,10 +3,24 @@
  * Handles document upload, conversion, and workflow state
  */
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
+import { useDebounce } from '../hooks';
+import { lintMarkdown, buildLintCacheKey } from '../utils/markdownLint';
+import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_URL = API_BASE_URL.replace(/\/$/, '');
+const REVIEWER_EMAILS = (import.meta.env.VITE_TEMPLATE_REVIEWER_EMAILS || '')
+  .split(',')
+  .map((entry) => entry.trim().toLowerCase())
+  .filter(Boolean);
 
 function buildApiUrl(path) {
   if (/^https?:\/\//i.test(path)) {
@@ -111,8 +125,15 @@ const initialState = {
   // Output
   selectedLayoutProfile: 'symmetric',
   selectedPrintProfile: 'pagedjs-a4',
+  selectedTheme: 'white',
+  selectedTemplate: 'carbon-advanced',
+  templates: [],
+  templatesLoading: false,
+  templatesError: null,
   generatedPdf: null,
   outputPath: null,
+  downloadError: null,
+  lintIssues: [],
 };
 
 // Action types
@@ -130,7 +151,13 @@ const ActionTypes = {
   NEXT_WIZARD_QUESTION: 'NEXT_WIZARD_QUESTION',
   SET_LAYOUT_PROFILE: 'SET_LAYOUT_PROFILE',
   SET_PRINT_PROFILE: 'SET_PRINT_PROFILE',
+  SET_THEME: 'SET_THEME',
+  SET_TEMPLATES_STATUS: 'SET_TEMPLATES_STATUS',
+  SET_TEMPLATES: 'SET_TEMPLATES',
+  SET_TEMPLATE_SELECTION: 'SET_TEMPLATE_SELECTION',
   SET_OUTPUT: 'SET_OUTPUT',
+  SET_DOWNLOAD_ERROR: 'SET_DOWNLOAD_ERROR',
+  SET_LINT_ISSUES: 'SET_LINT_ISSUES',
   RESET: 'RESET',
 };
 
@@ -234,11 +261,49 @@ function documentReducer(state, action) {
         selectedPrintProfile: action.payload,
       };
 
+    case ActionTypes.SET_THEME:
+      return {
+        ...state,
+        selectedTheme: action.payload,
+      };
+
+    case ActionTypes.SET_TEMPLATES_STATUS:
+      return {
+        ...state,
+        templatesLoading: action.payload.loading,
+        templatesError: action.payload.error,
+      };
+
+    case ActionTypes.SET_TEMPLATES:
+      return {
+        ...state,
+        templates: action.payload || [],
+      };
+
+    case ActionTypes.SET_TEMPLATE_SELECTION:
+      return {
+        ...state,
+        selectedTemplate: action.payload,
+      };
+
     case ActionTypes.SET_OUTPUT:
       return {
         ...state,
         generatedPdf: action.payload.pdf,
         outputPath: action.payload.path,
+        downloadError: null,
+      };
+
+    case ActionTypes.SET_DOWNLOAD_ERROR:
+      return {
+        ...state,
+        downloadError: action.payload,
+      };
+
+    case ActionTypes.SET_LINT_ISSUES:
+      return {
+        ...state,
+        lintIssues: action.payload,
       };
 
     case ActionTypes.RESET:
@@ -255,6 +320,66 @@ const DocumentContext = createContext(null);
 // Provider component
 export function DocumentProvider({ children }) {
   const [state, dispatch] = useReducer(documentReducer, initialState);
+  const lintCacheRef = useRef(new Map());
+  const selectedTemplateRef = useRef(state.selectedTemplate);
+  const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const debouncedMarkdown = useDebounce(state.markdownContent, 400);
+
+  useEffect(() => {
+    selectedTemplateRef.current = state.selectedTemplate;
+  }, [state.selectedTemplate]);
+
+  useEffect(() => {
+    let active = true;
+
+    const updateUserEmail = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const email = data?.session?.user?.email || null;
+        if (active) {
+          setCurrentUserEmail(email ? email.toLowerCase() : null);
+        }
+      } catch (error) {
+        if (active) {
+          setCurrentUserEmail(null);
+        }
+      }
+    };
+
+    updateUserEmail();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      const email = session?.user?.email || null;
+      setCurrentUserEmail(email ? email.toLowerCase() : null);
+    });
+
+    return () => {
+      active = false;
+      data?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const content = debouncedMarkdown || '';
+    if (!content.trim()) {
+      dispatch({ type: ActionTypes.SET_LINT_ISSUES, payload: [] });
+      return;
+    }
+
+    const cacheKey = buildLintCacheKey(content);
+    const cached = lintCacheRef.current.get(cacheKey);
+    if (cached) {
+      dispatch({ type: ActionTypes.SET_LINT_ISSUES, payload: cached });
+      return;
+    }
+
+    const issues = lintMarkdown(content);
+    lintCacheRef.current.set(cacheKey, issues);
+    if (lintCacheRef.current.size > 50) {
+      lintCacheRef.current.clear();
+    }
+    dispatch({ type: ActionTypes.SET_LINT_ISSUES, payload: issues });
+  }, [debouncedMarkdown]);
 
   // Actions
   const setStep = useCallback((step) => {
@@ -364,8 +489,121 @@ export function DocumentProvider({ children }) {
     dispatch({ type: ActionTypes.SET_PRINT_PROFILE, payload: profile });
   }, []);
 
+  const setTheme = useCallback((theme) => {
+    dispatch({ type: ActionTypes.SET_THEME, payload: theme });
+  }, []);
+
+  const loadTemplates = useCallback(async () => {
+    dispatch({
+      type: ActionTypes.SET_TEMPLATES_STATUS,
+      payload: { loading: true, error: null },
+    });
+
+    try {
+      const response = await fetch(buildApiUrl('/api/templates'));
+      if (!response.ok) {
+        throw new Error('Template listesi yuklenemedi.');
+      }
+      const payload = await response.json();
+      const templates = Array.isArray(payload.templates) ? payload.templates : [];
+      dispatch({ type: ActionTypes.SET_TEMPLATES, payload: templates });
+
+      if (templates.length) {
+        const currentKey = selectedTemplateRef.current;
+        const selected = templates.find((item) => item.key === currentKey) || templates[0];
+        if (selected.key !== currentKey) {
+          dispatch({
+            type: ActionTypes.SET_TEMPLATE_SELECTION,
+            payload: selected.key,
+          });
+        }
+        if (selected.activeVersion?.layoutProfile) {
+          dispatch({
+            type: ActionTypes.SET_LAYOUT_PROFILE,
+            payload: selected.activeVersion.layoutProfile,
+          });
+        }
+        if (selected.activeVersion?.printProfile) {
+          dispatch({
+            type: ActionTypes.SET_PRINT_PROFILE,
+            payload: selected.activeVersion.printProfile,
+          });
+        }
+        if (selected.activeVersion?.theme) {
+          dispatch({
+            type: ActionTypes.SET_THEME,
+            payload: selected.activeVersion.theme,
+          });
+        }
+      }
+
+      dispatch({
+        type: ActionTypes.SET_TEMPLATES_STATUS,
+        payload: { loading: false, error: null },
+      });
+    } catch (error) {
+      dispatch({
+        type: ActionTypes.SET_TEMPLATES_STATUS,
+        payload: { loading: false, error: error.message },
+      });
+    }
+  }, []);
+
+  const selectTemplate = useCallback((template) => {
+    if (!template) return;
+    dispatch({
+      type: ActionTypes.SET_TEMPLATE_SELECTION,
+      payload: template.key,
+    });
+    if (template.activeVersion?.layoutProfile) {
+      dispatch({
+        type: ActionTypes.SET_LAYOUT_PROFILE,
+        payload: template.activeVersion.layoutProfile,
+      });
+    }
+    if (template.activeVersion?.printProfile) {
+      dispatch({
+        type: ActionTypes.SET_PRINT_PROFILE,
+        payload: template.activeVersion.printProfile,
+      });
+    }
+    if (template.activeVersion?.theme) {
+      dispatch({
+        type: ActionTypes.SET_THEME,
+        payload: template.activeVersion.theme,
+      });
+    }
+  }, []);
+
+  const updateTemplateVersionStatus = useCallback(async (versionId, status) => {
+    if (!versionId) {
+      throw new Error('Template version bulunamadi.');
+    }
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    const response = await fetch(buildApiUrl(`/api/template-versions/${versionId}/status`), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ status }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = payload?.error?.message || 'Template guncellemesi basarisiz.';
+      throw new Error(message);
+    }
+    await loadTemplates();
+    return payload;
+  }, [loadTemplates]);
+
   const setOutput = useCallback((pdf, path) => {
     dispatch({ type: ActionTypes.SET_OUTPUT, payload: { pdf, path } });
+  }, []);
+
+  const setDownloadError = useCallback((message) => {
+    dispatch({ type: ActionTypes.SET_DOWNLOAD_ERROR, payload: message });
   }, []);
 
   const reset = useCallback(() => {
@@ -374,6 +612,7 @@ export function DocumentProvider({ children }) {
 
   // Generate PDF based on settings
   const generatePdf = useCallback(async () => {
+    setDownloadError(null);
     try {
       const response = await fetch(buildApiUrl('/api/convert/to-pdf'), {
         method: 'POST',
@@ -386,6 +625,8 @@ export function DocumentProvider({ children }) {
             ...state.reportSettings,
             layoutProfile: state.selectedLayoutProfile,
             printProfile: state.selectedPrintProfile,
+            theme: state.selectedTheme,
+            template: state.selectedTemplate,
           },
         }),
       });
@@ -405,10 +646,15 @@ export function DocumentProvider({ children }) {
         jobStatus.result?.signedUrl ||
         jobStatus.result?.downloadUrl ||
         `/api/jobs/${jobId}/download`;
+      const fallbackPath = `/api/jobs/${jobId}/download`;
 
-      const downloadResponse = await fetch(buildApiUrl(downloadPath));
+      let downloadResponse = await fetch(buildApiUrl(downloadPath));
+      if (!downloadResponse.ok && downloadPath !== fallbackPath) {
+        downloadResponse = await fetch(buildApiUrl(fallbackPath));
+      }
+
       if (!downloadResponse.ok) {
-        throw new Error('PDF download failed');
+        throw new Error('PDF indirilemedi. Lutfen tekrar deneyin.');
       }
 
       const blob = await downloadResponse.blob();
@@ -417,9 +663,10 @@ export function DocumentProvider({ children }) {
       setOutput(blob, url);
       return url;
     } catch (error) {
-      throw error;
+      setDownloadError(error.message || 'PDF indirirken bir hata olustu.');
+      return null;
     }
-  }, [state.markdownContent, state.selectedLayoutProfile, state.selectedPrintProfile, state.reportSettings, setOutput]);
+  }, [state.markdownContent, state.selectedLayoutProfile, state.selectedPrintProfile, state.reportSettings, setOutput, setDownloadError]);
 
   const value = {
     // State
@@ -441,9 +688,20 @@ export function DocumentProvider({ children }) {
     nextWizardQuestion,
     setLayoutProfile,
     setPrintProfile,
+    setTheme,
     setOutput,
     generatePdf,
+    downloadError: state.downloadError,
+    setDownloadError,
+    lintIssues: state.lintIssues,
+    loadTemplates,
+    selectTemplate,
+    updateTemplateVersionStatus,
     reset,
+    reviewerEnabled: REVIEWER_EMAILS.length > 0,
+    isReviewer: REVIEWER_EMAILS.length > 0
+      ? REVIEWER_EMAILS.includes(currentUserEmail || '')
+      : false,
   };
 
   return (

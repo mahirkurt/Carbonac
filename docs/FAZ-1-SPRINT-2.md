@@ -96,7 +96,7 @@ Ornek JSON (ozet):
 
 ### 4.7 Ortam Degiskenleri (Minimum)
 - API: `REDIS_URL`, `JOB_QUEUE_NAME`, `PORT`, `NODE_ENV`
-- Rendering: `CHROMIUM_PATH` (opsiyonel), `PRINT_CSS_PATH` (opsiyonel)
+- Rendering: `CHROMIUM_PATH` (opsiyonel), `PRINT_CSS_PATH` (opsiyonel), `PUPPETEER_EXECUTABLE_PATH` (ARM/CI), `PUPPETEER_SKIP_DOWNLOAD=1`
 - Storage: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_DOCUMENTS`, `SUPABASE_BUCKET_PDFS`
 - AI: `GEMINI_API_KEY` (veya `GOOGLE_API_KEY`), `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`
 - FE: `VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
@@ -133,18 +133,20 @@ Labels: [AI] [LAYOUT]
 Goal: Layout JSON ve storytelling uretimi.
 Tasks:
 - [x] Prompt seti ve JSON contract
-- [ ] Carbon Grid prop uretimi
+- [x] JSON normalization + fallback (bos cikista fallback JSON)
+- [x] Carbon Grid prop uretimi + renderer mapping
 - [x] Executive summary + key insight
 Acceptance:
-- [ ] AI layout JSON renderer tarafinda uygulanir
+- [x] Storytelling + styleHints ciktisi HTML/PDF'e yansir
+- [x] Layout JSON komponent/grid yerlesimi renderer tarafinda uygulanir
 
 ### ISSUE F1-S2-03: Data Storytelling
 Labels: [AI] [CONTENT]
 Goal: Grafik altina insight ve ozet metinleri.
 Tasks:
-- [ ] Outlier/trend tespiti
+- [x] Outlier/trend tespiti (fallback heuristik + prompt)
 - [x] Callout box metinleri
-- [ ] Veri ozeti ton standardi
+- [x] Veri ozeti ton standardi (prompt)
 Acceptance:
 - [x] Insight kutulari PDF'te gorunur
 
@@ -153,10 +155,10 @@ Labels: [RENDER] [CSS]
 Goal: Icerik akisina gore akilli CSS.
 Tasks:
 - [x] Tablo sayfa sonu kurali
-- [ ] Baslik/sayfa offset kurali
+- [x] Baslik/sayfa offset kurali (break-after: avoid)
 - [x] Break-before/avoid-break mapping
 Acceptance:
-- [ ] Orphan/widow senaryolari azalir
+- [x] Orphan/widow senaryolari azalir (orphans/widows CSS)
 
 ### ISSUE F1-S2-05: Storage + Signed URL
 Labels: [STORAGE]
@@ -173,10 +175,12 @@ Labels: [FE]
 Goal: FE signed URL ile download/preview.
 Tasks:
 - [x] Job polling sonucu signedUrl kullanimi
-- [ ] Download butonu ve hata mesaji
-- [ ] Retry/refresh signed URL
+- [x] Download butonu (signedUrl veya /download)
+- [x] Download hata mesaji (toast/alert)
+- [x] Retry/refresh signed URL
 Acceptance:
-- [ ] FE download akisi stabil
+- [x] Normal signedUrl akisi ile download calisir
+- [x] Expired signedUrl icin FE retry/refresh tamamlanir
 
 ## 8. Ayrintili Task Breakdown
 
@@ -191,15 +195,16 @@ Notlar:
 ### F1-S2-02 Gemini 3 Pro Art Director
 Breakdown:
 - [x] Prompt tasarimi (layout + insight)
-- [ ] JSON schema ve validation
-- [ ] Carbon Grid mapping (lg/md)
+- [x] JSON normalization + fallback
+- [x] JSON schema (zod/ajv) + validation
+- [x] Carbon Grid mapping (lg/md) + component placement
 Notlar:
 - Layout JSON versiyonlanmali.
 
 ### F1-S2-03 Data Storytelling
 Breakdown:
-- [ ] Veri analizi kurallari
-- [ ] Insight metinleri icin ton/format standardi
+- [x] Veri analizi kurallari (outlier/trend)
+- [x] Insight metinleri icin ton/format standardi
 - [x] Callout bilesenleri
 Notlar:
 - Metinler CEO seviyesi sade dilde olmali.
@@ -207,7 +212,7 @@ Notlar:
 ### F1-S2-04 Logic-Based Styling
 Breakdown:
 - [x] Tablo/section page break heuristikleri
-- [ ] Basliklar icin sayfa baslatma kurali
+- [x] Basliklar icin sayfa baslatma kurali (break-after: avoid)
 - [x] AI tarafindan dinamik class ekleme
 Notlar:
 - Kurallar deterministic olmali.
@@ -223,8 +228,8 @@ Notlar:
 ### F1-S2-06 Frontend Download Entegrasyonu
 Breakdown:
 - [x] Job polling sonucu signedUrl kullan
-- [ ] Download/preview button UX
-- [ ] Hata ve retry mesajlari
+- [x] Download/preview button UX
+- [x] Hata ve retry mesajlari (expired signedUrl)
 Notlar:
 - Preview polish Sprint 3 kapsaminda.
 
@@ -235,8 +240,19 @@ Notlar:
 
 ## 10. Test ve Dogrulama
 Minimum test senaryolari:
-- /api/convert/to-pdf -> Paged.js PDF uretimi
-- Layout JSON -> renderer uygulama
-- Insight kutusu -> PDF'te gorunur
-- /api/jobs/{id}/download -> signed URL
-- FE download akisi
+- [x] /api/convert/to-pdf -> Paged.js PDF uretimi (smoke test)
+- [x] Layout JSON -> renderer uygulama (component grid)
+- [x] Insight kutusu -> PDF'te gorunur (smoke test)
+- [x] /api/jobs/{id}/download -> signed URL redirect
+- [x] FE download akisi (expired signedUrl retry/refresh)
+
+## 11. CarbonPress Uyum Notu
+- layoutProfile/printProfile alanlari Press Pack icindeki profillerle birebir eslestirilir.
+- QA/preflight kurallari logic-based styling contract'i ile hizalanir.
+
+## 12. Guncel Durum Profili
+- Sprint 2 backlog'u tamamlandi; Paged.js + Gemini art director + signed URL akisi calisiyor.
+
+## 13. Sonraki Adimlar
+- Sprint 3: preview parity + visual self-healing + frontmatter wizard.
+- Press Pack manifest ve content schema alanlari frontmatter wizard ile standartlastirilacak.

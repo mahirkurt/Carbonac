@@ -3,7 +3,7 @@
  * Main Application with Document Workflow
  */
 
-import React, { useState, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useCallback, Suspense, lazy, useMemo, useRef } from 'react';
 import {
   Theme,
   Header,
@@ -59,6 +59,7 @@ import {
 } from '@carbon/icons-react';
 
 import './styles/index.scss';
+import { useThrottle } from './hooks';
 
 // Contexts
 import { 
@@ -79,6 +80,7 @@ const AuthModal = lazy(() => import('./components/auth/AuthModal'));
 const PricingModal = lazy(() => import('./components/pricing/PricingModal'));
 const DocumentUploader = lazy(() => import('./components/document/DocumentUploader'));
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
+const TemplateGallery = lazy(() => import('./components/templates/TemplateGallery'));
 
 // Layout profile options
 const layoutProfileOptions = [
@@ -155,7 +157,64 @@ function WorkflowSteps() {
 
 // Editor Panel Component
 function EditorPanel() {
-  const { markdownContent, setMarkdown } = useDocument();
+  const { markdownContent, setMarkdown, lintIssues } = useDocument();
+  const [selectedSeverityId, setSelectedSeverityId] = useState('all');
+  const [selectedRuleId, setSelectedRuleId] = useState('all');
+  const textAreaRef = useRef(null);
+
+  const severityOptions = useMemo(() => ([
+    { id: 'all', label: 'Tum Seviyeler' },
+    { id: 'warning', label: 'Uyari' },
+    { id: 'info', label: 'Bilgi' },
+  ]), []);
+
+  const ruleOptions = useMemo(() => {
+    const base = [{ id: 'all', label: 'Tum Kurallar' }];
+    const uniqueRules = Array.from(new Set(lintIssues.map((issue) => issue.ruleId)));
+    uniqueRules.forEach((ruleId) => {
+      base.push({ id: ruleId, label: ruleId });
+    });
+    return base;
+  }, [lintIssues]);
+
+  const selectedSeverity = severityOptions.find((option) => option.id === selectedSeverityId) || severityOptions[0];
+  const selectedRule = ruleOptions.find((option) => option.id === selectedRuleId) || ruleOptions[0];
+
+  const filteredIssues = useMemo(() => {
+    const severityFilter = selectedSeverity?.id || 'all';
+    const ruleFilter = selectedRule?.id || 'all';
+    return lintIssues.filter((issue) => {
+      if (severityFilter !== 'all' && issue.severity !== severityFilter) {
+        return false;
+      }
+      if (ruleFilter !== 'all' && issue.ruleId !== ruleFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [lintIssues, selectedSeverity, selectedRule]);
+
+  const focusLintLocation = useCallback((issue) => {
+    const textArea = textAreaRef.current || document.getElementById('markdown-editor');
+    if (!textArea) return;
+    const lineIndex = Math.max(1, issue?.line || 1);
+    const columnIndex = Math.max(1, issue?.column || 1);
+    const lines = markdownContent.split('\n');
+    const lineText = lines[lineIndex - 1] || '';
+    let startOffset = 0;
+    for (let i = 0; i < lineIndex - 1; i += 1) {
+      startOffset += lines[i].length + 1;
+    }
+    const columnOffset = Math.min(lineText.length, columnIndex - 1);
+    const selectionStart = startOffset + columnOffset;
+    const selectionEnd = startOffset + lineText.length;
+    textArea.focus();
+    try {
+      textArea.setSelectionRange(selectionStart, selectionEnd);
+    } catch (error) {
+      // ignore selection errors for unsupported inputs
+    }
+  }, [markdownContent]);
 
   return (
     <div className="editor-panel panel">
@@ -175,6 +234,7 @@ function EditorPanel() {
           onChange={(e) => setMarkdown(e.target.value)}
           placeholder="Markdown içeriğinizi buraya yazın..."
           rows={30}
+          ref={textAreaRef}
           style={{ 
             height: '100%', 
             fontFamily: 'IBM Plex Mono',
@@ -182,13 +242,89 @@ function EditorPanel() {
           }}
         />
       </div>
+      <div className="editor-panel__lint">
+        <div className="editor-panel__lint-header">
+          <div>
+            <h4>Lint Uyarilari</h4>
+            <span>{lintIssues.length} bulgu</span>
+          </div>
+          <div className="editor-panel__lint-filters">
+            <Dropdown
+              id="lint-severity-filter"
+              items={severityOptions}
+              label="Seviye"
+              selectedItem={selectedSeverity}
+              onChange={({ selectedItem }) => setSelectedSeverityId(selectedItem.id)}
+            />
+            <Dropdown
+              id="lint-rule-filter"
+              items={ruleOptions}
+              label="Kural"
+              selectedItem={selectedRule}
+              onChange={({ selectedItem }) => setSelectedRuleId(selectedItem.id)}
+            />
+          </div>
+        </div>
+        {filteredIssues.length === 0 ? (
+          <p className="editor-panel__lint-empty">Lint bulgusu yok.</p>
+        ) : (
+          <ul className="editor-panel__lint-list">
+            {filteredIssues.map((issue, index) => (
+              <li
+                key={`${issue.ruleId}-${index}`}
+                className="editor-panel__lint-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => focusLintLocation(issue)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    focusLintLocation(issue);
+                  }
+                }}
+                title={`Satir ${issue.line}, Kolon ${issue.column}`}
+              >
+                <span className={`lint-tag lint-tag--${issue.severity}`}>{issue.severity}</span>
+                <div>
+                  <strong>{issue.ruleId}</strong>
+                  <div>{issue.message}</div>
+                </div>
+                <span className="lint-meta">L{issue.line}:{issue.column}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
 
 // Preview Panel Component
 function PreviewPanel() {
-  const { markdownContent, isConverting, generatePdf, outputPath } = useDocument();
+  const {
+    markdownContent,
+    isConverting,
+    generatePdf,
+    outputPath,
+    downloadError,
+    setDownloadError,
+  } = useDocument();
+  const throttledMarkdown = useThrottle(markdownContent, 200);
+
+  const previewHtml = useMemo(() => {
+    if (!throttledMarkdown) {
+      return '';
+    }
+    return throttledMarkdown
+      .replace(/^---[\s\S]*?---/m, '')
+      .replace(/^# (.+)$/gm, '<h1 style="font-size: 2.5rem; font-weight: 300; margin-bottom: 1rem;">$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 1rem;">$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code style="background: #f4f4f4; padding: 0.125rem 0.25rem; font-family: IBM Plex Mono;">$1</code>')
+      .replace(/^> (.+)$/gm, '<blockquote style="border-left: 3px solid #0f62fe; padding-left: 1rem; color: #525252; margin: 1rem 0;">$1</blockquote>')
+      .replace(/^- (.+)$/gm, '<li style="margin-left: 1.5rem;">$1</li>')
+      .replace(/\n/g, '<br/>');
+  }, [throttledMarkdown]);
 
   const handleDownload = useCallback(() => {
     if (outputPath) {
@@ -210,35 +346,44 @@ function PreviewPanel() {
       </div>
       <div className="pdf-preview">
         <div className="pdf-preview__container">
-          <div className="pdf-preview__document">
+          <div className={`pdf-preview__document${outputPath ? ' pdf-preview__document--pdf' : ''}`}>
             {isConverting ? (
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
                 justifyContent: 'center',
                 height: '300px'
               }}>
                 <Loading withOverlay={false} description="PDF oluşturuluyor..." />
               </div>
+            ) : outputPath ? (
+              <iframe
+                className="pdf-preview__iframe"
+                title="PDF Önizleme"
+                src={outputPath}
+              />
+            ) : !markdownContent ? (
+              <div className="pdf-preview__empty">
+                <h4>Preview hazir degil</h4>
+                <p>Markdown ekleyerek veya dokuman yukleyerek preview olusturabilirsiniz.</p>
+              </div>
             ) : (
               <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'IBM Plex Sans' }}>
-                <div dangerouslySetInnerHTML={{ 
-                  __html: markdownContent
-                    .replace(/^---[\s\S]*?---/m, '')
-                    .replace(/^# (.+)$/gm, '<h1 style="font-size: 2.5rem; font-weight: 300; margin-bottom: 1rem;">$1</h1>')
-                    .replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 1rem;">$1</h2>')
-                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/`([^`]+)`/g, '<code style="background: #f4f4f4; padding: 0.125rem 0.25rem; font-family: IBM Plex Mono;">$1</code>')
-                    .replace(/^> (.+)$/gm, '<blockquote style="border-left: 3px solid #0f62fe; padding-left: 1rem; color: #525252; margin: 1rem 0;">$1</blockquote>')
-                    .replace(/^- (.+)$/gm, '<li style="margin-left: 1.5rem;">$1</li>')
-                    .replace(/\n/g, '<br/>')
-                }} />
+                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
               </div>
             )}
           </div>
         </div>
       </div>
       <div className="preview-panel__actions">
+        {downloadError && (
+          <InlineNotification
+            kind="error"
+            title="PDF indirilemedi"
+            subtitle={downloadError}
+            onCloseButtonClick={() => setDownloadError(null)}
+          />
+        )}
         <Button
           kind="primary"
           renderIcon={Play}
@@ -387,8 +532,15 @@ function AppContent() {
         return (
           <div className="editor-preview-layout">
             <SettingsSidebar />
-            <EditorPanel />
-            <PreviewPanel />
+            <div className="editor-preview-body">
+              <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yukleniyor..." />}>
+                <TemplateGallery />
+              </Suspense>
+              <div className="editor-preview-panels">
+                <EditorPanel />
+                <PreviewPanel />
+              </div>
+            </div>
           </div>
         );
       
@@ -419,7 +571,7 @@ function AppContent() {
               <Home size={16} style={{ marginRight: '0.5rem' }} />
               Ana Sayfa
             </HeaderMenuItem>
-            <HeaderMenuItem href="#">Şablonlar</HeaderMenuItem>
+            <HeaderMenuItem href="#templates">Şablonlar</HeaderMenuItem>
             <HeaderMenuItem href="#">Dokümanlarım</HeaderMenuItem>
           </HeaderNavigation>
 

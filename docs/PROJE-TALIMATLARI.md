@@ -37,6 +37,7 @@ ve AI art director modulu.
 - Logging: request_id + job_id zorunlu.
 - Print token pack + pattern library: PDF icin zorunlu tasarim standardi.
 - PDF kalite zinciri: statik PDF lint + Gemini QA (self-healing).
+- CarbonPress uyumu: Press Pack (template + tokens + patterns + QA rules + sample content) ve preflight gate zorunlu.
 
 ## Doküman Haritası ve Sorumluluklar
 - `docs/SPRINT-0-DELIVERABLES.md`: Sprint 0 kararları, API contract ve job state kaydı.
@@ -78,6 +79,7 @@ Bu bölüm Carbonac için tek gerçek kaynaktır. PDF ve web arayüzüne dair t�
 - Mini-TOC footer: istege bagli persistent bolum navigasyonu.
 - Data-viz sayfa standardi: caption + source + sample size + key insight.
 - PDF erisilebilirlik preflight: heading hiyerarsisi, okuma sirasi, bookmark, link ve kontrast kontrolu.
+- Output manifest: PDF metadata icinde template/version/tokens hash ve preflight sonucu tutulur.
 
 ### Tipografi
 **IBM Plex aileleri:** Sans (body), Serif (başlık), Mono (kod), Sans Condensed (dar alanlar).
@@ -304,6 +306,16 @@ font-size: clamp(0.875rem, 0.6vw + 0.75rem, 1rem);
 - Dokümantasyon güncellenmiş olmalı.
 - PDF lint checklist'i (overflow, widows/orphans, min font) calistirilmis olmali.
 - PDF erisilebilirlik checklist'i (heading/order/bookmark/link) kontrol edilmeli.
+
+## Guncel Durum Profili (Snapshot)
+- Core pipeline, Paged.js ve Gemini art director akisi dogrulandi.
+- Template registry + preview pipeline aktif; Press Pack manifest katmani bekliyor.
+- Preview/QA ve lint altyapisi calisiyor; editor wizard ve autosave eksik.
+
+## Sonraki Adimlar (Odak)
+- Press Pack manifest + editorial states + preflight gate'i release pipeline'a bagla.
+- Frontmatter wizard ile content schema standardizasyonu.
+- Template governance ve publish onay akisi.
 
 ## Referanslar
 - Ayrıntılı, uzun vadeli teknik yol haritası: `docs/YOL-HARITASI-REFERANS.md`.

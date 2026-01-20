@@ -44,7 +44,8 @@
     "pagedjs": "^0.4.3",
     "puppeteer": "^22.15.0",
     "puppeteer-core": "^22.15.0",
-    "yaml": "^2.3.4"
+    "yaml": "^2.3.4",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "prettier": "^3.2.4"

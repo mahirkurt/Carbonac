@@ -401,7 +401,32 @@ IS-PLANI KPI'ları performans/başarı odaklı; tasarım kalitesi için metrik y
 
 Golden file + regression zaten planlı; skorlar bunu nicelleştirir.
 
-### 6.10 Akademik/Sağlık Raporu Üretimi İçin Research Template
+### 6.10 CarbonPress Yaklaşımı: "Press Pack" ve İçerik Modeli
+
+CarbonPress sistemindeki fikirleri (modüler içerik, paketlenmiş şablon, preflight ve yayın akışı) Carbonac mimarisine şu şekilde entegre edebiliriz:
+
+- **Press Pack (paket şablon)**: `template + print tokens + pattern set + QA rules + sample content`
+  - Template registry kaydının aktif versiyonu bu paketin referansı olur.
+  - Paged.js print kuralları (break, header/footer, widows/orphans) paketin parçası olur.
+- **Content schema / frontmatter**: içerik dosyalarında `docType`, `templateKey`, `layoutProfile`, `printProfile`, `theme`, `locale`, `version` alanlarını standardize edin.
+  - Bu alanlar Art Director JSON sözleşmesi ile birebir eşleşir.
+- **Block catalog**: içerik blokları (ExecutiveSummary, KeyFindings, WhatToDo, SurveyChartPage) tek bir `blockType` sözlüğüne bağlanır.
+  - Gemini, sadece bu sözlükteki modülleri seçer; determinism artar.
+- **Release manifest**: her PDF çıktısı, kullanılan template/version/tokens/hash bilgisini metadata içine gömer.
+  - Golden file ve regression testleri için tam izlenebilirlik sağlar.
+
+### 6.11 CarbonPress Yayın Akışı: Editorial + Preflight
+
+CarbonPress'teki "yayın hattı" yaklaşımını Carbonac iş akışına uyarlayın:
+
+- **Editorial states**: `draft → review → approved → published`
+  - `template_version` ve `content_version` ayrı versiyonlanır.
+- **Preflight gate**: çıkış öncesi deterministik lint + AI QA birlikte koşar.
+  - Lint başarısızsa PDF render tamamlanmış olsa bile "publish" edilmez.
+- **Output bundling**: PDF + JSON manifest + asset list (font/brand) aynı job sonucunda saklanır.
+  - Arşivlenebilir ve yeniden üretilebilir çıktı paketi oluşur.
+
+### 6.12 Akademik/Sağlık Raporu Üretimi İçin Research Template
 
 Bu, isteğe bağlı ama kullanım alanıyla doğal örtüşür:
 
@@ -432,6 +457,10 @@ Bu öneri SoT'yi bozmaz; yalnızca yeni template/pattern seti ekler.
 
 5. **Template Registry Seed**
     - 4–5 template ailesi + örnek içerik
+
+6. **Press Pack Manifest**
+    - Template + token + pattern + QA rule versiyon bilgileri
+    - Output manifest (job result) ile birebir eşleşir
 
 ### 7.2 "Done = IBM-grade PDF" Kontrol Listesi
 
@@ -549,6 +578,235 @@ Carbon ekosistemi erişilebilirliği bileşen düzeyinde gömülü ele alır; PD
 - [ ] Yer imleri (bookmarks) ve meta veriler (başlık, yazar, konu) var mı?
 - [ ] PDF erişilebilirlik checklist'i (tagging, reading order, form fields) tamam mı? [22]
 - [ ] Reading order kontrolleri (Heading tags -> bookmarks) doğrulandı mı? [23]
+
+---
+
+## Ek G: Press Pack Manifest Schema (JSON/YAML)
+
+Press Pack, template + token + pattern + QA rule + content schema bilgisini tek bir manifestte toplar.
+
+**JSON Schema (ozet):**
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PressPackManifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "pressPack",
+    "template",
+    "tokens",
+    "blockCatalog",
+    "patterns",
+    "qaRules",
+    "contentSchema",
+    "sampleContent"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+$" },
+    "pressPack": {
+      "type": "object",
+      "required": ["id", "version", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "review", "approved", "published"] },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "hash": { "type": "string" }
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": ["key", "version", "engine", "layoutProfile", "printProfile", "theme"],
+      "properties": {
+        "key": { "type": "string" },
+        "version": { "type": "string" },
+        "templateVersionId": { "type": "string" },
+        "engine": { "type": "string", "enum": ["pagedjs"] },
+        "engineVersion": { "type": "string" },
+        "layoutProfile": { "type": "string", "enum": ["symmetric", "asymmetric", "dashboard"] },
+        "printProfile": { "type": "string" },
+        "theme": { "type": "string", "enum": ["white", "g10", "g90", "g100"] }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "tokenPack": {
+          "type": "object",
+          "required": ["id", "version"],
+          "properties": {
+            "id": { "type": "string" },
+            "version": { "type": "string" },
+            "hash": { "type": "string" },
+            "overrides": { "type": "object" }
+          }
+        },
+        "typography": { "type": "object" },
+        "spacing": { "type": "object" },
+        "color": { "type": "object" },
+        "print": { "type": "object" }
+      }
+    },
+    "blockCatalog": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["blockType"],
+        "properties": {
+          "blockType": { "type": "string" },
+          "required": { "type": "boolean" },
+          "allowedComponents": { "type": "array", "items": { "type": "string" } },
+          "constraints": { "type": "object" }
+        }
+      }
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "blockType"],
+        "properties": {
+          "id": { "type": "string" },
+          "blockType": { "type": "string" },
+          "required": { "type": "boolean" },
+          "minCount": { "type": "integer" },
+          "maxCount": { "type": "integer" },
+          "components": { "type": "array", "items": { "type": "string" } },
+          "rules": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "qaRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "severity"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "scope": { "type": "string", "enum": ["document", "page", "block"] },
+          "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+          "blocking": { "type": "boolean" },
+          "selector": { "type": "string" },
+          "action": { "type": "string" }
+        }
+      }
+    },
+    "contentSchema": {
+      "type": "object",
+      "required": ["schemaRef", "requiredFields"],
+      "properties": {
+        "schemaRef": { "type": "string" },
+        "requiredFields": { "type": "array", "items": { "type": "string" } },
+        "optionalFields": { "type": "array", "items": { "type": "string" } },
+        "aliases": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "sampleContent": {
+      "type": "object",
+      "required": ["frontmatter", "body"],
+      "properties": {
+        "frontmatter": { "type": "object" },
+        "body": { "type": "string" },
+        "assets": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
+```
+
+**YAML ornek:**
+
+```yaml
+schemaVersion: v1.0
+pressPack:
+  id: presspack-carbon-report
+  name: "Carbon Report Pack"
+  version: "1.2.0"
+  status: approved
+  tags: [report, ibm]
+metadata:
+  createdAt: "2025-02-01T10:00:00Z"
+  updatedAt: "2025-02-10T12:30:00Z"
+  hash: "sha256:38f5b2d..."
+template:
+  key: carbon-report
+  version: "1.2.0"
+  templateVersionId: tmpl_ver_123
+  engine: pagedjs
+  engineVersion: "0.4.x"
+  layoutProfile: symmetric
+  printProfile: pagedjs-a4
+  theme: white
+tokens:
+  tokenPack:
+    id: carbon-print-pack
+    version: "0.3.0"
+    hash: "sha256:9c1aa0c..."
+  typography:
+    body: body-01
+    heading: heading-04
+  spacing:
+    base: 8
+  color:
+    accent: blue-60
+  print:
+    margin: 20mm
+    bleed: 3mm
+blockCatalog:
+  - blockType: ExecutiveSummary
+    required: true
+    allowedComponents: [Heading, Paragraph, List]
+patterns:
+  - id: executive-summary
+    blockType: ExecutiveSummary
+    minCount: 1
+    maxCount: 1
+    required: true
+    components: [Heading, Paragraph, List]
+    rules: [summary-first]
+qaRules:
+  - id: no-widow
+    type: widow
+    scope: block
+    severity: high
+    blocking: true
+    action: avoid-break
+contentSchema:
+  schemaRef: presspack://schemas/content/v1
+  requiredFields: [docType, templateKey, layoutProfile, printProfile, theme, locale, version]
+  optionalFields: [author, date, tone, documentType]
+  aliases:
+    documentType: docType
+sampleContent:
+  frontmatter:
+    title: "Quarterly Report"
+    docType: report
+    documentType: report
+    templateKey: carbon-report
+    layoutProfile: symmetric
+    printProfile: pagedjs-a4
+    theme: white
+    locale: tr-TR
+    version: "1.0"
+  body: |
+    # Executive Summary
+    Kisa ozet metni burada yer alir.
+```
 
 ---
 

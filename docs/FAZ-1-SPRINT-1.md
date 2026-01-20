@@ -260,3 +260,14 @@ Minimum test senaryolari:
 - /api/convert/to-pdf -> job queue -> status update
 - Invalid payload -> error format dogru
 - Template id ile conversion farki
+
+## 11. CarbonPress Uyum Notu
+- Job payload ve settings alani, ileride Press Pack manifest (template/version/tokens) bilgisini tasiyacak sekilde tasarlandi.
+- layoutProfile/printProfile alanlari sonraki sprintlerde Press Pack icerigi ile hizalanacak.
+
+## 12. Guncel Durum Profili
+- Sprint 1 backlog'u tamamlandi; core job pipeline ve loglama stabil.
+
+## 13. Sonraki Adimlar
+- Sprint 2: Paged.js print CSS + Gemini art director + signed URL akisi.
+- Press Pack manifest semasi icin API payload alanlari korunacak.
