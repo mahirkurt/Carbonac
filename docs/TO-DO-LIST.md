@@ -1,531 +1,233 @@
-# Kod AI Agent To‑Do List
+# Carbonac Master TO-DO (Merged)
 
-Aşağıdaki liste, bu diyalog boyunca önerilen **tüm işleri**; Carbonac'ın SoT/planı ile (öncelik sırası korunarak) ve CarbonPress dokümanındaki "daha deterministik/pipeline" yaklaşımlarının entegre edilebilir kısımlarıyla birleştirilmiş şekilde, **uygulanabilir** bir to‑do olarak döker.
+Bu dokuman, `docs/nihai-todo-list.md` ve `docs/TO-DO-LIST.md` iceriklerini tek bir master plan olarak birlestirir.
+Amac: kalan isleri **fazlara bolup**, bir AI agent icin **uygulanabilir adimlar** halinde tanimlamaktir.
 
-> Not: Aşağıdaki maddelerde `[P0/P1/P2/P3]` öncelik; `Sprint/Faz` eşlemesi ise IS‑PLANI fazlarını temel alır.
-
----
-
-## 0) Repo keşfi, hizalama ve "SoT enforcement" (Sprint 0)
-
-- [x] **Repo haritası çıkar (connector ile)**
-  - [x] Monorepo mu, tek repo mu? (apps/packages/… yapısı)
-  - [x] Mevcut akış: upload → render → export → storage
-  - [x] UI route haritası (Documents/Editor/Preview/Templates/Jobs)
-  - [x] Worker render pipeline dosyaları nerede? (Paged.js + headless)
-  - [x] Build/test/CI durumları
-- [x] **SoT kuralını CI seviyesinde enforce et**
-  - [x] PR template: "SoT'ye aykırı değişiklik var mı?" checkbox
-  - [x] CI job: docs hash / rule check (SoT güncellendiyse ilgili plan/sprint dokümanları da güncellendi mi?)
-- [x] **Sürüm/paket hijyeni denetimi**
-  - [x] Carbon v11 kullanımı doğrula (yanlış paket karışımı varsa düzelt)
-  - [x] `@carbon/react` / `@carbon/styles` tek sürüm stratejisi
-- [x] **Çakışma yönetimi**
-  - [x] CarbonPress'ten alınacaklar listesi: AST pipeline, directives, typography, QA, postprocess
-  - [x] Alınmayacaklar: React "tek kaynak görünüm" ilkesini bozan ikinci template motoru (Nunjucks gibi)
-
-Kaynak: SoT öncelik sırası + mimari kararlar.
-Kaynak: CarbonPress pipeline referansı.
+Kaynaklar (SoT oncelik sirasi):
+1) `docs/PROJE-TALIMATLARI.md`
+2) `docs/SPRINT-0-DELIVERABLES.md`
+3) `docs/IS-PLANI.md`
+4) Sprint dokumanlari (FAZ-*-SPRINT-*.md)
+5) `docs/PROJE-DURUMU.md`
 
 ---
 
-## 1) Kontratlar, şemalar ve veri modeli (Sprint 0 → Sprint 1)
-
-### 1.1 TypeScript kontratlarını "single source of truth" yap
-
-- [x] **Unified error payload** tipi + middleware
-  - [x] `{ code, message, details, request_id }` standardı
-  - [x] Her request'e `request_id` üretimi ve log'a yazımı
-- [x] **Job state machine** kontratı
-  - [x] `queued → processing → completed/failed/cancelled`
-  - [x] Retry: max 3 + exponential backoff
-- [x] **Job events** kontratı
-  - [x] stage/progress (%), log lines, timestamps, error snapshot
-- [x] **Frontmatter schema** (wizard + pipeline ortak kullanacak)
-  - [x] title/date/version/status/language
-  - [x] carbon theme (white/g10/g90/g100)
-  - [x] page size/margins/header/footer/toc/features (hyphenation, smart quotes vb)
-- [x] **AI LayoutInstruction Schema**
-  - [x] Önerilen iki aşama: `DocumentPlan` + `LayoutPlan`
-  - [x] `styleOverrides` whitelist (AI'ın tasarım sistemi dışına çıkmasını engelle)
-  - [x] Layout JSON schema validation (zod/ajv)
-- [x] **Directive DSL schema** (custom directives)
-  - [x] callout / data-table / chart / code-group / figure / quote / timeline / accordion / marginnote
-
-Kaynak: Job modeli, error formatı, sprint hedefleri.
-Kaynak: CarbonPress frontmatter + directive örnekleri.
-
-### 1.2 Supabase veri modeli ve migration'lar
-
-- [x] `jobs`, `job_events` tabloları (zorunlu)
-- [x] `documents`, `document_versions`
-- [x] `templates`, `template_versions`
-- [x] `assets` (uploads), `outputs`
-- [x] `usage_events`, `billing_limits` (Faz 4'e hazırlık)
-- [x] RLS politikaları (tenant/user isolation)
-- [x] Storage bucket path standardı: `user_id/document_id/job_id/...`
-
-Kaynak: hedef veri modeli ve storage standardı.
+## Legend
+- [x] tamamlandi
+- [ ] yapilacak
+- [~] bloke / karar bekliyor
 
 ---
 
-## 2) Core pipeline: API + Queue + Worker (Faz 1 / Sprint 1–2)
-
-### 2.1 API (Express) – minimum uçtan uca akış
-
-- [x] `POST /api/convert/to-pdf`
-  - [x] auth: Supabase JWT (`Authorization: Bearer`)
-  - [x] ingestion: md + assets + metadata validate
-  - [x] job create + enqueue
-  - [x] response: `job_id`, `request_id`
-- [x] `GET /api/jobs/:job_id`
-  - [x] job + latest events + output url (varsa)
-- [x] `GET /api/jobs/:job_id/download`
-  - [x] signed URL redirect + refresh
-  - [x] expired signed URL fallback
-- [x] `GET /api/jobs?filters=...`
-  - [x] pagination + status filtreleri
-- [x] Server-side AI proxy endpoint'leri
-  - [x] `POST /api/ai/analyze`
-  - [x] `POST /api/ai/ask`
-  - [x] rate limit + audit log + prompt versioning
-  - [x] PII redaction (gerekli ise)
-
-Kaynak: SoT API/AI kararları ve IS‑PLANI epikleri.
-
-### 2.2 Queue/Worker (BullMQ + Redis)
-
-- [x] Kuyrukları tanımla
-  - [x] `jobs:convert-md` (opsiyonel)
-  - [x] `jobs:convert-pdf` (ana)
-- [x] Worker süreçleri (ayrı process)
-  - [x] concurrency limit
-  - [x] retry/backoff uygulaması
-  - [x] job progress event'leri (UI timeline için)
-- [x] "job stage" standardı
-  - [x] ingest → parse → plan → render-html → paginate → export-pdf → postprocess → upload → complete
-- [x] İşlem sırasında "artifact" dosyalarını temp klasörde düzenle
-  - [x] render HTML snapshot
-  - [x] paged HTML snapshot
-  - [x] screenshots (QA için)
-
-Kaynak: IS‑PLANI queue/worker hedefleri.
+## AI Agent Calisma Kurallari (Kisa)
+- SoT ile celiskide **SoT kazanir**. Celiski varsa ilgili dokumani guncelle.
+- Her task icin: girdi/varsayimlari yaz, uygulama adimlarini netlestir, cikti dosyalarini listele.
+- Degisiklikten sonra uygun test/verify adimini calistir ve sonucu kaydet.
+- Gereksiz scope genisletme yok; sadece ilgili taski kapat.
+- Gizli bilgileri loglarda veya dokumanlarda acik etme.
 
 ---
 
-## 3) Parser/AST katmanı (CarbonPress'ten alınacak en değerli parça) (Sprint 1–3)
-
-### 3.1 unified/remark/rehype tabanlı parse & transform
-
-- [x] Markdown parse
-  - [x] `remark-parse`, `remark-frontmatter`, `remark-gfm`
-- [x] Frontmatter'ı normalize et (wizard ile aynı schema)
-- [x] Plugin chain kurgula (deterministik sıra)
-  - [x] slug/id üretimi (heading ids)
-  - [x] TOC üretimi (toc.enabled ise)
-  - [x] typography transforms (opt-in)
-
-Kaynak: CarbonPress plugin chain yaklaşımı.
-Kaynak: Carbonac "Parser: AST parse, content classification" hedefi.
-
-### 3.2 Directive DSL (explicit components)
-
-- [x] `remark-directive` ile `:::callout`, `:::data-table`, `:::chart`, `:::code-group`, `:::figure`, `:::quote`, `:::timeline`, `:::accordion`, `:marginnote[]` parse et
-- [x] Directive → **Component AST** mapping sözlüğü
-  - [x] whitelist props (security + design consistency)
-  - [x] print‑friendly defaults (close button yok, hover yok)
-- [x] Editor'da "Insert component" paleti
-  - [x] snippet insertion + schema validation
-  - [x] preview'de render doğrulama
-
-Kaynak: CarbonPress directive söz dizimi ve mapping.
-
-### 3.3 "Component AST" standardı
-
-- [x] Ara format: `ComponentNode[]` (RichText, CarbonChart, DataTable, Callout, Figure…)
-- [x] Her node: `id`, `type`, `props`, `sourceMap` (md line/column)
-- [x] Lint/QA: sourceMap sayesinde "jump-to-source"
+## Faz Haritasi (Ozet)
+- **Faz 0 (Sprint 0)**: Repo hizalama, SoT enforcement, schema/kontrat, veri modeli, temel API/worker.
+- **Faz 1 (Sprint 1-2)**: Parser/AST, directive DSL, renderer mapping, print CSS, PDF export.
+- **Faz 2 (Sprint 3-6)**: AI art-director, QA harness, UI/UX, template/press-pack, pattern library.
+- **Faz 3 (Sprint 7-8+)**: Observability, DevOps/CI, referans kutuphane, CLI, DoD enforcement.
 
 ---
 
-## 4) Render katmanı: React + Carbon "tek kaynak görünüm" (Sprint 2–4)
+# FAZ 0 - Temel Altyapi (Tamamlandi)
 
-### 4.1 React renderer
+## 0.1 Repo kesfi + SoT enforcement + paket hijyeni
+- [x] Repo haritasi (apps/packages/pipeline/routes/worker/build/test/CI)
+- [x] PR template SoT checklist
+- [x] CI SoT kontrolu (doc hash/uyum)
+- [x] Carbon v11 paket karisimi temizligi
+- [x] CarbonPress alinacak/alinmayacaklar listesi
 
-- [ ] Component AST → React component tree
-- [ ] Theme wrapper (white/g10/g90/g100)
-- [ ] Grid/Column mapping (Carbon grid)
-- [ ] Print-only/screen-only içerik kontrolü (conditional blocks)
+Ciktilar:
+- `docs/REPO-HARITASI.md`
+- `.github/pull_request_template.md`
+- `scripts/check-sot.js` + `.github/workflows/ci.yml`
 
-Kaynak: "rendering motoru React + Carbon Components (tek kaynak)" kararı.
+## 0.2 Kontratlar + Schema
+- [x] Unified error payload
+- [x] Job state machine + job events
+- [x] Frontmatter schema (wizard + pipeline)
+- [x] LayoutInstruction schema + validation
+- [x] Directive DSL schema
 
-### 4.2 Paged.js pagination + print.css (SoT zorunlu)
+Ciktilar:
+- `docs/SCHEMA-KONTRATLARI.md`
+- `docs/schemas/*.schema.json`
+- `docs/DIRECTIVE-DSL.md`
 
-- [x] `print.css` temelini oluştur (SoT kuralları)
-  - [x] A4 varsayılan
-  - [x] margin 20mm, bleed 3mm, crop/cross marks
-  - [x] left/right page cilt payı
-  - [x] running header/footer string‑set (doc title / chapter title)
-  - [x] page numbers `X/Y`
-  - [x] link URL'lerini yazdır
-  - [x] interaktif elementleri gizle
-  - [x] break rules: `avoid-break`, `force-break` sınıfları
-  - [x] CMYK safe renk kısıtları
-  - [x] font embedding zorunlu; body 10pt, heading 14pt
-- [x] Preview pipeline
-  - [x] Paged.js preview UI (web) = export pipeline ile aynı CSS/asset seti
-  - [x] WYSIWYG farkını minimize et
-
-Kaynak: PDF export kuralları ve Paged.js zorunluluğu.
-
----
-
-## 5) Headless export + PDF post-process (Sprint 2–4)
-
-### 5.1 Headless Chromium ile "print to PDF"
-
-- [x] Headless engine seçimi (Puppeteer veya Playwright)
-- [x] Print ayarları
-  - [x] `preferCSSPageSize: true`
-  - [x] `printBackground: true`
-  - [x] timeout/launch args (no-sandbox vs)
-- [x] Worker container içinde Chromium + font erişimi
-- [x] Export çıktısı: PDF buffer → postprocess → storage upload
-
-Kaynak: Carbonac "PDF Engine: headless render + print optimizer" hedefi.
-Kaynak: CarbonPress Puppeteer render konfigurasyonu.
-
-### 5.2 pdf-lib ile post-processing
-
-- [x] PDF metadata set et (title/author/subject/keywords/producer)
-- [x] Draft watermark (status=draft ise)
-- [x] Compress/optimize opsiyonu
-- [x] (Opsiyonel) PDF/A moduna hazırlık bayrakları
-
-Kaynak: CarbonPress postprocess önerisi.
+## 0.3 Veri modeli + RLS
+- [x] Supabase migrations (jobs, documents, templates, assets, outputs, usage)
+- [x] RLS policy dogrulama
+- [x] Storage path standardi
 
 ---
 
-## 6) AI katmanı: Art Director + Storytelling + Logic-based CSS (Sprint 2–5)
+# FAZ 1 - Core Pipeline + Render (Tamamlandi)
 
-### 6.1 Server-side Gemini entegrasyonu (proxy)
+## 1.1 API + Queue + Worker
+- [x] /api/convert/to-pdf ve job polling/download
+- [x] AI proxy endpointleri + rate limit + audit log
+- [x] Worker stage standardi + artifact snapshots
 
-- [x] API key izolasyonu (server only)
-- [ ] rate limit + audit logging
-- [x] prompt set versioning + rollback
+## 1.2 Parser/AST + Directive DSL
+- [x] unified/remark/rehype chain
+- [x] directive -> Component AST mapping
+- [x] editor insert palette + schema validation
 
-Kaynak: SoT AI provider ve proxy yaklaşımı.
-
-### 6.2 Art director çıktısı (deterministik kontrat)
-
-- [x] `DocumentPlan` üret
-  - [x] bölüm hiyerarşisi
-  - [x] zorunlu modüller (Exec summary, Key findings, What to do…)
-- [x] `LayoutPlan` üret
-  - [x] gridSystem + colSpan/offset
-  - [x] page-break directives
-- [x] Fallback: AI başarısızsa template-default layout
-
-Kaynak: uzun vadeli art director yaklaşımı.
-
-### 6.3 Data storytelling modülleri
-
-- [x] Her chart için: "Insight" + "Implication" üretimi
-- [x] Executive summary üretimi
-- [ ] Kaynak/örneklem notlarını ekleme (survey reports için)
+## 1.3 Renderer + Print CSS + PDF Export
+- [x] Component AST standardi + React mapping
+- [x] Paged.js print CSS (A4/bleed/headers/links/CMYK/font)
+- [x] Headless export + pdf postprocess
 
 ---
 
-## 7) Tipografik mükemmellik (CarbonPress'ten alınacak; print kalitesini yükseltir) (Sprint 3–6)
+# FAZ 2 - Urunlesme + Kalite (Cogu Tamamlandi)
 
-- [x] IBM Plex font setini projeye entegre et (sans/serif/mono) + embedding doğrulaması
-- [x] OpenType features (kern, liga, calt, tnum/lnum) print CSS'e ekle
-- [x] Hyphenation (TR dahil) stratejisi
-  - [x] CSS `hyphens: auto`
-  - [x] Gerekirse polyfill/engine (opt-in)
-  - [x] exception list yönetimi
-- [x] Microtypography (smart quotes/dashes/ellipses)
-  - [x] Dil aware dönüşüm
-  - [x] Akademik/Regulatory metinde "opt-in" (quote/doğruluk riski)
+## 2.1 AI Art-Director (iki asama)
+- [x] DocumentPlan + LayoutPlan
+- [x] Fallback layout
+- [x] Prompt versioning + rollback hooks
+- [x] Data storytelling (insight + executive summary)
+- [ ] **Eksik:** Survey report kaynak/ornemlem notlari
 
-Kaynak: CarbonPress typography hedefleri ve config.
-Kaynak: SoT tipografi kuralları.
+## 2.2 QA Harness + Visual Regression
+- [x] Markdown lint + a11y + typography scoring
+- [x] Visual regression (baseline + diff)
+- [x] QA raporlama + applied fixes
 
----
-
-## 8) Data viz ve tablo sayfaları (Sprint 3–6)
-
-### 8.1 Chart engine seçimi ve print‑ready çıktı
-
-- [x] Varsayılan grafik standardı: **SVG tabanlı** üretim (printte vektör kalite)
-- [x] "SurveyChartPage" şablonu (soru etiketi + sample size + büyük metrik + notlar)
-- [x] Chart caption + source + methodology alanı
-- [x] Color/pattern kombinasyonu (erişilebilirlik, grayscale)
-
-### 8.2 Tablo kırılım stratejisi
-
-- [x] `page-break-inside: avoid` (baseline)
-- [x] akıllı split algoritması (multi-page)
-- [x] sticky header (printte sayfa tekrarı gerekiyorsa)
-- [x] satır yüksekliği ve zebra kuralları (token bazlı)
-
-Kaynak: SoT Carbon Charts ve data viz ilkeleri.
-Kaynak: CarbonPress chart/table directive'leri.
-
----
-
-## 9) QA otomasyonu + visual self-healing (Sprint 3–6)
-
-### 9.1 Deterministik "lint & QA gate" (AI'dan önce)
-
-- [x] Markdown lint
-  - [x] heading hierarchy, empty heading, uzun paragraf
-- [x] HTML accessibility audit (axe-core)
-  - [x] wcag2a/wcag2aa/wcag21aa tag'leri
-- [x] Typography scoring
-  - [x] line length, line height, orphans/widows, hyphenation density
-- [x] Visual regression
-  - [x] sayfa screenshot'ları + diff threshold
-  - [x] golden baselines
-- [x] QA harness baseline calistir + raporu arsivle (visual regresyon kaydi)
-
-Kaynak: IS‑PLANI QA hedefleri + golden file.
-Kaynak: CarbonPress QA katmanı.
-
-### 9.2 Visual self-healing döngüsü (kural tabanlı + AI hibrit)
-
-- [x] Render draft → screenshot al
-- [x] Kural tabanlı tespit:
-  - [x] overflow/clip
-  - [x] widows/orphans
-  - [x] tablo split hatası
-  - [x] min font-size ihlali
-- [x] Auto-fix (whitelist)
-  - [x] break-before/avoid-break ekleme
-  - [ ] tabloyu sayfa başına taşıma
-  - [ ] görsel ölçekleme sınırları
-- [x] AI QA (Gemini multimodal) ile "son kontrol"
-- [x] Max iterasyon sayısı + her iterasyonda diff log
-- [ ] UI'da "Applied fixes" raporu
-
-Kaynak: Yol haritasındaki self-healing yaklaşımı.
-Kaynak: IS‑PLANI Sprint 3 self-healing.
-
----
-
-## 10) Template Registry + Token Mapping + Theme Packs (Faz 3 / Sprint 5–6)
-
-### 10.1 Template CRUD + versioning + rollback
-
-- [x] Supabase `templates` + `template_versions`
-- [x] UI: template oluştur/düzenle/sürümle/rollback
-- [x] Render pipeline: doküman her zaman "template_id + version" ile üretilir
-- [x] Template preview pipeline (thumbnail job + bucket)
-
-Kaynak: IS‑PLANI Sprint 5.
-
-### 10.2 Print Token Pack
-
-- [x] `tokens/core` (Carbon)
-- [x] `tokens/print` (pt/leading/safe-area/baseline/captions)
-- [x] `templates/<id>/overrides`
-- [x] Token dışı stil kullanımını lint ile engelle (hard-coded hex/px)
-
-Kaynak: IS‑PLANI token mapping ve tema paketleri.
-Kaynak: SoT token/theming kuralları.
-
-### 10.3 Tema paketleri
-
-- [x] white, g10, g90, g100 (CSS custom properties)
-- [x] Preview'de tema toggle + export'ta aynı tema
-
-Kaynak: SoT theming.
-
-### 10.4 Press Pack + Release Pipeline (Sprint 6)
-
-- [x] Press Pack manifest schema (JSON/YAML) + validation
-- [x] Block catalog + content schema mapping (frontmatter alanlari)
+## 2.3 Templates + Press Pack + Release
+- [x] Template registry + versions + rollback
+- [x] Press Pack manifest schema + validation
+- [x] Preflight gate (lint + QA + schema)
 - [x] Release metadata + output manifest
-- [x] Editorial/publish API kontrati
-- [x] Preflight gate (lint + QA + schema validation)
-- [x] Template governance (approval/rollback + reviewer role)
+- [x] Template governance (approval + reviewer role)
+
+## 2.4 UI/UX
+- [x] UI shell + Documents/Jobs/Quality panelleri
+- [x] Wizard progress + inline validation
+- [x] Editor outline + insert palette + jump-to-issue
+
+## 2.5 Pattern Library
+- [x] Pattern katalogu + schema
+- [x] Print CSS + A11y + snapshot baseline
 
 ---
 
-## 11) Pattern Library (Carbon‑stili PDF modülleri) (Sprint 4–6)
+# FAZ 3 - Operasyon, CI/CD ve Governance (KALAN ISLER)
 
-> Amaç: IBM/Carbon raporlarındaki tekrar eden "modül" kalitesini template sistemine taşımak.
+Aşağıdaki tüm maddeler **kalan islerdir**. Her madde, bir AI agent icin uygulama runbook'u seklinde tarif edilmiştir.
 
-- [x] `CoverPageHero`
-- [x] `ExecutiveSummary`
-- [x] `KeyFindingsList`
-- [x] `WhatToDo / ActionBox`
-- [x] `HeroStatWithQuote`
-- [x] `ChapterOpener / PartOpener`
-- [x] `CaseStudyModule`
-- [x] `SurveyChartPage`
-- [x] `PersistentSectionNavFooter` (mini‑TOC footer + page X/Y)
-- [x] `FigureWithCaptionAndSource`
-- [x] `AppendixPage` (references, footnotes)
+## 3.1 AI Art-Director - Survey kaynak notlari
+- [x] **Hedef:** Survey report kaynaklari ve ornekleme notlarini standartlastir.
+- Girdiler: `src/ai/art-director.js`, `docs/CHART-TABLE-STANDARDS.md`, mevcut promptlar.
+- Adimlar:
+  1) Survey tabanli raporlar icin kaynak/metodoloji bolumu alanlarini tanimla.
+  2) LayoutInstruction schema icinde `methodologyNotes` + `sources` alanlarini ekle (geriye uyumlu).
+  3) Prompta "source/methodology" ciktisi kuralini ekle.
+  4) Render tarafinda bu alanlari dipnot/caption olarak yazdir.
+- Ciktilar: schema guncellemesi + prompt guncellemesi + ornek JSON.
+- Kabul Kriteri: survey raporunda kaynak/metodoloji bolumu print/PDF ciktiya giriyor.
 
-Her modül için:
+## 3.2 DevOps / CI (Faz 3 Oncelik)
 
-- [x] Props sözleşmesi (type-safe)
-- [x] Print CSS davranışı (break rules)
-- [x] A11y (HTML tarafı)
-- [x] Snapshot test / visual regression baseline
+### 3.2.1 docker-compose profilleri (api/worker)
+- [x] **Hedef:** api ve worker servislerini profile ile ayr.
+- Girdiler: `docker-compose.raspberry.yml`, `Dockerfile.api`, `Dockerfile.worker`.
+- Adimlar:
+  1) `profiles: [api]` ve `profiles: [worker]` ekle.
+  2) README/Runbook guncelle: profile ile calistirma komutlari.
+- Ciktilar: compose profilleri + dokumantasyon.
+- Kabul Kriteri: `docker compose --profile api up -d` ve `--profile worker` ayri calisiyor.
 
-Kaynak: SoT UI/UX + PDF standardizasyonu.
-Kaynak: Roadmap'te "component factory + AI layout" yaklaşımı.
+### 3.2.2 VITE_API_URL env yonetimi
+- [x] **Hedef:** FE build ve runtime icin tekil API URL standardi.
+- Girdiler: `frontend/.env`, `frontend/.env.example`, `docs/USAGE.md`.
+- Adimlar:
+  1) `VITE_API_URL` tek kaynak yap, fallbackleri kaldir.
+  2) FE tarafinda base URL kullanimini standardize et.
+- Ciktilar: guncel env dosyalari + dokumantasyon.
+- Kabul Kriteri: FE her ortamda dogru API'ye baglaniyor.
 
----
+### 3.2.3 CI QA (axe/typography/visual regression)
+- [x] **Hedef:** QA harness'i CI pipeline'a bagla.
+- Girdiler: `scripts/tests/qa-harness.js`, `.github/workflows/ci.yml`.
+- Adimlar:
+  1) `RUN_QA=true` kosuluyla QA step ekle.
+  2) Baseline yoksa jobi skip edecek guard ekle.
+  3) QA raporlarini artifact olarak yukle.
+- Ciktilar: CI QA step + baseline guard + artifact upload.
+- Kabul Kriteri: CI loglarinda QA raporu gorunuyor.
 
-## 12) Web UI/UX işleri (Faz 2–3 / Sprint 3–6)
+### 3.2.4 Artifact upload (PDF/PNG)
+- [x] **Hedef:** CI sonucunda PDF/PNG artefactlarini sakla.
+- Adimlar:
+  1) QA smoke test ciktilarini `output/` altinda topla.
+  2) `actions/upload-artifact` ile yukle.
+- Kabul Kriteri: CI run'larinda indirilebilir artifact mevcut (`qa-artifacts`).
 
-### 12.1 IA ve temel sayfalar
+### 3.2.5 Version stamping
+- [ ] **Hedef:** Cikti PDF metadata'sina commit/date/version yaz.
+- Girdiler: `src/utils/pdf-postprocess.js`, CI env (GITHUB_SHA).
+- Adimlar:
+  1) Build sirasinda `BUILD_SHA`, `BUILD_DATE` env set et.
+  2) PDF metadata/manifest'e yaz.
+- Kabul Kriteri: PDF metadata'da commit ve tarih var.
 
-- [ ] UI Shell (Header + SideNav)
-- [ ] Documents list
-  - [ ] DataTable + pagination + search/filter + empty state
-- [ ] Document detail
-  - [x] Editor + Preview (split veya content switcher)
-  - [x] Lint panel (non-blocking)
-  - [ ] Quality panel (QA sonuçları + applied fixes)
-- [x] Templates gallery
-  - [x] kartlar + filtreler + preview thumbnail
-- [ ] Jobs & Activity
-  - [ ] job timeline + logs + retry/cancel
+### 3.2.6 RUN_QA / RUN_SMOKE otomasyon
+- [ ] **Hedef:** CI ve lokalda tek komutla smoke/QA.
+- Adimlar:
+  1) `npm run qa` ve `npm run smoke` scriptlerini netlestir.
+  2) `RUN_QA` / `RUN_SMOKE` env bayraklari ile kosullu calistir.
+- Kabul Kriteri: pipeline kosullu QA/smoke calisiyor.
 
-Kaynak: SoT Web UI/UX standartları.
-Kaynak: IS‑PLANI Sprint 3–6 epikleri.
+### 3.2.7 Pi redeploy + smoke test
+- [ ] **Hedef:** Pi ortaminda gunluk deploy + `/api/convert/to-pdf` smoke.
+- Adimlar:
+  1) `scripts/raspberry/pi_bridge.py` ile pull + compose up.
+  2) Smoke test scriptini calistir ve logu arsivle.
+- Kabul Kriteri: Pi'de yeni build calisiyor, smoke test basarili.
 
-### 12.2 Frontmatter Wizard
+## 3.3 Referans Kutuphane + Tasarim Yonerghesi
+- [ ] **Hedef:** Referans PDF kutuphanesi ve tasarim standardi.
+- Girdiler: `docs/design/` dizini, `patterns/` katalog.
+- Adimlar:
+  1) `library/manifest.json` (URL + metadata + lisans).
+  2) PDF metadata (pattern tags) ekle.
+  3) `docs/design/Carbon_PDF_Tasarim_Yonergesi.md` olustur.
+  4) Pattern extraction notes olustur.
+- Ciktilar: `library/` manifest + tasarim yonergesi.
+- Kabul Kriteri: tasarim referanslari repo icinde kataloglu.
 
-- [ ] Progress indicator
-- [ ] Inline validation + error summary
-- [ ] Advanced options (accordion/side panel)
-- [x] Wizard çıktısı frontmatter schema ile birebir uyumlu
+## 3.4 CLI + Multi-Output + Cache
+- [ ] **Hedef:** CI/batch uretim icin CLI facade.
+- Girdiler: `src/convert-paged.js`, `package.json`.
+- Adimlar:
+  1) `carbonac build <file.md>` ve `carbonac qa <file.md>` komutlari.
+  2) Multi-output: PNG thumbnail + HTML export (EPUB opsiyonel).
+  3) Build cache (md+template+theme hash).
+  4) Parallel build (worker concurrency).
+- Ciktilar: CLI dokumani + komutlar.
+- Kabul Kriteri: CLI ile batch PDF+PNG cikti uretiliyor.
 
-Kaynak: IS‑PLANI Sprint 3 "Frontmatter wizard".
-Kaynak: CarbonPress frontmatter taslağı (alan seti).
-
-### 12.3 Editor ergonomisi
-
-- [x] autosave
-- [x] keyboard shortcuts
-- [ ] outline (H1/H2 ağacı)
-- [ ] insert component palette (directive)
-- [ ] "jump to issue" (lint/QA sourceMap)
-
-Kaynak: IS‑PLANI Sprint 3–4.
-
----
-
-## 13) Observability + Security + Compliance (Faz 4 / Sprint 7–8)
-
-- [ ] Rate limit (API + AI proxy)
-- [ ] File validation: mime/type/size
-- [ ] Secrets management (server only)
-- [ ] RLS policy doğrulaması (Supabase)
-- [ ] Metrics: latency, success rate, queue depth, p95 convert time
-- [ ] Logs: request_id, job_id, user_id (zorunlu)
-- [ ] Dashboard: temel SLO'lar
-- [ ] Billing limitleri (free/pro) + usage stats
-
-Kaynak: IS‑PLANI Security/Observability/Billing epikleri.
-
----
-
-## 14) DevOps / Runtime işleri (Docker + Raspberry runbook) (Sürekli)
-
-- [x] Docker image'lara headless Chromium + font paketleri ekle
-- [ ] `docker-compose` profilleri: api / worker
-- [x] Remote runtime: Raspberry docker context + bridge scriptleri
-- [ ] `VITE_API_URL` ortam değişkeni yönetimi
-- [ ] CI/CD:
-  - [x] unit + integration CI (GitHub Actions)
-  - [ ] build + test + QA (axe/typography/visual regression)
-  - [ ] artifact upload (PDF/PNG)
-  - [ ] version stamping (commit/date/version metadata)
-- [ ] QA harness + smoke testlerini CI rutinine bagla (RUN_QA/RUN_SMOKE)
-- [ ] Pi uzerinde API/worker yeniden deploy + `/api/convert/to-pdf` smoke test
-
-Kaynak: Raspberry runbook.
-Kaynak: CarbonPress GitHub Actions + version stamping yaklaşımı.
-
----
-
-## 15) Referans PDF kütüphanesi + tasarım yönergesi (repo artefact'ı) (Sürekli)
-
-- [ ] `library/` manifest oluştur (URL + metadata; telif/lisans uygun değilse PDF'yi indirmeden sadece linkle)
-- [ ] Her referans PDF için metadata (YAML/JSON)
-  - [ ] pattern tags (KeyFindings, ActionBox, ChartPage, FooterNav, vs)
-- [ ] `docs/design/Carbon_PDF_Tasarim_Yonergesi.md`
-  - [ ] Carbon→PDF eşleştirme (grid/spacing/type/color)
-  - [ ] print token pack kuralları
-  - [ ] preflight checklist
-- [ ] "Pattern extraction notes" dokümanı
-  - [ ] hangi PDF hangi modülü destekledi, hangi guardrail'ler çıktı
-
-Kaynak: SoT tasarım standardı + PDF kuralları.
+## 3.5 DoD Enforcement
+- [ ] **Hedef:** Her task kapanisinda dogrulama standardi.
+- Girdiler: `.github/pull_request_template.md`, `docs/PROJE-TALIMATLARI.md`.
+- Adimlar:
+  1) DoD checklist dokumani ekle (manual test + error path + doc update).
+  2) PR template'e linkle.
+  3) CI jobuna DoD kontrolu (opsiyonel) ekle.
+- Ciktilar: DoD checklist + PR template entegrasyonu.
+- Kabul Kriteri: Her PR'da DoD checklist dolduruluyor.
 
 ---
 
-## 16) Opsiyonel: CLI modu ve çoklu çıktı formatları (CarbonPress tarzı) (P2/P3)
-
-> Carbonac platformunu bozmadan, CI/CD'de batch üretim için "CLI facade" eklenebilir.
-
-- [ ] `carbonac build <file.md>` CLI (internal)
-- [ ] `carbonac qa <file.md>` CLI
-- [ ] Çoklu çıktı:
-  - [ ] PNG thumbnail (template gallery için **öncelikli**)
-  - [ ] HTML export (preview reuse)
-  - [ ] EPUB (en sonda, opsiyonel)
-- [ ] Build cache (md+template+theme hash)
-- [ ] Parallel build (worker concurrency ile uyumlu)
-
-Kaynak: CarbonPress CLI/multi-format taslağı.
-Kaynak: IS‑PLANI template preview (mini PDF/PNG) hedefi.
-
----
-
-## 17) "Definition of Done" (agent'ın her task'ı kapatırken uygulaması gereken standart)
-
-- [ ] SoT'ye aykırılık yok (çakışma varsa SoT güncellendi mi?)
-- [ ] En az 1 manuel senaryo ile test edilebilir (DoD)
-- [ ] Error path'lerde net mesaj + request_id/job_id log var
-- [ ] Unit/integration/e2e testleri güncel (golden/visual regression dahil)
-- [ ] Dokümantasyon güncellendi (özellikle kontrat/şema değiştiyse)
-
-Kaynak: Yazılım geliştirme en iyi uygulamaları.
-
----
-
-# TO-DO LIST (GÜNCEL)
-
-> Kaynak: `docs/PROJE-DURUMU.md` + repo durumu (2025-01-21)
-
-## Tamamlananlar
-
-- [x] Supabase migrations 004/005 uygulandı.
-- [x] Press Pack schema validation + release/publish akışı kodlandı.
-- [x] Preflight gate (lint + QA raporu + job_events log) entegre.
-- [x] Template governance (state + approval) API + UI.
-- [x] Editor autosave + frontmatter wizard (content schema uyumlu).
-- [x] Paged.js render/print CSS + layout/print profile injection.
-- [x] CI workflow (unit + integration) eklendi; opsiyonel QA/smoke girişi mevcut.
-
-## Yapılacaklar (Aktif)
-
-- [ ] QA harness + smoke testlerini CI rutinine bağla (RUN_QA/RUN_SMOKE otomasyon veya schedule).
-- [ ] Pi üzerinde API/worker yeniden deploy (son değişiklikleri almak için) + `/api/convert/to-pdf` smoke test.
-- [ ] QA harness'i baseline ile çalıştırıp raporu arşivle (visual regresyon kaydı).
-
-## Backlog / İzleme
-
-- [ ] QA/CI gecikmesi kaynaklı riskleri izleme ve giderme (visual regressions).
-- [ ] Content schema değişikliklerinde wizard/autosave uyumluluk kontrol listesi (regresyon kontrol).
-
-## Geçersiz / Devre Dışı
-
-- [INVALID] Typst/Quarto CLI pipeline görevleri (Paged.js hedefiyle uyumsuz, kaldırıldı).
+## Durum Ozeti (Kisa)
+- Tamamlananlar: Faz 0-2 ana kalemleri (parser/renderer/QA/UI/press-pack/observability).
+- Kalanlar: Faz 3 devops/CI + referans kutuphane + CLI + DoD enforcement + survey kaynak notlari.
