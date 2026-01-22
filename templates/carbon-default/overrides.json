@@ -1,0 +1,10 @@
+{
+  "cssVars": {
+    "--report-max-width": "900px"
+  },
+  "themes": {
+    "white": {
+      "--cds-accent": "#0043ce"
+    }
+  }
+}

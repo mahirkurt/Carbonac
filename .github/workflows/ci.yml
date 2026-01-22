@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_qa:
+        description: "Run QA harness (Chromium required)"
+        required: false
+        default: "false"
+      run_smoke:
+        description: "Run API smoke test (requires API_BASE_URL + API_AUTH_TOKEN)"
+        required: false
+        default: "false"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      RUN_QA: ${{ github.event.inputs.run_qa || 'false' }}
+      RUN_SMOKE: ${{ github.event.inputs.run_smoke || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: SoT consistency check
+        run: node scripts/check-sot.js
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit + integration tests
+        run: npm test
+
+      - name: Install Chromium (QA)
+        if: ${{ env.RUN_QA == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium
+
+      - name: QA harness
+        if: ${{ env.RUN_QA == 'true' }}
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+          QA_USE_GEMINI: "false"
+        run: npm run test:qa
+
+      - name: API smoke test
+        if: ${{ env.RUN_SMOKE == 'true' }}
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
+        run: npm run test:smoke

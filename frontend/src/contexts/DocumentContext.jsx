@@ -7,16 +7,18 @@ import React, {
   createContext,
   useContext,
   useReducer,
+  useState,
   useCallback,
   useEffect,
   useRef,
 } from 'react';
-import { useDebounce } from '../hooks';
+import { useDebounce, useLocalStorage } from '../hooks';
 import { lintMarkdown, buildLintCacheKey } from '../utils/markdownLint';
 import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_URL = API_BASE_URL.replace(/\/$/, '');
+const AUTOSAVE_STORAGE_KEY = 'carbonac_autosave_v1';
 const REVIEWER_EMAILS = (import.meta.env.VITE_TEMPLATE_REVIEWER_EMAILS || '')
   .split(',')
   .map((entry) => entry.trim().toLowerCase())
@@ -39,9 +41,12 @@ function sleep(ms) {
 async function pollJobStatus(jobId, options = {}) {
   const maxAttempts = options.maxAttempts || 60;
   let intervalMs = options.intervalMs || 1000;
+  const token = options.token || '';
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = await fetch(buildApiUrl(`/api/jobs/${jobId}`));
+    const response = await fetch(buildApiUrl(`/api/jobs/${jobId}`), {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     if (!response.ok) {
       throw new Error('Job status request failed.');
     }
@@ -108,6 +113,7 @@ const initialState = {
   // Report settings (from wizard)
   reportSettings: {
     documentType: '', // report, presentation, article, etc.
+    docType: '', // content schema alias
     tone: '',         // formal, casual, technical
     audience: '',     // executive, technical, general
     purpose: '',      // inform, persuade, document
@@ -115,6 +121,8 @@ const initialState = {
     layoutStyle: '',  // compact, spacious, balanced
     emphasis: [],     // data, narrative, visuals
     components: [],   // charts, tables, callouts, etc.
+    locale: 'tr-TR',
+    version: 1,
   },
   
   // AI Wizard
@@ -134,6 +142,7 @@ const initialState = {
   outputPath: null,
   downloadError: null,
   lintIssues: [],
+  lastJob: null,
 };
 
 // Action types
@@ -158,6 +167,8 @@ const ActionTypes = {
   SET_OUTPUT: 'SET_OUTPUT',
   SET_DOWNLOAD_ERROR: 'SET_DOWNLOAD_ERROR',
   SET_LINT_ISSUES: 'SET_LINT_ISSUES',
+  SET_LAST_JOB: 'SET_LAST_JOB',
+  RESTORE_DRAFT: 'RESTORE_DRAFT',
   RESET: 'RESET',
 };
 
@@ -306,6 +317,43 @@ function documentReducer(state, action) {
         lintIssues: action.payload,
       };
 
+    case ActionTypes.SET_LAST_JOB:
+      return {
+        ...state,
+        lastJob: action.payload,
+      };
+
+    case ActionTypes.RESTORE_DRAFT: {
+      const payload = action.payload || {};
+      const restoredMarkdown = payload.markdownContent ?? '';
+      const restoredSettings = payload.reportSettings ?? {};
+      const nextStep = restoredMarkdown ? WORKFLOW_STEPS.EDITOR : state.currentStep;
+      const completedSteps = restoredMarkdown
+        ? Array.from(new Set([
+          ...state.completedSteps,
+          WORKFLOW_STEPS.UPLOAD,
+          WORKFLOW_STEPS.PROCESSING,
+          WORKFLOW_STEPS.WIZARD,
+        ]))
+        : state.completedSteps;
+
+      return {
+        ...state,
+        markdownContent: restoredMarkdown || state.markdownContent,
+        originalContent: restoredMarkdown || state.originalContent,
+        reportSettings: {
+          ...state.reportSettings,
+          ...restoredSettings,
+        },
+        selectedLayoutProfile: payload.selectedLayoutProfile || state.selectedLayoutProfile,
+        selectedPrintProfile: payload.selectedPrintProfile || state.selectedPrintProfile,
+        selectedTheme: payload.selectedTheme || state.selectedTheme,
+        selectedTemplate: payload.selectedTemplate || state.selectedTemplate,
+        currentStep: nextStep,
+        completedSteps,
+      };
+    }
+
     case ActionTypes.RESET:
       return initialState;
 
@@ -323,6 +371,10 @@ export function DocumentProvider({ children }) {
   const lintCacheRef = useRef(new Map());
   const selectedTemplateRef = useRef(state.selectedTemplate);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useLocalStorage('carbonac_autosave_enabled', true);
+  const [livePreviewEnabled, setLivePreviewEnabled] = useLocalStorage('carbonac_live_preview_enabled', true);
+  const [lastAutoSaveAt, setLastAutoSaveAt] = useState(null);
+  const hasRestoredRef = useRef(false);
   const debouncedMarkdown = useDebounce(state.markdownContent, 400);
 
   useEffect(() => {
@@ -381,6 +433,59 @@ export function DocumentProvider({ children }) {
     dispatch({ type: ActionTypes.SET_LINT_ISSUES, payload: issues });
   }, [debouncedMarkdown]);
 
+  useEffect(() => {
+    if (hasRestoredRef.current) {
+      return;
+    }
+    if (!autoSaveEnabled || typeof window === 'undefined') {
+      return;
+    }
+    const raw = window.localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+    if (!raw) {
+      hasRestoredRef.current = true;
+      return;
+    }
+    try {
+      const payload = JSON.parse(raw);
+      if (payload && typeof payload === 'object') {
+        dispatch({ type: ActionTypes.RESTORE_DRAFT, payload });
+        setLastAutoSaveAt(payload.savedAt || null);
+      }
+    } catch (error) {
+      console.warn('Failed to restore autosave draft.', error);
+    }
+    hasRestoredRef.current = true;
+  }, [autoSaveEnabled]);
+
+  useEffect(() => {
+    if (!autoSaveEnabled || typeof window === 'undefined') {
+      return;
+    }
+    const payload = {
+      markdownContent: debouncedMarkdown || '',
+      reportSettings: state.reportSettings,
+      selectedLayoutProfile: state.selectedLayoutProfile,
+      selectedPrintProfile: state.selectedPrintProfile,
+      selectedTheme: state.selectedTheme,
+      selectedTemplate: state.selectedTemplate,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      window.localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(payload));
+      setLastAutoSaveAt(payload.savedAt);
+    } catch (error) {
+      console.warn('Failed to persist autosave draft.', error);
+    }
+  }, [
+    autoSaveEnabled,
+    debouncedMarkdown,
+    state.reportSettings,
+    state.selectedLayoutProfile,
+    state.selectedPrintProfile,
+    state.selectedTheme,
+    state.selectedTemplate,
+  ]);
+
   // Actions
   const setStep = useCallback((step) => {
     dispatch({ type: ActionTypes.SET_STEP, payload: step });
@@ -434,8 +539,11 @@ export function DocumentProvider({ children }) {
         });
       }, 500);
 
+      const authToken =
+        (typeof window !== 'undefined' && window.localStorage.getItem('carbonac_token')) || '';
       const response = await fetch(buildApiUrl('/api/convert/to-markdown'), {
         method: 'POST',
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
         body: formData,
       });
 
@@ -463,7 +571,11 @@ export function DocumentProvider({ children }) {
   }, []);
 
   const updateReportSettings = useCallback((settings) => {
-    dispatch({ type: ActionTypes.UPDATE_REPORT_SETTINGS, payload: settings });
+    const normalized = { ...settings };
+    if (settings?.documentType && !settings?.docType) {
+      normalized.docType = settings.documentType;
+    }
+    dispatch({ type: ActionTypes.UPDATE_REPORT_SETTINGS, payload: normalized });
   }, []);
 
   const addWizardMessage = useCallback((message) => {
@@ -606,23 +718,41 @@ export function DocumentProvider({ children }) {
     dispatch({ type: ActionTypes.SET_DOWNLOAD_ERROR, payload: message });
   }, []);
 
+  const setLastJob = useCallback((job) => {
+    dispatch({ type: ActionTypes.SET_LAST_JOB, payload: job });
+  }, []);
+
   const reset = useCallback(() => {
     dispatch({ type: ActionTypes.RESET });
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(AUTOSAVE_STORAGE_KEY);
+    }
   }, []);
 
   // Generate PDF based on settings
   const generatePdf = useCallback(async () => {
     setDownloadError(null);
     try {
+      const resolvedDocType = state.reportSettings.docType || state.reportSettings.documentType;
+      const resolvedLocale = state.reportSettings.locale || 'tr-TR';
+      const resolvedVersion = state.reportSettings.version || 1;
+      const resolvedTemplateKey = state.reportSettings.templateKey || state.selectedTemplate;
+      const authToken =
+        (typeof window !== 'undefined' && window.localStorage.getItem('carbonac_token')) || '';
       const response = await fetch(buildApiUrl('/api/convert/to-pdf'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify({
           markdown: state.markdownContent,
           settings: {
             ...state.reportSettings,
+            docType: resolvedDocType,
+            templateKey: resolvedTemplateKey,
+            locale: resolvedLocale,
+            version: resolvedVersion,
             layoutProfile: state.selectedLayoutProfile,
             printProfile: state.selectedPrintProfile,
             theme: state.selectedTheme,
@@ -641,16 +771,28 @@ export function DocumentProvider({ children }) {
         throw new Error('Job id missing in response');
       }
 
-      const jobStatus = await pollJobStatus(jobId);
+      const jobStatus = await pollJobStatus(jobId, { token: authToken });
+      const qaReport = jobStatus.result?.qaReport || jobStatus.result?.outputManifest?.qa?.report || null;
+      setLastJob({
+        id: jobId,
+        status: jobStatus.status,
+        result: jobStatus.result,
+        events: jobStatus.events || [],
+        qaReport,
+      });
       const downloadPath =
         jobStatus.result?.signedUrl ||
         jobStatus.result?.downloadUrl ||
         `/api/jobs/${jobId}/download`;
       const fallbackPath = `/api/jobs/${jobId}/download`;
 
-      let downloadResponse = await fetch(buildApiUrl(downloadPath));
+      let downloadResponse = await fetch(buildApiUrl(downloadPath), {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+      });
       if (!downloadResponse.ok && downloadPath !== fallbackPath) {
-        downloadResponse = await fetch(buildApiUrl(fallbackPath));
+        downloadResponse = await fetch(buildApiUrl(fallbackPath), {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+        });
       }
 
       if (!downloadResponse.ok) {
@@ -666,7 +808,17 @@ export function DocumentProvider({ children }) {
       setDownloadError(error.message || 'PDF indirirken bir hata olustu.');
       return null;
     }
-  }, [state.markdownContent, state.selectedLayoutProfile, state.selectedPrintProfile, state.reportSettings, setOutput, setDownloadError]);
+  }, [
+    state.markdownContent,
+    state.selectedLayoutProfile,
+    state.selectedPrintProfile,
+    state.selectedTheme,
+    state.selectedTemplate,
+    state.reportSettings,
+    setOutput,
+    setDownloadError,
+    setLastJob,
+  ]);
 
   const value = {
     // State
@@ -694,6 +846,7 @@ export function DocumentProvider({ children }) {
     downloadError: state.downloadError,
     setDownloadError,
     lintIssues: state.lintIssues,
+    lastJob: state.lastJob,
     loadTemplates,
     selectTemplate,
     updateTemplateVersionStatus,
@@ -702,6 +855,11 @@ export function DocumentProvider({ children }) {
     isReviewer: REVIEWER_EMAILS.length > 0
       ? REVIEWER_EMAILS.includes(currentUserEmail || '')
       : false,
+    autoSaveEnabled,
+    setAutoSaveEnabled,
+    livePreviewEnabled,
+    setLivePreviewEnabled,
+    lastAutoSaveAt,
   };
 
   return (

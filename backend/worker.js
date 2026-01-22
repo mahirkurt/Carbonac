@@ -3,8 +3,14 @@ import { Worker } from 'bullmq';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import { jobQueue, queueName, connection, skipVersionCheck } from './queue.js';
-import { jobStoreEnabled, updateJobRecord, addJobEvent } from './job-store.js';
+import {
+  jobStoreEnabled,
+  updateJobRecord,
+  addJobEvent,
+  getJobRecord,
+} from './job-store.js';
 import { convertToPaged } from '../src/convert-paged.js';
 import { ensureDir, getProjectRoot, writeFile } from '../src/utils/file-utils.js';
 import { getArtDirection } from '../src/ai/art-director.js';
@@ -32,6 +38,7 @@ import {
   getLatestPressPackForTemplateVersion,
 } from './press-pack-store.js';
 import { evaluatePreflight } from './preflight.js';
+import { usageStoreEnabled, createUsageEvent } from './usage-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +48,19 @@ const outputRoot = path.join(projectRoot, 'output', 'jobs');
 const tempRoot = path.join(projectRoot, 'output', 'temp', 'jobs');
 const templateRoot = path.join(projectRoot, 'output', 'templates');
 const templateTempRoot = path.join(projectRoot, 'output', 'temp', 'templates');
+const workerConcurrency = Math.max(1, Number(process.env.WORKER_CONCURRENCY || 2));
+
+const JOB_STAGE_PROGRESS = {
+  ingest: 5,
+  parse: 15,
+  plan: 30,
+  'render-html': 45,
+  paginate: 60,
+  postprocess: 70,
+  'export-pdf': 80,
+  upload: 92,
+  complete: 100,
+};
 
 const DEFAULT_TEMPLATE_PREVIEW_MARKDOWN = `# Carbon Template Preview
 
@@ -63,6 +83,27 @@ liste ve tablo gibi temel ogelerin yerlesimini gostermektir.
 ## Sonraki Adim
 Bir sonraki surumde odak: pazar payi artisi ve kanal optimizasyonu.
 `;
+
+class JobCancelledError extends Error {
+  constructor(message = 'Job cancelled') {
+    super(message);
+    this.name = 'JobCancelledError';
+    this.code = 'JOB_CANCELLED';
+  }
+}
+
+async function assertNotCancelled(job) {
+  if (!job) return;
+  if (job.data?.cancelRequested) {
+    throw new JobCancelledError();
+  }
+  if (jobStoreEnabled) {
+    const record = await getJobRecord(job.id);
+    if (record?.status === 'cancelled') {
+      throw new JobCancelledError();
+    }
+  }
+}
 
 function normalizeBlockType(value) {
   if (!value) return '';
@@ -103,8 +144,10 @@ function buildOutputManifest({
   templateMeta,
   pressPack,
   metadata,
+  ai,
   qaReport,
   preflight,
+  postprocess,
   storagePath,
   signedUrl,
   signedUrlExpiresAt,
@@ -134,6 +177,7 @@ function buildOutputManifest({
           templateVersionId: pressPack.template_version_id,
         }
       : null,
+    ai: ai || null,
     metadata: metadata || null,
     qa: {
       report: qaReport || null,
@@ -141,6 +185,7 @@ function buildOutputManifest({
       accessibilitySummary: preflight?.accessibilitySummary || null,
     },
     preflight: preflight || null,
+    postprocess: postprocess || null,
     artifacts: {
       pdf: storagePath
         ? { bucket: pdfBucket, path: storagePath, signedUrl, signedUrlExpiresAt }
@@ -196,22 +241,190 @@ function mergeLayoutJson(aiLayout, templateLayout = null, templateMeta = null) {
   return merged;
 }
 
-async function recordJobStatus(job, status, updates = {}, message = null) {
+async function recordJobStatus(job, status, updates = {}, message = null, event = {}) {
   if (!jobStoreEnabled || !job) return;
   await updateJobRecord(job.id, { status, ...updates });
-  await addJobEvent(job.id, status, message);
+  await addJobEvent(job.id, status, message, event);
+}
+
+async function reportStage(job, stage, message, progress = null, options = {}) {
+  if (!job) return;
+  const resolvedProgress =
+    Number.isFinite(progress) ? Math.round(progress) : JOB_STAGE_PROGRESS[stage];
+  if (Number.isFinite(resolvedProgress) && typeof job.updateProgress === 'function') {
+    await job.updateProgress(resolvedProgress).catch(() => null);
+  }
+  if (!jobStoreEnabled) return;
+  await addJobEvent(job.id, options.status || 'processing', message || stage, {
+    stage,
+    progress: Number.isFinite(resolvedProgress) ? resolvedProgress : null,
+    level: options.level || 'info',
+    metadata: options.metadata || null,
+  });
+}
+
+async function convertWithPython(inputPath) {
+  const pythonScript = path.join(__dirname, 'converters', 'document_converter.py');
+
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn('python', [pythonScript, inputPath]);
+
+    let output = '';
+    let errorOutput = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(errorOutput || 'Python conversion failed'));
+      }
+    });
+  });
+}
+
+async function handleConvertMarkdown(job) {
+  const { filePath, fileName, markdown } = job.data || {};
+  await assertNotCancelled(job);
+  await reportStage(job, 'ingest', 'Markdown ingest started');
+
+  if (markdown && typeof markdown === 'string') {
+    await assertNotCancelled(job);
+    await reportStage(job, 'parse', 'Markdown payload received', 30);
+    await reportStage(job, 'complete', 'Markdown ready', 100, { status: 'completed' });
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: job.data?.userId || null,
+        eventType: 'convert.md',
+        units: 1,
+        source: 'worker',
+        metadata: {
+          jobId: job.id,
+          fileName: fileName || null,
+        },
+      }).catch(() => null);
+    }
+    return { markdown, fileName: fileName || 'document.md' };
+  }
+
+  if (!filePath) {
+    throw new Error('Missing filePath for convert-md job.');
+  }
+
+  await reportStage(job, 'parse', 'Converting source document', 25);
+  await assertNotCancelled(job);
+
+  const ext = path.extname(filePath || '').toLowerCase();
+  if (ext === '.md' || ext === '.txt') {
+    const content = await fs.readFile(filePath, 'utf-8');
+    await reportStage(job, 'complete', 'Markdown ready', 100, { status: 'completed' });
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: job.data?.userId || null,
+        eventType: 'convert.md',
+        units: 1,
+        source: 'worker',
+        metadata: {
+          jobId: job.id,
+          fileName: fileName || path.basename(filePath),
+        },
+      }).catch(() => null);
+    }
+    return { markdown: content, fileName: fileName || path.basename(filePath) };
+  }
+
+  const jobTempDir = path.join(tempRoot, job.id, 'convert-md');
+  await ensureDir(jobTempDir);
+  const outputDir = path.join(jobTempDir, 'marker');
+  await ensureDir(outputDir);
+
+  try {
+    const markerProcess = spawn('marker_single', [
+      filePath,
+      outputDir,
+      '--output_format',
+      'markdown',
+    ]);
+
+    let stderr = '';
+    await new Promise((resolve, reject) => {
+      markerProcess.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      markerProcess.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Marker process exited with code ${code}: ${stderr}`));
+        }
+      });
+      markerProcess.on('error', (error) => {
+        reject(error);
+      });
+    });
+
+    const files = await fs.readdir(outputDir);
+    const mdFile = files.find((item) => item.endsWith('.md'));
+    if (!mdFile) {
+      throw new Error('Marker did not produce markdown output.');
+    }
+    const content = await fs.readFile(path.join(outputDir, mdFile), 'utf-8');
+    await reportStage(job, 'complete', 'Markdown ready', 100, { status: 'completed' });
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: job.data?.userId || null,
+        eventType: 'convert.md',
+        units: 1,
+        source: 'worker',
+        metadata: {
+          jobId: job.id,
+          fileName: fileName || mdFile,
+        },
+      }).catch(() => null);
+    }
+    return { markdown: content, fileName: fileName || mdFile };
+  } catch (error) {
+    const fallback = await convertWithPython(filePath);
+    await reportStage(job, 'complete', 'Markdown ready', 100, { status: 'completed' });
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: job.data?.userId || null,
+        eventType: 'convert.md',
+        units: 1,
+        source: 'worker',
+        metadata: {
+          jobId: job.id,
+          fileName: fileName || path.basename(filePath),
+        },
+      }).catch(() => null);
+    }
+    return { markdown: fallback, fileName: fileName || path.basename(filePath) };
+  }
 }
 
 async function handleConvertPdf(job) {
   const { markdown, settings = {} } = job.data || {};
   const userId = job.data?.userId || null;
   const documentId = job.data?.documentId || null;
+  await assertNotCancelled(job);
   if (!markdown) {
     throw new Error('Missing markdown content.');
   }
 
+  await reportStage(job, 'ingest', 'Markdown ingest started');
+
   const parsedMarkdown = parseMarkdown(markdown);
   const metadata = parsedMarkdown?.metadata || {};
+
+  await reportStage(job, 'parse', 'Markdown parsed');
+  await assertNotCancelled(job);
 
   const templateKey = settings.template || null;
   let templateSchema = null;
@@ -267,6 +480,9 @@ async function handleConvertPdf(job) {
     theme,
   });
 
+  await reportStage(job, 'plan', 'AI layout plan ready');
+  await assertNotCancelled(job);
+
   if (!pressPack && templateMeta?.versionId) {
     try {
       pressPack = await getLatestPressPackForTemplateVersion(templateMeta.versionId, {
@@ -282,14 +498,25 @@ async function handleConvertPdf(job) {
   const mergedLayoutJson = mergeLayoutJson(artDirection.layoutJson, templateSchema, templateMeta);
   const blockCatalog = pressPack?.manifest_json?.blockCatalog || [];
   const blockCatalogResult = applyBlockCatalog(mergedLayoutJson, blockCatalog);
+  const pressPackTokens = pressPack?.manifest_json?.tokens || null;
 
   await ensureDir(outputRoot);
   await ensureDir(tempRoot);
 
-  const tempMarkdownPath = path.join(tempRoot, `${job.id}.md`);
+  const jobTempDir = path.join(tempRoot, job.id);
+  await ensureDir(jobTempDir);
+  const tempMarkdownPath = path.join(jobTempDir, 'source.md');
   await writeFile(tempMarkdownPath, markdown);
 
   const outputPath = path.join(outputRoot, `${job.id}.pdf`);
+  const artifacts = {
+    renderHtmlPath: path.join(jobTempDir, 'render.html'),
+    pagedHtmlPath: path.join(jobTempDir, 'paged.html'),
+    qaScreenshotPath: path.join(jobTempDir, 'qa.png'),
+    qaReportPath: path.join(jobTempDir, 'qa-report.json'),
+    qaReportHtmlPath: path.join(jobTempDir, 'qa-report.html'),
+    previewScreenshotPath: path.join(jobTempDir, 'preview.png'),
+  };
   const conversionResult = await convertToPaged(tempMarkdownPath, outputPath, {
     layoutProfile: resolvedLayoutProfile,
     printProfile: resolvedPrintProfile,
@@ -298,14 +525,44 @@ async function handleConvertPdf(job) {
     author,
     date,
     artDirection: blockCatalogResult.layoutJson,
+    tokens: {
+      templateKey: templateMeta?.key || templateKey || null,
+      overrides: pressPackTokens,
+    },
     verbose: false,
+    artifacts,
+    preview: {
+      screenshotPath: artifacts.previewScreenshotPath,
+      selector: '.pagedjs_page',
+    },
+    qa: {
+      screenshotPath: artifacts.qaScreenshotPath,
+      baselineKey: documentId || templateMeta?.versionId || job.id,
+    },
+    postprocess: {
+      enabled: true,
+      pdfaReady: true,
+      status: metadata.status || null,
+    },
+    onStage: async (stage) => {
+      const messageMap = {
+        'render-html': 'HTML render hazır',
+        paginate: 'Paged.js sayfalama tamamlandı',
+        postprocess: 'PDF postprocess tamamlandı',
+        'export-pdf': 'PDF export tamamlandı',
+      };
+      await reportStage(job, stage, messageMap[stage] || stage);
+    },
     returnResult: true,
   });
 
   const resolvedPath = conversionResult?.outputPath || outputPath;
   const qaReport = conversionResult?.qaReport || null;
+  const postprocess = conversionResult?.postprocess || null;
 
   await fs.unlink(tempMarkdownPath).catch(() => null);
+
+  await assertNotCancelled(job);
 
   let signedUrl = null;
   let signedUrlExpiresAt = null;
@@ -316,6 +573,7 @@ async function handleConvertPdf(job) {
     const signedUrlResult = await createPdfSignedUrl({ storagePath });
     signedUrl = signedUrlResult?.signedUrl || null;
     signedUrlExpiresAt = signedUrlResult?.expiresAt || null;
+    await reportStage(job, 'upload', 'Output uploaded');
   }
 
   const preflight = evaluatePreflight({
@@ -326,6 +584,12 @@ async function handleConvertPdf(job) {
     blockCatalogViolations: blockCatalogResult.violations || [],
   });
 
+  const aiSummary = blockCatalogResult.layoutJson?.ai || {
+    promptVersion: artDirection.promptVersion || null,
+    models: artDirection.models || null,
+    source: artDirection.source || null,
+  };
+
   if (jobStoreEnabled) {
     const blockingCount = preflight.blockingIssues?.length || 0;
     const missingCount = preflight.contentMissing?.length || 0;
@@ -334,7 +598,9 @@ async function handleConvertPdf(job) {
       preflight.status === 'pass'
         ? 'Preflight passed'
         : `Preflight failed: ${blockingCount} blocking, ${missingCount} missing fields, ${blockCount} block issues.`;
-    await addJobEvent(job.id, 'preflight', message).catch(() => null);
+    await reportStage(job, 'postprocess', message, null, {
+      metadata: { preflightStatus: preflight.status },
+    }).catch(() => null);
   }
 
   const outputManifest = buildOutputManifest({
@@ -344,12 +610,34 @@ async function handleConvertPdf(job) {
     templateMeta,
     pressPack,
     metadata,
+    ai: aiSummary,
     qaReport,
     preflight,
+    postprocess,
     storagePath,
     signedUrl,
     signedUrlExpiresAt,
   });
+
+  await reportStage(job, 'complete', 'Job artifacts ready', 100, { status: 'completed' });
+
+  if (usageStoreEnabled) {
+    await createUsageEvent({
+      userId,
+      eventType: 'convert.pdf',
+      units: 1,
+      source: 'worker',
+      metadata: {
+        jobId: job.id,
+        documentId,
+        templateKey: templateMeta?.key || templateKey || null,
+        layoutProfile: resolvedLayoutProfile,
+        printProfile: resolvedPrintProfile,
+        theme,
+        preflightStatus: preflight.status || null,
+      },
+    }).catch(() => null);
+  }
 
   return {
     outputPath: resolvedPath,
@@ -361,6 +649,7 @@ async function handleConvertPdf(job) {
     signedUrl,
     signedUrlExpiresAt,
     qaReport,
+    postprocess,
     template: templateMeta,
     pressPack: pressPack
       ? {
@@ -384,6 +673,7 @@ async function handleConvertPdf(job) {
 
 async function handleTemplatePreview(job) {
   const { templateId, templateVersionId, userId } = job.data || {};
+  await assertNotCancelled(job);
   let templateRecord = null;
   if (templateId) {
     templateRecord = await getTemplateById(templateId);
@@ -422,6 +712,9 @@ async function handleTemplatePreview(job) {
     printProfile,
     theme,
     artDirection: templateSchema,
+    tokens: {
+      templateKey,
+    },
     qa: { enabled: false, useGemini: false },
     preview: {
       screenshotPath: pngPath,
@@ -475,6 +768,8 @@ const worker = new Worker(
   queueName,
   async (job) => {
     switch (job.name) {
+      case 'convert-md':
+        return await handleConvertMarkdown(job);
       case 'convert-pdf':
         return await handleConvertPdf(job);
       case 'template-preview':
@@ -483,7 +778,7 @@ const worker = new Worker(
         throw new Error(`Unsupported job type: ${job.name}`);
     }
   },
-  { connection, skipVersionCheck }
+  { connection, skipVersionCheck, concurrency: workerConcurrency }
 );
 
 worker.on('active', (job) => {
@@ -503,6 +798,17 @@ worker.on('completed', (job) => {
 });
 
 worker.on('failed', (job, error) => {
+  if (error?.code === 'JOB_CANCELLED' || error?.name === 'JobCancelledError') {
+    console.warn(`[worker] Job cancelled: ${job?.id} - ${error.message}`);
+    recordJobStatus(
+      job,
+      'cancelled',
+      { error_message: error.message },
+      'Job cancelled'
+    ).catch(() => null);
+    return;
+  }
+
   console.error(`[worker] Job failed: ${job?.id} - ${error.message}`);
   recordJobStatus(
     job,

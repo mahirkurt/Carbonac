@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CoverPageHeroPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "eyebrow": { "type": "string" },
+    "author": { "type": "string" },
+    "date": { "type": "string" }
+  }
+}

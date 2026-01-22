@@ -1,5 +1,51 @@
 const LONG_PARAGRAPH_WORDS = 120;
 const LONG_PARAGRAPH_CHARS = 800;
+const DIRECTIVE_RULES = {
+  callout: { allow: ['tone', 'title', 'icon'], values: { tone: ['info', 'warning', 'success', 'danger'] } },
+  'data-table': { allow: ['caption', 'source', 'columns', 'methodology', 'notes'] },
+  chart: {
+    allow: [
+      'type',
+      'variant',
+      'caption',
+      'question',
+      'source',
+      'sampleSize',
+      'methodology',
+      'highlight',
+      'notes',
+    ],
+    values: {
+      type: ['bar', 'line', 'area', 'donut', 'stacked'],
+      variant: ['default', 'survey'],
+    },
+  },
+  'code-group': { allow: ['title', 'language', 'filename'] },
+  figure: { allow: ['src', 'caption', 'source', 'width'] },
+  quote: { allow: ['author', 'title', 'source'] },
+  timeline: { allow: ['layout', 'start', 'end'], values: { layout: ['horizontal', 'vertical'] } },
+  accordion: { allow: ['variant'], values: { variant: ['default', 'compact'] } },
+  marginnote: { allow: ['align'], values: { align: ['left', 'right'] } },
+  pattern: {
+    allow: [
+      'type',
+      'title',
+      'subtitle',
+      'eyebrow',
+      'kicker',
+      'variant',
+      'layout',
+      'tone',
+      'stat',
+      'quote',
+      'author',
+      'source',
+      'caption',
+      'cta',
+    ],
+    values: { tone: ['info', 'warning', 'success', 'danger', 'neutral'] },
+  },
+};
 
 function hashString(value) {
   let hash = 0;
@@ -29,6 +75,70 @@ function normalizeHeading(text) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
+}
+
+function parseDirectiveAttributes(raw = '') {
+  const attributes = {};
+  if (!raw) return attributes;
+  const regex = /([a-zA-Z0-9_-]+)\s*=\s*(\"[^\"]*\"|'[^']*'|[^\\s\"]+)/g;
+  let match;
+  while ((match = regex.exec(raw)) !== null) {
+    const key = match[1];
+    let value = match[2] || '';
+    if ((value.startsWith('\"') && value.endsWith('\"')) || (value.startsWith('\'') && value.endsWith('\''))) {
+      value = value.slice(1, -1);
+    }
+    attributes[key] = value;
+  }
+  return attributes;
+}
+
+function lintDirectives(lines, issues) {
+  lines.forEach((line, index) => {
+    const blockMatch = line.match(/^\\s*:::+\\s*([a-z0-9-]+)\\s*(\\{[^}]*\\})?/i);
+    const leafMatch = line.match(/^\\s*:([a-z0-9-]+)\\[[^\\]]*\\]\\s*(\\{[^}]*\\})?/i);
+    const match = blockMatch || leafMatch;
+    if (!match) {
+      return;
+    }
+    const name = match[1].toLowerCase();
+    const rule = DIRECTIVE_RULES[name];
+    if (!rule) {
+      addIssue(issues, {
+        ruleId: 'unknown-directive',
+        severity: 'warning',
+        message: `Bilinmeyen directive: ${name}.`,
+        line: index + 1,
+        column: 1,
+      });
+      return;
+    }
+    const rawAttrs = match[2] ? match[2].slice(1, -1) : '';
+    const attrs = parseDirectiveAttributes(rawAttrs);
+    const allowed = new Set(rule.allow || []);
+    Object.keys(attrs).forEach((key) => {
+      if (!allowed.has(key)) {
+        addIssue(issues, {
+          ruleId: 'directive-attribute',
+          severity: 'info',
+          message: `Directive '${name}' icin desteklenmeyen attribute: ${key}.`,
+          line: index + 1,
+          column: 1,
+        });
+        return;
+      }
+      const allowedValues = rule.values?.[key];
+      if (allowedValues && !allowedValues.includes(attrs[key])) {
+        addIssue(issues, {
+          ruleId: 'directive-attribute-value',
+          severity: 'info',
+          message: `Directive '${name}' icin gecersiz deger: ${key}=${attrs[key]}.`,
+          line: index + 1,
+          column: 1,
+        });
+      }
+    });
+  });
 }
 
 export function lintMarkdown(content = '') {
@@ -121,6 +231,8 @@ export function lintMarkdown(content = '') {
     paragraphLines.push(trimmed);
   });
   flushParagraph();
+
+  lintDirectives(lines, issues);
 
   return issues;
 }

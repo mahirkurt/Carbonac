@@ -251,10 +251,11 @@ Storage:
 - Faz 0 tamam: mimari kararlar, contract ve backlog kayitlari mevcut.
 - Faz 1 tamam: job pipeline + Paged.js + Gemini art director + signed URL akisi dogrulandi.
 - Faz 2 tamam: Sprint 3 preview/QA + autosave + frontmatter wizard tamam; Sprint 4 tamam.
-- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam, Press Pack manifest ve governance bekliyor.
+- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam; Sprint 6 press pack + release/publish + preflight + governance UI tamam. Rollback policy ve migration apply bekliyor.
 - Pi runtime stabil: Docker api/worker + Cloudflare SSH ile uzaktan calisma dogrulandi.
 
 ## 20. Sonraki Adimlar (Oncelik)
-- Sprint 6 odagi: Press Pack manifest + block catalog + release metadata.
-- Editorial/publish akisi ve preflight gate'i release pipeline'a bagla.
-- Template governance: versioning kurallari + approval workflow.
+- Supabase migrations (004/005) apply + release tablolarini dogrula.
+- Template rollback policy (kural + enforcement) tamamla.
+- Frontmatter wizard + autosave ile editor akisini kapat.
+- QA harness ve otomatik test setini genislet.

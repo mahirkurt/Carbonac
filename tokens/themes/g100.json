@@ -1,0 +1,15 @@
+{
+  "name": "g100",
+  "cssVars": {
+    "--cds-text-primary": "#f4f4f4",
+    "--cds-text-secondary": "#c6c6c6",
+    "--cds-border-subtle": "#393939",
+    "--cds-accent": "#78a9ff",
+    "--report-surface": "#161616",
+    "--report-surface-muted": "#262626",
+    "--report-callout-bg": "#1c1c1c",
+    "--report-code-bg": "#262626",
+    "--report-table-zebra": "#262626",
+    "--report-chart-grid": "#393939"
+  }
+}

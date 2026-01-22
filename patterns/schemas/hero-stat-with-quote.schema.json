@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HeroStatWithQuotePattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stat", "label", "quote"],
+  "properties": {
+    "stat": { "type": "string" },
+    "label": { "type": "string" },
+    "quote": { "type": "string" },
+    "author": { "type": "string" },
+    "source": { "type": "string" }
+  }
+}

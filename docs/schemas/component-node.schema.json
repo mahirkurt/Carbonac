@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ComponentNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "props"],
+  "properties": {
+    "id": { "type": "string" },
+    "type": { "type": "string" },
+    "props": { "type": "object", "additionalProperties": true },
+    "layoutProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "colSpan": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 15 }
+      }
+    },
+    "styleOverrides": { "type": "object", "additionalProperties": true },
+    "sourceMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "printOnly": { "type": "boolean" },
+    "screenOnly": { "type": "boolean" },
+    "className": { "type": "string" }
+  }
+}

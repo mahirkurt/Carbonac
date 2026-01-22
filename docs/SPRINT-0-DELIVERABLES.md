@@ -52,14 +52,27 @@ Request:
 {
   "documentId": "uuid",
   "markdown": "...",
+  "assets": [
+    { "url": "https://cdn.example.com/logo.png" },
+    { "storagePath": "user/123/doc/456/asset/logo.png" }
+  ],
+  "metadata": {
+    "title": "Quarterly Report",
+    "author": "Cureonics",
+    "date": "2025-02-10",
+    "locale": "tr-TR"
+  },
+  "template": "carbon-advanced",
+  "pressPackId": "uuid",
+  "layoutProfile": "symmetric",
+  "printProfile": "pagedjs-a4",
   "settings": {
-    "template": "carbon-advanced",
     "theme": "white|g10|g90|g100",
     "layoutProfile": "symmetric|asymmetric|dashboard",
     "printProfile": "pagedjs-a4|pagedjs-a3",
-    "title": "...",
-    "author": "...",
-    "date": "..."
+    "title": "Quarterly Report",
+    "author": "Cureonics",
+    "date": "2025-02-10"
   }
 }
 ```
@@ -67,7 +80,10 @@ Response:
 ```json
 {
   "jobId": "uuid",
-  "status": "queued"
+  "status": "queued",
+  "statusUrl": "/api/jobs/uuid",
+  "downloadUrl": "/api/jobs/uuid/download",
+  "pdfUrl": "/api/jobs/uuid/download"
 }
 ```
 
@@ -84,6 +100,32 @@ Response:
 { "jobId": "uuid", "status": "queued" }
 ```
 
+### GET /api/jobs
+Query:
+```
+?status=queued|processing|completed|failed|cancelled&limit=20&offset=0
+```
+Response:
+```json
+{
+  "jobs": [
+    {
+      "id": "uuid",
+      "type": "convert-pdf",
+      "status": "processing",
+      "payload": { "documentId": "uuid" },
+      "result": {},
+      "error_message": null,
+      "created_at": "2025-02-10T09:00:00Z",
+      "updated_at": "2025-02-10T09:01:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 20,
+  "offset": 0
+}
+```
+
 ### GET /api/jobs/{id}
 Response:
 ```json
@@ -91,7 +133,59 @@ Response:
   "jobId": "uuid",
   "status": "queued|processing|completed|failed|cancelled",
   "result": { "pdfUrl": "https://..." },
-  "error": null
+  "error": null,
+  "events": [
+    {
+      "id": "uuid",
+      "job_id": "uuid",
+      "status": "processing",
+      "message": "render-html",
+      "created_at": "2025-02-10T09:01:10Z"
+    }
+  ],
+  "downloadUrl": "/api/jobs/uuid/download"
+}
+```
+
+### GET /api/jobs/{id}/download
+Response:
+- 302 redirect to signed URL when ready.
+- 409 if the job is not completed.
+
+### POST /api/ai/analyze
+Request:
+```json
+{
+  "markdown": "# Report\\n\\nBody content...",
+  "metadata": {
+    "title": "Quarterly Report",
+    "theme": "white"
+  }
+}
+```
+Response:
+```json
+{
+  "promptVersion": "v1",
+  "model": "gemini-3-pro",
+  "output": "{\\n  \\\"summary\\\": \\\"...\\\"\\n}"
+}
+```
+
+### POST /api/ai/ask
+Request:
+```json
+{
+  "question": "Summarize the key risks.",
+  "context": "Section 2 shows declining margins..."
+}
+```
+Response:
+```json
+{
+  "promptVersion": "v1",
+  "model": "gemini-3-pro",
+  "output": "Top risks: ..."
 }
 ```
 

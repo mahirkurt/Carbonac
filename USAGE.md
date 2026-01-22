@@ -83,6 +83,26 @@ Backend:
 - `SUPABASE_BUCKET_PDFS` (varsayılan: pdfs)
 - `REDIS_URL`
 - `JOB_QUEUE_NAME`
+- `GEMINI_API_KEY`
+- `GEMINI_MODEL` (varsayılan: gemini-3-pro-preview)
+- `GEMINI_FALLBACK_MODEL` (varsayılan: gemini-2.5-pro)
+- `ART_DIRECTOR_PROMPT_VERSION` (v1|v2)
+- `ART_DIRECTOR_PROMPT_ROLLBACK` (v1|v2)
+
+Print:
+- `PRINT_TYPOGRAPHY_SMARTYPANTS` (true|false)
+- `PRINT_HYPHENATION` (auto|none)
+- `PRINT_CHART_RENDERER` (true|false)
+- `PRINT_TABLE_SPLIT_MIN_ROWS`
+- `PRINT_TABLE_SPLIT_MIN_ROWS_PER_PAGE`
+
+QA:
+- `PDF_QA_VISUAL_REGRESSION` (true|false)
+- `PDF_QA_VISUAL_THRESHOLD` (0-1)
+- `PDF_QA_VISUAL_MAX_MISMATCH_RATIO` (0-1)
+- `PDF_QA_AXE_TAGS` (comma separated)
+- `PDF_QA_BASELINE_DIR` (default: output/qa-baselines)
+- `PDF_QA_DIFF_DIR` (default: output/qa-diffs)
 
 Frontend:
 - `VITE_API_URL`

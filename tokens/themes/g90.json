@@ -1,0 +1,15 @@
+{
+  "name": "g90",
+  "cssVars": {
+    "--cds-text-primary": "#f4f4f4",
+    "--cds-text-secondary": "#c6c6c6",
+    "--cds-border-subtle": "#525252",
+    "--cds-accent": "#78a9ff",
+    "--report-surface": "#262626",
+    "--report-surface-muted": "#393939",
+    "--report-callout-bg": "#1f1f1f",
+    "--report-code-bg": "#393939",
+    "--report-table-zebra": "#393939",
+    "--report-chart-grid": "#525252"
+  }
+}

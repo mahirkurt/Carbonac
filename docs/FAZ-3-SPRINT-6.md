@@ -161,7 +161,7 @@ Goal: Template version onay kurallari.
 Tasks:
 - [x] Approval state modeli
 - [x] Reviewer rol kurali (min 1 onay)
-- [ ] Rollback policy
+- [x] Rollback policy
 - [x] Governance UI (state + approval)
 Acceptance:
 - [x] Onay yoksa template publish edilmez

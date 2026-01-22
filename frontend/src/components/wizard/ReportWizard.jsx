@@ -5,23 +5,17 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  Tile,
+  Accordion,
+  AccordionItem,
   Button,
-  Tag,
-  ProgressIndicator,
-  ProgressStep,
-  RadioButtonGroup,
-  RadioButton,
-  Checkbox,
-  TextInput,
-  InlineLoading,
   ClickableTile,
+  Dropdown,
+  InlineNotification,
 } from '@carbon/react';
 
 import {
   Bot,
   User,
-  Send,
   ArrowRight,
   ArrowLeft,
   Checkmark,
@@ -147,6 +141,24 @@ const WIZARD_QUESTIONS = [
   },
 ];
 
+const layoutProfileOptions = [
+  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
+];
+
+const printProfileOptions = [
+  { id: 'pagedjs-a4', text: 'Paged.js A4' },
+  { id: 'pagedjs-a3', text: 'Paged.js A3' },
+];
+
+const themeOptions = [
+  { id: 'white', text: 'White' },
+  { id: 'g10', text: 'G10' },
+  { id: 'g90', text: 'G90' },
+  { id: 'g100', text: 'G100' },
+];
+
 // AI response generator based on answers
 const generateAIResponse = (questionId, answer, allAnswers) => {
   const responses = {
@@ -189,10 +201,17 @@ function ReportWizard() {
     nextWizardQuestion,
     setStep,
     markdownContent,
+    selectedLayoutProfile,
+    selectedPrintProfile,
+    selectedTheme,
+    setLayoutProfile,
+    setPrintProfile,
+    setTheme,
   } = useDocument();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState({});
+  const [showValidation, setShowValidation] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState([
     {
@@ -205,6 +224,15 @@ function ReportWizard() {
   const currentQuestion = WIZARD_QUESTIONS[currentQuestionIndex];
   const totalQuestions = WIZARD_QUESTIONS.length;
   const progress = ((currentQuestionIndex) / totalQuestions) * 100;
+  const resolvedLayoutProfile = layoutProfileOptions.find(
+    (option) => option.id === selectedLayoutProfile
+  ) || layoutProfileOptions[0];
+  const resolvedPrintProfile = printProfileOptions.find(
+    (option) => option.id === selectedPrintProfile
+  ) || printProfileOptions[0];
+  const resolvedTheme = themeOptions.find(
+    (option) => option.id === selectedTheme
+  ) || themeOptions[0];
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -224,9 +252,14 @@ function ReportWizard() {
     }
   }, [currentQuestionIndex, currentQuestion]);
 
+  useEffect(() => {
+    setShowValidation(false);
+  }, [currentQuestionIndex]);
+
   // Handle option selection
   const handleOptionSelect = useCallback((value) => {
     const questionId = currentQuestion.id;
+    setShowValidation(false);
     
     if (currentQuestion.type === 'multi-choice') {
       const current = selectedOptions[questionId] || [];
@@ -245,6 +278,7 @@ function ReportWizard() {
     const answer = selectedOptions[questionId];
 
     if (!answer || (Array.isArray(answer) && answer.length === 0)) {
+      setShowValidation(true);
       return;
     }
 
@@ -383,6 +417,14 @@ function ReportWizard() {
         {/* Options Area */}
         {currentQuestion && !isTyping && (
           <div className="report-wizard__options">
+            {showValidation && !canProceed && (
+              <InlineNotification
+                kind="warning"
+                title="Seçim gerekli"
+                subtitle="Devam etmek için bir seçenek işaretleyin."
+                lowContrast
+              />
+            )}
             <div className={`report-wizard__options-grid ${currentQuestion.isColorChoice ? 'report-wizard__options-grid--colors' : ''}`}>
               {currentQuestion.options.map((option) => {
                 const isSelected = currentQuestion.type === 'multi-choice'
@@ -468,6 +510,39 @@ function ReportWizard() {
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="report-wizard__advanced">
+        <Accordion align="start">
+          <AccordionItem title="Gelişmiş Ayarlar">
+            <div className="report-wizard__advanced-grid">
+              <Dropdown
+                id="wizard-layout-profile"
+                titleText="Yerleşim Profili"
+                items={layoutProfileOptions}
+                selectedItem={resolvedLayoutProfile}
+                label="Seçin"
+                onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
+              />
+              <Dropdown
+                id="wizard-print-profile"
+                titleText="Baskı Profili"
+                items={printProfileOptions}
+                selectedItem={resolvedPrintProfile}
+                label="Seçin"
+                onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
+              />
+              <Dropdown
+                id="wizard-theme"
+                titleText="Tema"
+                items={themeOptions}
+                selectedItem={resolvedTheme}
+                label="Seçin"
+                onChange={({ selectedItem }) => setTheme(selectedItem.id)}
+              />
+            </div>
+          </AccordionItem>
+        </Accordion>
       </div>
 
       {/* Summary Sidebar */}

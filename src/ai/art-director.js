@@ -7,6 +7,9 @@ const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-p
 const GEMINI_API_URL =
   process.env.GEMINI_API_URL ||
   'https://generativelanguage.googleapis.com/v1beta/models';
+const ART_DIRECTOR_PROMPT_VERSION = process.env.ART_DIRECTOR_PROMPT_VERSION || 'v2';
+const ART_DIRECTOR_PROMPT_ROLLBACK =
+  process.env.ART_DIRECTOR_PROMPT_ROLLBACK || 'v1';
 
 const MAX_CONTENT_CHARS = 12000;
 const LAYOUT_PROFILES = new Set(['symmetric', 'asymmetric', 'dashboard']);
@@ -33,6 +36,33 @@ const componentSchema = z.object({
   }).optional(),
   data: z.unknown().optional(),
   className: z.string().optional(),
+}).passthrough();
+
+const documentPlanSchema = z.object({
+  title: z.string().optional(),
+  audience: z.string().optional(),
+  requiredBlocks: z.array(z.string()).optional(),
+  sections: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    purpose: z.string().optional(),
+    requiredBlocks: z.array(z.string()).optional(),
+    dataRefs: z.array(z.string()).optional(),
+  }).passthrough()).optional(),
+}).passthrough();
+
+const pageBreakSchema = z.object({
+  beforeSectionId: z.string().optional(),
+  afterSectionId: z.string().optional(),
+  selector: z.string().optional(),
+  action: z.enum(['force-break', 'avoid-break']).optional(),
+  reason: z.string().optional(),
+}).passthrough();
+
+const layoutPlanSchema = z.object({
+  gridSystem: z.enum(['symmetric', 'asymmetric', 'dashboard']).optional(),
+  components: z.array(componentSchema).optional(),
+  pageBreaks: z.array(pageBreakSchema).optional(),
 }).passthrough();
 
 const layoutJsonSchema = z.object({
@@ -83,6 +113,96 @@ Output schema:
       "styleOverrides": { "theme": "white|g10|g90|g100" }
     }
   ],
+  "storytelling": {
+    "executiveSummary": "Short executive summary.",
+    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"]
+  },
+  "styleHints": {
+    "avoidBreakSelectors": ["table", "pre", "blockquote"],
+    "forceBreakSelectors": ["h2"]
+  }
+}`;
+}
+
+function resolvePromptVersion(value, fallback = 'v2') {
+  if (!value) return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === 'v1' || normalized === 'v2') {
+    return normalized;
+  }
+  return fallback;
+}
+
+function resolveRollbackVersion(value) {
+  const normalized = resolvePromptVersion(value, '');
+  return normalized || null;
+}
+
+function buildDocumentPlanPrompt({ metadata }) {
+  return `You are a content planner for a print-ready report system.
+
+Return JSON only. Capture the document outline and required blocks.
+Use slug-like section IDs (lowercase, hyphen-separated).
+
+Metadata:
+- title: ${metadata.title || 'Untitled'}
+- audience: ${metadata.audience || 'general'}
+- docType: ${metadata.docType || metadata.documentType || 'report'}
+
+Output schema:
+{
+  "title": "string",
+  "audience": "string",
+  "requiredBlocks": ["ExecutiveSummary", "KeyFindings"],
+  "sections": [
+    {
+      "id": "string",
+      "title": "string",
+      "purpose": "string",
+      "requiredBlocks": ["string"],
+      "dataRefs": ["string"]
+    }
+  ]
+}`;
+}
+
+function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan }) {
+  return `You are the layout planner for a print-ready report system.
+
+Return JSON only. Use the requested layoutProfile and printProfile without changing them.
+Create a layoutPlan with gridSystem, components, and pageBreaks.
+Include storytelling (executiveSummary + keyInsights) and styleHints.
+
+Requested settings:
+- layoutProfile: ${layoutProfile}
+- printProfile: ${printProfile}
+- theme: ${theme || 'white'}
+
+DocumentPlan:
+${JSON.stringify(documentPlan, null, 2)}
+
+Output schema:
+{
+  "layoutProfile": "symmetric|asymmetric|dashboard",
+  "printProfile": "pagedjs-a4|pagedjs-a3",
+  "gridSystem": "symmetric|asymmetric|dashboard",
+  "layoutPlan": {
+    "gridSystem": "symmetric|asymmetric|dashboard",
+    "components": [
+      {
+        "type": "CarbonChart|RichText|HighlightBox",
+        "layoutProps": { "colSpan": 8, "offset": 0 },
+        "styleOverrides": { "theme": "white|g10|g90|g100" }
+      }
+    ],
+    "pageBreaks": [
+      {
+        "beforeSectionId": "string",
+        "action": "force-break",
+        "reason": "string"
+      }
+    ]
+  },
   "storytelling": {
     "executiveSummary": "Short executive summary.",
     "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"]
@@ -238,16 +358,63 @@ function summarizeContent(content) {
   return plain.slice(0, 200);
 }
 
-function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfile, theme }) {
+function buildFallbackDocumentPlan({ metadata, toc = [], content }) {
+  const sections = (toc || [])
+    .filter((entry) => entry && typeof entry.title === 'string')
+    .map((entry) => ({
+      id: entry.id || entry.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      title: entry.title,
+      purpose: entry.level === 1 ? 'section-overview' : 'section-detail',
+      requiredBlocks: [],
+      dataRefs: [],
+    }));
+
+  if (!sections.length) {
+    sections.push({
+      id: 'overview',
+      title: metadata.title || 'Ozet',
+      purpose: 'overview',
+      requiredBlocks: ['ExecutiveSummary'],
+      dataRefs: [],
+    });
+  }
+
+  return {
+    title: metadata.title || 'Untitled',
+    audience: metadata.audience || 'general',
+    requiredBlocks: ['ExecutiveSummary', 'KeyFindings'],
+    sections,
+  };
+}
+
+function buildFallbackLayoutPlan({ layoutProfile, documentPlan }) {
+  const pageBreaks = Array.isArray(documentPlan?.sections)
+    ? documentPlan.sections.slice(1).map((section) => ({
+        beforeSectionId: section.id,
+        action: 'force-break',
+        reason: 'section-break',
+      }))
+    : [];
+
+  return {
+    gridSystem: layoutProfile,
+    components: [],
+    pageBreaks,
+  };
+}
+
+function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfile, theme, documentPlan }) {
   const executiveSummary = summarizeContent(content);
   const keyInsights = buildFallbackInsights(content);
   const forceBreakSelectors = content.length > 800 ? ['h2'] : [];
+  const resolvedDocumentPlan = documentPlan || buildFallbackDocumentPlan({ metadata, content });
   const storytelling = (executiveSummary || keyInsights.length)
     ? {
         executiveSummary,
         keyInsights,
       }
     : null;
+  const layoutPlan = buildFallbackLayoutPlan({ layoutProfile, documentPlan: resolvedDocumentPlan });
 
   return {
     version: 'v1',
@@ -256,6 +423,8 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
     gridSystem: layoutProfile,
     theme: theme || 'white',
     components: [],
+    documentPlan: resolvedDocumentPlan,
+    layoutPlan,
     storytelling,
     styleHints: {
       avoidBreakSelectors: ['table', 'pre', 'blockquote'],
@@ -307,8 +476,20 @@ function normalizeLayoutJson(input, fallback, layoutProfile, printProfile) {
     if (typeof input.gridSystem === 'string') {
       output.gridSystem = input.gridSystem;
     }
+    if (input.documentPlan) {
+      output.documentPlan = input.documentPlan;
+    }
+    if (input.layoutPlan) {
+      output.layoutPlan = input.layoutPlan;
+    }
     if (Array.isArray(input.components)) {
       output.components = normalizeComponents(input.components);
+    }
+    if (input.layoutPlan?.components && (!output.components || output.components.length === 0)) {
+      output.components = normalizeComponents(input.layoutPlan.components);
+    }
+    if (input.layoutPlan?.gridSystem) {
+      output.gridSystem = input.layoutPlan.gridSystem;
     }
     if (input.storytelling && typeof input.storytelling === 'object') {
       const keyInsights = Array.isArray(input.storytelling.keyInsights)
@@ -381,62 +562,205 @@ async function requestJsonResponse({ model, prompt, content }) {
   if (!jsonText) {
     throw new Error(`Gemini response did not include a JSON payload (${model}).`);
   }
-  return jsonText;
+  return { jsonText, model };
+}
+
+async function requestJsonWithFallback({ prompt, content }) {
+  try {
+    return await requestJsonResponse({
+      model: GEMINI_MODEL,
+      prompt,
+      content,
+    });
+  } catch (error) {
+    if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
+      return await requestJsonResponse({
+        model: GEMINI_FALLBACK_MODEL,
+        prompt,
+        content,
+      });
+    }
+    throw error;
+  }
+}
+
+async function runLegacyPrompt({
+  prompt,
+  content,
+  fallbackLayout,
+  layoutProfile,
+  printProfile,
+  promptVersion,
+}) {
+  let layoutInput = null;
+  let modelUsed = null;
+  try {
+    const response = await requestJsonWithFallback({ prompt, content });
+    layoutInput = JSON.parse(response.jsonText);
+    modelUsed = response.model;
+  } catch (error) {
+    console.warn(`[art-director] ${promptVersion} prompt failed, using fallback.`);
+  }
+
+  const validated = validateLayoutJson(layoutInput, fallbackLayout);
+  const normalized = normalizeLayoutJson(
+    validated,
+    fallbackLayout,
+    layoutProfile,
+    printProfile
+  );
+  normalized.ai = {
+    promptVersion,
+    model: modelUsed,
+    source: layoutInput ? 'gemini' : 'fallback',
+  };
+  return {
+    layoutProfile: normalized.layoutProfile,
+    printProfile: normalized.printProfile,
+    layoutJson: normalized,
+    promptVersion,
+    model: modelUsed,
+    source: layoutInput ? 'gemini' : 'fallback',
+  };
 }
 
 export async function getArtDirection({ markdown, layoutProfile, printProfile, theme }) {
-  if (!GEMINI_API_KEY) {
-    throw new Error('Gemini API key is required for art direction.');
-  }
-  const { metadata, content } = parseMarkdown(markdown || '');
+  const { metadata, content, toc } = parseMarkdown(markdown || '');
   const resolvedLayoutProfile = normalizeLayoutProfile(layoutProfile);
   const resolvedPrintProfile = normalizePrintProfile(printProfile);
+  const fallbackDocumentPlan = buildFallbackDocumentPlan({ metadata, toc, content });
   const fallback = buildFallbackLayoutJson({
     content,
     metadata,
     layoutProfile: resolvedLayoutProfile,
     printProfile: resolvedPrintProfile,
     theme,
+    documentPlan: fallbackDocumentPlan,
   });
 
-  const prompt = buildSystemPrompt({
+  const promptVersion = resolvePromptVersion(ART_DIRECTOR_PROMPT_VERSION, 'v2');
+  const rollbackVersion = resolveRollbackVersion(ART_DIRECTOR_PROMPT_ROLLBACK);
+
+  const clippedContent = content.slice(0, MAX_CONTENT_CHARS);
+  let documentPlan = fallbackDocumentPlan;
+  let layoutInput = null;
+  let documentModel = null;
+  let layoutModel = null;
+
+  if (!GEMINI_API_KEY) {
+    console.warn('[art-director] Missing GEMINI_API_KEY, using fallback.');
+    return {
+      layoutProfile: resolvedLayoutProfile,
+      printProfile: resolvedPrintProfile,
+      layoutJson: fallback,
+      source: 'fallback',
+      promptVersion,
+    };
+  }
+
+  if (promptVersion === 'v1') {
+    const prompt = buildSystemPrompt({
+      metadata,
+      layoutProfile: resolvedLayoutProfile,
+      printProfile: resolvedPrintProfile,
+      theme,
+    });
+    return await runLegacyPrompt({
+      prompt,
+      content: clippedContent,
+      fallbackLayout: fallback,
+      layoutProfile: resolvedLayoutProfile,
+      printProfile: resolvedPrintProfile,
+      promptVersion,
+    });
+  }
+
+  const docPrompt = buildDocumentPlanPrompt({ metadata });
+  try {
+    const docResponse = await requestJsonWithFallback({ prompt: docPrompt, content: clippedContent });
+    const parsedDoc = JSON.parse(docResponse.jsonText);
+    const validatedDoc = documentPlanSchema.safeParse(parsedDoc);
+    if (validatedDoc.success) {
+      documentPlan = validatedDoc.data;
+      documentModel = docResponse.model;
+    } else {
+      console.warn('[art-director] DocumentPlan validation failed, using fallback plan.');
+    }
+  } catch (error) {
+    console.warn('[art-director] DocumentPlan failed, using fallback plan.');
+  }
+
+  const layoutPrompt = buildLayoutPlanPrompt({
     metadata,
     layoutProfile: resolvedLayoutProfile,
     printProfile: resolvedPrintProfile,
     theme,
+    documentPlan,
   });
-  const clippedContent = content.slice(0, MAX_CONTENT_CHARS);
-  let jsonText = null;
 
   try {
-    jsonText = await requestJsonResponse({
-      model: GEMINI_MODEL,
-      prompt,
+    const layoutResponse = await requestJsonWithFallback({
+      prompt: layoutPrompt,
       content: clippedContent,
     });
+    layoutInput = JSON.parse(layoutResponse.jsonText);
+    layoutModel = layoutResponse.model;
   } catch (error) {
-    if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
-      jsonText = await requestJsonResponse({
-        model: GEMINI_FALLBACK_MODEL,
-        prompt,
-        content: clippedContent,
-      });
+    console.warn('[art-director] LayoutPlan failed, using fallback layout.');
+  }
+
+  if (!layoutInput && rollbackVersion && rollbackVersion !== promptVersion) {
+    console.warn(`[art-director] Rolling back to prompt ${rollbackVersion}.`);
+    const prompt = buildSystemPrompt({
+      metadata,
+      layoutProfile: resolvedLayoutProfile,
+      printProfile: resolvedPrintProfile,
+      theme,
+    });
+    return await runLegacyPrompt({
+      prompt,
+      content: clippedContent,
+      fallbackLayout: fallback,
+      layoutProfile: resolvedLayoutProfile,
+      printProfile: resolvedPrintProfile,
+      promptVersion: rollbackVersion,
+    });
+  }
+
+  if (layoutInput && typeof layoutInput === 'object') {
+    layoutInput.documentPlan = documentPlan;
+    if (layoutInput.layoutPlan) {
+      const validatedLayoutPlan = layoutPlanSchema.safeParse(layoutInput.layoutPlan);
+      if (!validatedLayoutPlan.success) {
+        console.warn('[art-director] LayoutPlan validation failed, using fallback plan.');
+        layoutInput.layoutPlan = fallback.layoutPlan;
+      }
     } else {
-      throw error;
+      layoutInput.layoutPlan = fallback.layoutPlan;
     }
   }
 
-  const parsed = JSON.parse(jsonText);
-  const validated = validateLayoutJson(parsed, fallback);
+  const validated = validateLayoutJson(layoutInput, fallback);
   const normalized = normalizeLayoutJson(
     validated,
     fallback,
     resolvedLayoutProfile,
     resolvedPrintProfile
   );
+  normalized.ai = {
+    promptVersion,
+    models: {
+      documentPlan: documentModel,
+      layoutPlan: layoutModel,
+    },
+    source: layoutInput ? 'gemini' : 'fallback',
+  };
   return {
     layoutProfile: normalized.layoutProfile,
     printProfile: normalized.printProfile,
     layoutJson: normalized,
+    source: layoutInput ? 'gemini' : 'fallback',
+    promptVersion,
+    models: normalized.ai.models,
   };
 }

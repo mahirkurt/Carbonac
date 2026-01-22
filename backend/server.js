@@ -20,6 +20,8 @@ import {
   updateJobRecord,
   addJobEvent,
   getJobRecord,
+  listJobEvents,
+  listJobs,
 } from './job-store.js';
 import {
   storageEnabled,
@@ -35,6 +37,7 @@ import {
   deleteTemplate,
   createTemplateVersion,
   setActiveTemplateVersion,
+  rollbackTemplateVersion,
   getTemplateVersions,
   setTemplateVersionStatus,
 } from './templates-store.js';
@@ -53,6 +56,7 @@ import {
   setReleaseStatus,
 } from './release-store.js';
 import { evaluatePreflight } from './preflight.js';
+import { usageStoreEnabled, createUsageEvent } from './usage-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,8 +76,11 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const durationMs = Date.now() - start;
+    recordRequestMetric(durationMs, res.statusCode);
     logEvent('info', {
       requestId,
+      userId: req.authUserId || null,
+      jobId: req.jobId || null,
       method: req.method,
       path: req.originalUrl,
       status: res.statusCode,
@@ -96,6 +103,163 @@ function logEvent(level, payload) {
   } else {
     console.log(output);
   }
+}
+
+const METRICS_WINDOW_SIZE = Number(process.env.METRICS_WINDOW_SIZE || 500);
+const METRICS_REQUIRE_AUTH = process.env.METRICS_REQUIRE_AUTH !== 'false';
+const METRICS_TOKEN = process.env.METRICS_TOKEN || '';
+const requestMetrics = {
+  total: 0,
+  success: 0,
+  error: 0,
+  durations: [],
+};
+
+function recordRequestMetric(durationMs, statusCode) {
+  requestMetrics.total += 1;
+  if (statusCode >= 200 && statusCode < 400) {
+    requestMetrics.success += 1;
+  } else {
+    requestMetrics.error += 1;
+  }
+  requestMetrics.durations.push(durationMs);
+  if (requestMetrics.durations.length > METRICS_WINDOW_SIZE) {
+    requestMetrics.durations.shift();
+  }
+}
+
+function buildLatencySummary(samples = []) {
+  if (!samples.length) {
+    return { p50: 0, p95: 0, p99: 0, avg: 0 };
+  }
+  const sorted = [...samples].sort((a, b) => a - b);
+  const pick = (percentile) => {
+    const index = Math.max(0, Math.ceil((percentile / 100) * sorted.length) - 1);
+    return sorted[index] || 0;
+  };
+  const avg = sorted.reduce((sum, value) => sum + value, 0) / sorted.length;
+  return {
+    p50: pick(50),
+    p95: pick(95),
+    p99: pick(99),
+    avg: Math.round(avg),
+  };
+}
+
+const AI_RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const AI_RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
+const AI_PROMPT_VERSION = process.env.AI_PROMPT_VERSION || 'v1';
+const AI_REDACT_PII = process.env.AI_REDACT_PII !== 'false';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-pro';
+const GEMINI_API_URL =
+  process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
+
+const aiRateState = new Map();
+const API_RATE_LIMIT_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000);
+const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX || 60);
+const apiRateState = new Map();
+
+function redactPii(text) {
+  if (!AI_REDACT_PII || typeof text !== 'string') {
+    return text;
+  }
+  let output = text;
+  output = output.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[redacted-email]');
+  output = output.replace(/\\b\\+?\\d[\\d\\s().-]{7,}\\d\\b/g, '[redacted-phone]');
+  output = output.replace(/\\b\\d{13,19}\\b/g, '[redacted-card]');
+  return output;
+}
+
+function getRateKey(req, auth) {
+  return auth?.userId ? `user:${auth.userId}` : `ip:${req.ip || 'unknown'}`;
+}
+
+function checkApiRateLimit(key) {
+  const now = Date.now();
+  const current = apiRateState.get(key);
+  if (!current || current.resetAt <= now) {
+    const entry = { count: 1, resetAt: now + API_RATE_LIMIT_WINDOW_MS };
+    apiRateState.set(key, entry);
+    return { allowed: true, retryAfter: 0 };
+  }
+  if (current.count >= API_RATE_LIMIT_MAX) {
+    return { allowed: false, retryAfter: Math.max(0, current.resetAt - now) };
+  }
+  current.count += 1;
+  return { allowed: true, retryAfter: 0 };
+}
+
+function checkAiRateLimit(key) {
+  const now = Date.now();
+  const current = aiRateState.get(key);
+  if (!current || current.resetAt <= now) {
+    const entry = { count: 1, resetAt: now + AI_RATE_LIMIT_WINDOW_MS };
+    aiRateState.set(key, entry);
+    return { allowed: true, retryAfter: 0 };
+  }
+  if (current.count >= AI_RATE_LIMIT_MAX) {
+    return { allowed: false, retryAfter: Math.max(0, current.resetAt - now) };
+  }
+  current.count += 1;
+  return { allowed: true, retryAfter: 0 };
+}
+
+function validateConvertInput({ markdown, assets, metadata }) {
+  if (typeof markdown !== 'string' || !markdown.trim()) {
+    return 'Markdown content is required.';
+  }
+  if (assets !== undefined) {
+    if (!Array.isArray(assets)) {
+      return 'Assets must be an array.';
+    }
+    for (const asset of assets) {
+      if (!asset || typeof asset !== 'object') {
+        return 'Assets must be objects.';
+      }
+      if (!asset.url && !asset.storagePath) {
+        return 'Each asset must include url or storagePath.';
+      }
+    }
+  }
+  if (metadata !== undefined && (typeof metadata !== 'object' || Array.isArray(metadata))) {
+    return 'Metadata must be an object.';
+  }
+  return null;
+}
+
+async function callGemini({ prompt, model }) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Missing GEMINI_API_KEY.');
+  }
+  const requestBody = {
+    contents: [
+      {
+        parts: [{ text: prompt }],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.4,
+      topP: 0.9,
+      maxOutputTokens: 2048,
+    },
+  };
+  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+  }
+  const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error('Gemini API returned empty response.');
+  }
+  return text;
 }
 
 function parseIdList(value) {
@@ -213,19 +377,24 @@ function serializeTemplate(template) {
 async function resolveAuthUser(req) {
   const authHeader = req.get('authorization') || '';
   if (!authHeader.toLowerCase().startsWith('bearer ')) {
+    req.authUserId = null;
     return { userId: null };
   }
   if (!authEnabled) {
+    req.authUserId = null;
     return { userId: null };
   }
   const token = authHeader.slice(7).trim();
   if (!token) {
+    req.authUserId = null;
     return { userId: null };
   }
   const userId = await getUserIdFromToken(token);
   if (!userId) {
+    req.authUserId = null;
     return { error: 'INVALID_AUTH' };
   }
+  req.authUserId = userId;
   return { userId };
 }
 
@@ -288,6 +457,17 @@ async function getJobSnapshot(jobId, userId = null) {
       error,
     },
   };
+}
+
+async function assertJobOwnership(jobId, userId) {
+  if (!jobStoreEnabled) {
+    return { record: null };
+  }
+  const record = await getJobRecord(jobId);
+  if (record && userId && record.user_id && record.user_id !== userId) {
+    return { forbidden: true, record };
+  }
+  return { record };
 }
 
 async function downloadRemoteFile(fileUrl, fileType) {
@@ -364,6 +544,18 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
   try {
     const { fileUrl, fileType } = req.body || {};
     let fileInfo = req.file;
+
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+
+    const rateKey = getRateKey(req, auth);
+    const rate = checkApiRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
+      return sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded.', null, req.requestId);
+    }
 
     if (!fileInfo && fileUrl) {
       fileInfo = await downloadRemoteFile(fileUrl, fileType);
@@ -519,14 +711,24 @@ app.post('/api/convert/to-pdf', async (req, res) => {
       printProfile,
       template,
       pressPackId,
+      assets,
+      metadata,
     } = req.body || {};
     const auth = await resolveAuthUser(req);
     if (auth.error) {
       return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
     }
 
-    if (!markdown) {
-      return sendError(res, 400, 'INVALID_INPUT', 'Markdown content is required.', null, req.requestId);
+    const rateKey = getRateKey(req, auth);
+    const rate = checkApiRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
+      return sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded.', null, req.requestId);
+    }
+
+    const validationError = validateConvertInput({ markdown, assets, metadata });
+    if (validationError) {
+      return sendError(res, 400, 'INVALID_INPUT', validationError, null, req.requestId);
     }
 
     const normalizedSettings = {
@@ -540,12 +742,19 @@ app.post('/api/convert/to-pdf', async (req, res) => {
     if (!normalizedSettings.pressPackId && pressPackId) {
       normalizedSettings.pressPackId = pressPackId;
     }
+    if (assets) {
+      normalizedSettings.assets = assets;
+    }
+    if (metadata) {
+      normalizedSettings.metadata = metadata;
+    }
     delete normalizedSettings.engine;
 
     const frontmatter = generateFrontmatter(normalizedSettings);
     const fullContent = frontmatter + markdown;
 
     const jobId = randomUUID();
+    req.jobId = jobId;
     await jobQueue.add(
       'convert-pdf',
       {
@@ -617,6 +826,7 @@ app.post('/api/jobs', async (req, res) => {
     }
 
     const jobId = randomUUID();
+    req.jobId = jobId;
     await jobQueue.add(type, payload || {}, { jobId });
 
     if (jobStoreEnabled) {
@@ -652,6 +862,41 @@ app.post('/api/jobs', async (req, res) => {
 });
 
 /**
+ * List jobs
+ * GET /api/jobs?status=queued&limit=20&offset=0
+ */
+app.get('/api/jobs', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+    if (!jobStoreEnabled) {
+      return res.json({ jobs: [], total: 0, limit: 0, offset: 0 });
+    }
+
+    const status = req.query.status ? String(req.query.status) : null;
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit || 20)));
+    const offset = Math.max(0, Number(req.query.offset || 0));
+
+    const result = await listJobs({ userId: auth.userId, status, limit, offset });
+    return res.json({
+      jobs: result.jobs,
+      total: result.total,
+      limit,
+      offset,
+    });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+
+    return sendError(res, 500, 'JOB_LIST_FAILED', 'Failed to list jobs.', error.message, req.requestId);
+  }
+});
+
+/**
  * Get job status
  * GET /api/jobs/:id
  */
@@ -662,6 +907,7 @@ app.get('/api/jobs/:id', async (req, res) => {
       return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
     }
     const jobId = req.params.id;
+    req.jobId = jobId;
     const result = await getJobSnapshot(jobId, auth.userId);
     if (result?.forbidden) {
       return sendError(res, 403, 'FORBIDDEN', 'Job access denied.', null, req.requestId);
@@ -671,11 +917,14 @@ app.get('/api/jobs/:id', async (req, res) => {
       return sendError(res, 404, 'NOT_FOUND', 'Job not found.', null, req.requestId);
     }
 
+    const events = jobStoreEnabled ? await listJobEvents(jobId, 20) : [];
     return res.json({
       jobId,
       status: snapshot.status,
       result: snapshot.result,
       error: snapshot.error,
+      events,
+      downloadUrl: `/api/jobs/${jobId}/download`,
     });
   } catch (error) {
     logEvent('error', {
@@ -684,6 +933,107 @@ app.get('/api/jobs/:id', async (req, res) => {
     });
 
     return sendError(res, 500, 'JOB_STATUS_FAILED', 'Failed to read job status.', error.message, req.requestId);
+  }
+});
+
+/**
+ * Retry a failed job
+ * POST /api/jobs/:id/retry
+ */
+app.post('/api/jobs/:id/retry', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+    const jobId = req.params.id;
+    req.jobId = jobId;
+    const ownership = await assertJobOwnership(jobId, auth.userId);
+    if (ownership.forbidden) {
+      return sendError(res, 403, 'FORBIDDEN', 'Job access denied.', null, req.requestId);
+    }
+
+    const job = await jobQueue.getJob(jobId);
+    if (!job) {
+      return sendError(res, 404, 'NOT_FOUND', 'Job not found.', null, req.requestId);
+    }
+
+    const state = await job.getState();
+    if (state !== 'failed') {
+      return sendError(res, 409, 'JOB_NOT_FAILED', 'Only failed jobs can be retried.', null, req.requestId);
+    }
+
+    await job.updateData({ ...(job.data || {}), cancelRequested: false });
+    await job.retry();
+
+    if (jobStoreEnabled) {
+      await updateJobRecord(jobId, { status: 'queued', error_message: null });
+      await addJobEvent(jobId, 'queued', 'Job retry queued', { level: 'info' });
+    }
+
+    return res.json({ jobId, status: 'queued' });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'JOB_RETRY_FAILED', 'Failed to retry job.', error.message, req.requestId);
+  }
+});
+
+/**
+ * Cancel a job
+ * POST /api/jobs/:id/cancel
+ */
+app.post('/api/jobs/:id/cancel', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+    const jobId = req.params.id;
+    req.jobId = jobId;
+    const ownership = await assertJobOwnership(jobId, auth.userId);
+    if (ownership.forbidden) {
+      return sendError(res, 403, 'FORBIDDEN', 'Job access denied.', null, req.requestId);
+    }
+
+    const job = await jobQueue.getJob(jobId);
+    if (!job) {
+      if (jobStoreEnabled && ownership.record) {
+        await updateJobRecord(jobId, { status: 'cancelled', error_message: 'Job cancelled by user.' });
+        await addJobEvent(jobId, 'cancelled', 'Job cancelled', { level: 'warn' });
+        return res.json({ jobId, status: 'cancelled' });
+      }
+      return sendError(res, 404, 'NOT_FOUND', 'Job not found.', null, req.requestId);
+    }
+
+    const state = await job.getState();
+    if (['completed', 'failed', 'cancelled'].includes(state)) {
+      return sendError(res, 409, 'JOB_NOT_CANCELLABLE', 'Job cannot be cancelled.', null, req.requestId);
+    }
+
+    if (state === 'active') {
+      await job.updateData({ ...(job.data || {}), cancelRequested: true });
+      if (jobStoreEnabled) {
+        await updateJobRecord(jobId, { status: 'cancelled', error_message: 'Job cancelled by user.' });
+        await addJobEvent(jobId, 'cancelled', 'Cancellation requested', { level: 'warn' });
+      }
+      return res.json({ jobId, status: 'cancelled', state: 'active' });
+    }
+
+    await job.remove();
+    if (jobStoreEnabled) {
+      await updateJobRecord(jobId, { status: 'cancelled', error_message: 'Job cancelled by user.' });
+      await addJobEvent(jobId, 'cancelled', 'Job cancelled', { level: 'warn' });
+    }
+    return res.json({ jobId, status: 'cancelled' });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'JOB_CANCEL_FAILED', 'Failed to cancel job.', error.message, req.requestId);
   }
 });
 
@@ -698,6 +1048,7 @@ app.get('/api/jobs/:id/download', async (req, res) => {
       return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
     }
     const jobId = req.params.id;
+    req.jobId = jobId;
     const result = await getJobSnapshot(jobId, auth.userId);
     if (result?.forbidden) {
       return sendError(res, 403, 'FORBIDDEN', 'Job access denied.', null, req.requestId);
@@ -751,6 +1102,156 @@ app.get('/api/jobs/:id/download', async (req, res) => {
     });
 
     return sendError(res, 500, 'DOWNLOAD_FAILED', 'Failed to download output.', error.message, req.requestId);
+  }
+});
+
+function buildAnalyzePrompt({ markdown, metadata }) {
+  return `You are a Carbon Design System report assistant.\n\n` +
+    `Return a JSON response with summary, keyFindings, risks, and layoutSuggestions.\n` +
+    `Tone: executive, concise. Avoid jargon and emojis.\n\n` +
+    `Metadata: ${JSON.stringify(metadata || {})}\n\n` +
+    `Markdown:\n${markdown}\n`;
+}
+
+function buildAskPrompt({ question, context }) {
+  return `You are a Carbon Design System report assistant.\n\n` +
+    `Answer concisely and reference Carbon tokens where relevant.\n\n` +
+    `Context:\n${context || ''}\n\n` +
+    `Question:\n${question}\n`;
+}
+
+/**
+ * AI analyze proxy
+ * POST /api/ai/analyze
+ */
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+
+    const { markdown, metadata } = req.body || {};
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      return sendError(res, 400, 'INVALID_INPUT', 'Markdown content is required.', null, req.requestId);
+    }
+
+    const rateKey = getRateKey(req, auth);
+    const rate = checkAiRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
+      return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);
+    }
+
+    const safeMarkdown = redactPii(markdown);
+    const prompt = buildAnalyzePrompt({ markdown: safeMarkdown, metadata });
+    let output = '';
+    let usedModel = GEMINI_MODEL;
+
+    try {
+      output = await callGemini({ prompt, model: GEMINI_MODEL });
+    } catch (error) {
+      if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
+        usedModel = GEMINI_FALLBACK_MODEL;
+        output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+      } else {
+        throw error;
+      }
+    }
+
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: auth.userId,
+        eventType: 'ai.analyze',
+        units: Math.ceil(safeMarkdown.length / 1000),
+        source: 'api',
+        metadata: {
+          requestId: req.requestId,
+          promptVersion: AI_PROMPT_VERSION,
+          model: usedModel,
+        },
+      });
+    }
+
+    return res.json({
+      promptVersion: AI_PROMPT_VERSION,
+      model: usedModel,
+      output,
+    });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'AI_ANALYZE_FAILED', 'AI analyze failed.', error.message, req.requestId);
+  }
+});
+
+/**
+ * AI ask proxy
+ * POST /api/ai/ask
+ */
+app.post('/api/ai/ask', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+
+    const { question, context } = req.body || {};
+    if (typeof question !== 'string' || !question.trim()) {
+      return sendError(res, 400, 'INVALID_INPUT', 'Question is required.', null, req.requestId);
+    }
+
+    const rateKey = getRateKey(req, auth);
+    const rate = checkAiRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
+      return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);
+    }
+
+    const safeQuestion = redactPii(question);
+    const safeContext = redactPii(context || '');
+    const prompt = buildAskPrompt({ question: safeQuestion, context: safeContext });
+    let output = '';
+    let usedModel = GEMINI_MODEL;
+
+    try {
+      output = await callGemini({ prompt, model: GEMINI_MODEL });
+    } catch (error) {
+      if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
+        usedModel = GEMINI_FALLBACK_MODEL;
+        output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+      } else {
+        throw error;
+      }
+    }
+
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: auth.userId,
+        eventType: 'ai.ask',
+        units: Math.ceil((safeQuestion.length + safeContext.length) / 1000),
+        source: 'api',
+        metadata: {
+          requestId: req.requestId,
+          promptVersion: AI_PROMPT_VERSION,
+          model: usedModel,
+        },
+      });
+    }
+
+    return res.json({
+      promptVersion: AI_PROMPT_VERSION,
+      model: usedModel,
+      output,
+    });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'AI_ASK_FAILED', 'AI ask failed.', error.message, req.requestId);
   }
 });
 
@@ -940,8 +1441,16 @@ app.post('/api/templates/:id/rollback', async (req, res) => {
       return sendError(res, 400, 'INVALID_INPUT', 'versionId is required.', null, req.requestId);
     }
 
-    const updated = await setActiveTemplateVersion(req.params.id, versionId);
-    return res.json({ template: serializeTemplate({ ...updated, activeVersion: null }) });
+    if (!requireReviewer(res, auth.userId, req.requestId)) {
+      return;
+    }
+
+    const result = await rollbackTemplateVersion(req.params.id, versionId);
+    return res.json({
+      template: serializeTemplate({ ...result.template, activeVersion: null }),
+      fromVersion: result.fromVersion,
+      toVersion: result.toVersion,
+    });
   } catch (error) {
     logEvent('error', {
       requestId: req.requestId,
@@ -1453,8 +1962,17 @@ function generateFrontmatter(settings) {
   if (settings.theme) {
     lines.push(`theme: ${settings.theme}`);
   }
+  if (settings.templateKey) {
+    lines.push(`templateKey: ${settings.templateKey}`);
+  }
   if (settings.template) {
     lines.push(`template: ${settings.template}`);
+  }
+  if (settings.locale) {
+    lines.push(`locale: ${settings.locale}`);
+  }
+  if (settings.version !== undefined && settings.version !== null) {
+    lines.push(`version: ${settings.version}`);
   }
   if (settings.emphasis && settings.emphasis.length > 0) {
     lines.push(`emphasis: [${settings.emphasis.join(', ')}]`);
@@ -1514,6 +2032,166 @@ app.post('/api/import/google-docs', async (req, res) => {
 /**
  * Health check
  */
+async function authorizeMetrics(req, res) {
+  if (METRICS_TOKEN) {
+    const token = req.get('x-metrics-token');
+    if (!token || token !== METRICS_TOKEN) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid metrics token.', null, req.requestId);
+    }
+  } else if (METRICS_REQUIRE_AUTH && authEnabled) {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+    }
+  }
+  return null;
+}
+
+function renderMetricsDashboard(payload) {
+  const reqStats = payload.requests;
+  const queue = payload.queue;
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carbonac Metrics</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; background: #f4f4f4; color: #161616; }
+      h1 { font-size: 20px; margin-bottom: 12px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+      .card { background: #fff; padding: 16px; border-radius: 10px; border: 1px solid #e0e0e0; }
+      .label { font-size: 12px; color: #525252; text-transform: uppercase; letter-spacing: 0.06em; }
+      .value { font-size: 20px; font-weight: 600; margin-top: 6px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: left; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>Carbonac SLO Dashboard</h1>
+    <div class="grid">
+      <div class="card"><div class="label">Requests</div><div class="value">${reqStats.total}</div></div>
+      <div class="card"><div class="label">Success Rate</div><div class="value">${reqStats.successRate}%</div></div>
+      <div class="card"><div class="label">p95 Latency</div><div class="value">${reqStats.latencyMs.p95} ms</div></div>
+      <div class="card"><div class="label">Queue Depth</div><div class="value">${queue.depth}</div></div>
+    </div>
+    <div class="card">
+      <div class="label">Queue Breakdown</div>
+      <table>
+        <tr><th>Waiting</th><th>Active</th><th>Completed</th><th>Failed</th><th>Delayed</th></tr>
+        <tr>
+          <td>${queue.waiting}</td>
+          <td>${queue.active}</td>
+          <td>${queue.completed}</td>
+          <td>${queue.failed}</td>
+          <td>${queue.delayed}</td>
+        </tr>
+      </table>
+    </div>
+    <p class="label">Generated at ${payload.generatedAt}</p>
+  </body>
+</html>`;
+}
+
+app.get('/api/metrics', async (req, res) => {
+  try {
+    const authError = await authorizeMetrics(req, res);
+    if (authError) {
+      return authError;
+    }
+
+    const latency = buildLatencySummary(requestMetrics.durations);
+    const queueCounts = await jobQueue.getJobCounts(
+      'waiting',
+      'active',
+      'completed',
+      'failed',
+      'delayed',
+      'paused'
+    );
+    const successRate = requestMetrics.total
+      ? Number(((requestMetrics.success / requestMetrics.total) * 100).toFixed(2))
+      : 0;
+
+    return res.json({
+      generatedAt: new Date().toISOString(),
+      requests: {
+        total: requestMetrics.total,
+        success: requestMetrics.success,
+        error: requestMetrics.error,
+        successRate,
+        latencyMs: latency,
+      },
+      queue: {
+        waiting: queueCounts.waiting || 0,
+        active: queueCounts.active || 0,
+        completed: queueCounts.completed || 0,
+        failed: queueCounts.failed || 0,
+        delayed: queueCounts.delayed || 0,
+        paused: queueCounts.paused || 0,
+        depth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
+      },
+    });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'METRICS_FAILED', 'Metrics endpoint failed.', error.message, req.requestId);
+  }
+});
+
+app.get('/api/metrics/dashboard', async (req, res) => {
+  try {
+    const authError = await authorizeMetrics(req, res);
+    if (authError) {
+      return authError;
+    }
+
+    const latency = buildLatencySummary(requestMetrics.durations);
+    const queueCounts = await jobQueue.getJobCounts(
+      'waiting',
+      'active',
+      'completed',
+      'failed',
+      'delayed',
+      'paused'
+    );
+    const successRate = requestMetrics.total
+      ? Number(((requestMetrics.success / requestMetrics.total) * 100).toFixed(2))
+      : 0;
+
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      requests: {
+        total: requestMetrics.total,
+        success: requestMetrics.success,
+        error: requestMetrics.error,
+        successRate,
+        latencyMs: latency,
+      },
+      queue: {
+        waiting: queueCounts.waiting || 0,
+        active: queueCounts.active || 0,
+        completed: queueCounts.completed || 0,
+        failed: queueCounts.failed || 0,
+        delayed: queueCounts.delayed || 0,
+        paused: queueCounts.paused || 0,
+        depth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
+      },
+    };
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderMetricsDashboard(payload));
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'METRICS_FAILED', 'Metrics dashboard failed.', error.message, req.requestId);
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

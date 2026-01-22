@@ -7,16 +7,17 @@ import React, { useState, useCallback, Suspense, lazy, useMemo, useRef } from 'r
 import {
   Theme,
   Header,
-  HeaderName,
   HeaderNavigation,
   HeaderMenuItem,
   HeaderGlobalBar,
   HeaderGlobalAction,
   HeaderPanel,
+  SideNav,
+  SideNavItems,
+  SideNavLink,
   Switcher,
   SwitcherItem,
   SwitcherDivider,
-  Content,
   Button,
   Dropdown,
   TextArea,
@@ -26,7 +27,6 @@ import {
   ProgressIndicator,
   ProgressStep,
   Tile,
-  ClickableTile,
 } from '@carbon/react';
 
 import {
@@ -50,8 +50,6 @@ import {
   Logout,
   Currency,
   Checkmark,
-  ArrowRight,
-  ArrowLeft,
   Home,
   Edit,
   View,
@@ -60,6 +58,12 @@ import {
 
 import './styles/index.scss';
 import { useThrottle } from './hooks';
+import { focusEditorLocation } from './utils/editorFocus';
+import directiveTemplates from './utils/directiveTemplates';
+
+import DocumentsPanel from './components/workspace/DocumentsPanel';
+import JobsPanel from './components/workspace/JobsPanel';
+import QualityPanel from './components/workspace/QualityPanel';
 
 // Contexts
 import { 
@@ -160,6 +164,9 @@ function EditorPanel() {
   const { markdownContent, setMarkdown, lintIssues } = useDocument();
   const [selectedSeverityId, setSelectedSeverityId] = useState('all');
   const [selectedRuleId, setSelectedRuleId] = useState('all');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    directiveTemplates[0]?.id || ''
+  );
   const textAreaRef = useRef(null);
 
   const severityOptions = useMemo(() => ([
@@ -176,6 +183,26 @@ function EditorPanel() {
     });
     return base;
   }, [lintIssues]);
+
+  const outlineItems = useMemo(() => {
+    if (!markdownContent) return [];
+    const lines = markdownContent.split('\n');
+    return lines.reduce((acc, line, index) => {
+      const match = line.match(/^(#{1,2})\s+(.+)/);
+      if (!match) return acc;
+      acc.push({
+        level: match[1].length,
+        title: match[2].trim(),
+        line: index + 1,
+      });
+      return acc;
+    }, []);
+  }, [markdownContent]);
+
+  const selectedTemplate = useMemo(
+    () => directiveTemplates.find((item) => item.id === selectedTemplateId) || directiveTemplates[0],
+    [selectedTemplateId]
+  );
 
   const selectedSeverity = severityOptions.find((option) => option.id === selectedSeverityId) || severityOptions[0];
   const selectedRule = ruleOptions.find((option) => option.id === selectedRuleId) || ruleOptions[0];
@@ -195,26 +222,38 @@ function EditorPanel() {
   }, [lintIssues, selectedSeverity, selectedRule]);
 
   const focusLintLocation = useCallback((issue) => {
-    const textArea = textAreaRef.current || document.getElementById('markdown-editor');
-    if (!textArea) return;
-    const lineIndex = Math.max(1, issue?.line || 1);
-    const columnIndex = Math.max(1, issue?.column || 1);
-    const lines = markdownContent.split('\n');
-    const lineText = lines[lineIndex - 1] || '';
-    let startOffset = 0;
-    for (let i = 0; i < lineIndex - 1; i += 1) {
-      startOffset += lines[i].length + 1;
-    }
-    const columnOffset = Math.min(lineText.length, columnIndex - 1);
-    const selectionStart = startOffset + columnOffset;
-    const selectionEnd = startOffset + lineText.length;
-    textArea.focus();
-    try {
-      textArea.setSelectionRange(selectionStart, selectionEnd);
-    } catch (error) {
-      // ignore selection errors for unsupported inputs
-    }
+    focusEditorLocation({
+      line: issue?.line,
+      column: issue?.column,
+      markdown: markdownContent,
+      textArea: textAreaRef.current,
+    });
   }, [markdownContent]);
+
+  const insertDirective = useCallback(() => {
+    const template = selectedTemplate;
+    if (!template) return;
+    const textArea = textAreaRef.current || document.getElementById('markdown-editor');
+    const current = markdownContent || '';
+    const start = textArea?.selectionStart ?? current.length;
+    const end = textArea?.selectionEnd ?? current.length;
+    const before = current.slice(0, start);
+    const after = current.slice(end);
+    const needsLeadingBreak = before && !before.endsWith('\n');
+    const needsTrailingBreak = after && !after.startsWith('\n');
+    const snippet = `${needsLeadingBreak ? '\n\n' : ''}${template.snippet}${needsTrailingBreak ? '\n' : ''}`;
+    const nextValue = `${before}${snippet}${after}`;
+    setMarkdown(nextValue);
+    if (textArea) {
+      const nextPosition = before.length + snippet.length;
+      textArea.focus();
+      try {
+        textArea.setSelectionRange(nextPosition, nextPosition);
+      } catch (error) {
+        // ignore selection errors for unsupported inputs
+      }
+    }
+  }, [markdownContent, selectedTemplate, setMarkdown]);
 
   return (
     <div className="editor-panel panel">
@@ -224,6 +263,52 @@ function EditorPanel() {
           Markdown Editör
         </h3>
         <p>Dokümanınızı düzenleyin</p>
+      </div>
+      <div className="editor-panel__tools">
+        <div className="editor-panel__actions">
+          <Dropdown
+            id="directive-template-select"
+            items={directiveTemplates}
+            selectedItem={selectedTemplate}
+            itemToString={(item) => item?.label || ''}
+            label="Directive seç"
+            onChange={({ selectedItem }) => {
+              if (selectedItem?.id) {
+                setSelectedTemplateId(selectedItem.id);
+              }
+            }}
+          />
+          <Button size="sm" kind="secondary" onClick={insertDirective} disabled={!selectedTemplate}>
+            Ekle
+          </Button>
+        </div>
+        <div className="editor-panel__outline">
+          <div className="editor-panel__outline-header">
+            <h4>Outline</h4>
+            <span>{outlineItems.length} başlık</span>
+          </div>
+          {outlineItems.length === 0 ? (
+            <p className="editor-panel__outline-empty">Başlık bulunamadı.</p>
+          ) : (
+            <ul className="editor-panel__outline-list">
+              {outlineItems.map((item) => (
+                <li key={`${item.line}-${item.title}`} className={`editor-panel__outline-item level-${item.level}`}>
+                  <button
+                    type="button"
+                    onClick={() => focusEditorLocation({
+                      line: item.line,
+                      column: 1,
+                      markdown: markdownContent,
+                      textArea: textAreaRef.current,
+                    })}
+                  >
+                    {item.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
       <div className="panel__content markdown-editor">
         <TextArea
@@ -308,23 +393,26 @@ function PreviewPanel() {
     outputPath,
     downloadError,
     setDownloadError,
+    livePreviewEnabled,
+    selectedTheme,
   } = useDocument();
   const throttledMarkdown = useThrottle(markdownContent, 200);
+  const effectiveMarkdown = livePreviewEnabled ? throttledMarkdown : '';
 
   const previewHtml = useMemo(() => {
-    if (!throttledMarkdown) {
+    if (!effectiveMarkdown) {
       return '';
     }
-    return throttledMarkdown
+    return effectiveMarkdown
       .replace(/^---[\s\S]*?---/m, '')
       .replace(/^# (.+)$/gm, '<h1 style="font-size: 2.5rem; font-weight: 300; margin-bottom: 1rem;">$1</h1>')
       .replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 1rem;">$1</h2>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code style="background: #f4f4f4; padding: 0.125rem 0.25rem; font-family: IBM Plex Mono;">$1</code>')
-      .replace(/^> (.+)$/gm, '<blockquote style="border-left: 3px solid #0f62fe; padding-left: 1rem; color: #525252; margin: 1rem 0;">$1</blockquote>')
+      .replace(/`([^`]+)`/g, '<code style="background: var(--cds-layer-01); padding: 0.125rem 0.25rem; font-family: IBM Plex Mono;">$1</code>')
+      .replace(/^> (.+)$/gm, '<blockquote style="border-left: 3px solid var(--cds-interactive); padding-left: 1rem; color: var(--cds-text-secondary); margin: 1rem 0;">$1</blockquote>')
       .replace(/^- (.+)$/gm, '<li style="margin-left: 1.5rem;">$1</li>')
       .replace(/\n/g, '<br/>');
-  }, [throttledMarkdown]);
+  }, [effectiveMarkdown]);
 
   const handleDownload = useCallback(() => {
     if (outputPath) {
@@ -346,7 +434,10 @@ function PreviewPanel() {
       </div>
       <div className="pdf-preview">
         <div className="pdf-preview__container">
-          <div className={`pdf-preview__document${outputPath ? ' pdf-preview__document--pdf' : ''}`}>
+          <div
+            className={`pdf-preview__document${outputPath ? ' pdf-preview__document--pdf' : ''}`}
+            data-carbon-theme={selectedTheme}
+          >
             {isConverting ? (
               <div style={{
                 display: 'flex',
@@ -366,6 +457,11 @@ function PreviewPanel() {
               <div className="pdf-preview__empty">
                 <h4>Preview hazir degil</h4>
                 <p>Markdown ekleyerek veya dokuman yukleyerek preview olusturabilirsiniz.</p>
+              </div>
+            ) : !livePreviewEnabled ? (
+              <div className="pdf-preview__empty">
+                <h4>Canli onizleme kapali</h4>
+                <p>Ayarlar menusu uzerinden canli onizlemeyi acabilirsiniz.</p>
               </div>
             ) : (
               <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'IBM Plex Sans' }}>
@@ -491,10 +587,16 @@ function AppContent() {
   const {
     currentStep,
     reset,
+    setStep,
+    setMarkdown,
     selectedLayoutProfile,
     selectedPrintProfile,
     setLayoutProfile,
     setPrintProfile,
+    autoSaveEnabled,
+    setAutoSaveEnabled,
+    livePreviewEnabled,
+    setLivePreviewEnabled,
   } = useDocument();
   
   const [showSettings, setShowSettings] = useState(false);
@@ -502,9 +604,44 @@ function AppContent() {
   const [showPricing, setShowPricing] = useState(false);
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [activeWorkspace, setActiveWorkspace] = useState('workflow');
+
+  const handleWorkspaceChange = useCallback((nextWorkspace) => {
+    setActiveWorkspace(nextWorkspace);
+  }, []);
+
+  const handleOpenDocument = useCallback((doc) => {
+    if (doc?.markdown_content) {
+      setMarkdown(doc.markdown_content);
+    }
+    setStep(WORKFLOW_STEPS.EDITOR);
+    setActiveWorkspace('workflow');
+  }, [setMarkdown, setStep]);
 
   // Render content based on workflow step
   const renderContent = () => {
+    if (activeWorkspace === 'documents') {
+      return (
+        <DocumentsPanel
+          onOpenDocument={handleOpenDocument}
+          onStartWorkflow={() => {
+            setStep(WORKFLOW_STEPS.UPLOAD);
+            handleWorkspaceChange('workflow');
+          }}
+        />
+      );
+    }
+    if (activeWorkspace === 'jobs') {
+      return <JobsPanel />;
+    }
+    if (activeWorkspace === 'quality') {
+      return (
+        <div className="workspace-panel">
+          <QualityPanel />
+        </div>
+      );
+    }
+
     switch (currentStep) {
       case WORKFLOW_STEPS.UPLOAD:
         return (
@@ -538,7 +675,10 @@ function AppContent() {
               </Suspense>
               <div className="editor-preview-panels">
                 <EditorPanel />
-                <PreviewPanel />
+                <div className="editor-preview-stack">
+                  <PreviewPanel />
+                  <QualityPanel compact />
+                </div>
               </div>
             </div>
           </div>
@@ -558,7 +698,15 @@ function AppContent() {
       <div className="app-container">
         {/* Header */}
         <Header aria-label="Carbonac">
-          <a href="/" className="app-header__logo-link" onClick={(e) => { e.preventDefault(); reset(); }}>
+          <a
+            href="/"
+            className="app-header__logo-link"
+            onClick={(e) => {
+              e.preventDefault();
+              reset();
+              handleWorkspaceChange('workflow');
+            }}
+          >
             <img 
               src={theme === 'white' ? '/logos/Carbonac-Dark-Wide.png' : '/logos/Carbonac-Light-Wide.png'} 
               alt="Carbonac" 
@@ -567,12 +715,35 @@ function AppContent() {
           </a>
           
           <HeaderNavigation aria-label="Main navigation" className="app-header__nav">
-            <HeaderMenuItem href="#" onClick={(e) => { e.preventDefault(); reset(); }}>
+            <HeaderMenuItem
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                reset();
+                handleWorkspaceChange('workflow');
+              }}
+            >
               <Home size={16} style={{ marginRight: '0.5rem' }} />
               Ana Sayfa
             </HeaderMenuItem>
-            <HeaderMenuItem href="#templates">Şablonlar</HeaderMenuItem>
-            <HeaderMenuItem href="#">Dokümanlarım</HeaderMenuItem>
+            <HeaderMenuItem
+              href="#templates"
+              onClick={(e) => {
+                e.preventDefault();
+                handleWorkspaceChange('workflow');
+              }}
+            >
+              Şablonlar
+            </HeaderMenuItem>
+            <HeaderMenuItem
+              href="#documents"
+              onClick={(e) => {
+                e.preventDefault();
+                handleWorkspaceChange('documents');
+              }}
+            >
+              Dokümanlarım
+            </HeaderMenuItem>
           </HeaderNavigation>
 
           <HeaderGlobalBar>
@@ -653,51 +824,107 @@ function AppContent() {
         {/* Main Content */}
         <main className="app-main">
           {/* Workflow Steps - Show only when logged in */}
-          {isAuthenticated && (
+          {isAuthenticated && activeWorkspace === 'workflow' && (
             <div className="workflow-header">
               <WorkflowSteps />
             </div>
           )}
 
           {/* Content Area */}
-          <div className="app-workspace">
-            {isAuthenticated ? (
-              renderContent()
-            ) : (
-              <div className="login-prompt">
-                <Tile className="login-prompt__card">
-                  <User size={64} className="login-prompt__icon" />
-                  <h2>Carbonac'a Hoş Geldiniz</h2>
-                  <p>Dokümanlarınızı profesyonel PDF'lere dönüştürmek için giriş yapın.</p>
-                  <Button
-                    kind="primary"
-                    size="lg"
-                    renderIcon={Login}
-                    onClick={() => setShowAuth(true)}
+          <div className="app-body">
+            {isAuthenticated && (
+              <SideNav
+                aria-label="Yan menü"
+                className="app-sidenav"
+                expanded
+              >
+                <SideNavItems>
+                  <SideNavLink
+                    href="#workflow"
+                    renderIcon={Home}
+                    isActive={activeWorkspace === 'workflow'}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleWorkspaceChange('workflow');
+                    }}
                   >
-                    Giriş Yap / Kayıt Ol
-                  </Button>
-                  <div className="login-prompt__features">
-                    <div className="feature-item">
-                      <Checkmark size={20} />
-                      <span>PDF, Word, Google Docs desteği</span>
-                    </div>
-                    <div className="feature-item">
-                      <Checkmark size={20} />
-                      <span>AI destekli tasarım önerileri</span>
-                    </div>
-                    <div className="feature-item">
-                      <Checkmark size={20} />
-                      <span>Carbon Design System entegrasyonu</span>
-                    </div>
-                    <div className="feature-item">
-                      <Checkmark size={20} />
-                      <span>10 sayfa ücretsiz her ay</span>
-                    </div>
-                  </div>
-                </Tile>
-              </div>
+                    Workflow
+                  </SideNavLink>
+                  <SideNavLink
+                    href="#documents"
+                    renderIcon={Document}
+                    isActive={activeWorkspace === 'documents'}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleWorkspaceChange('documents');
+                    }}
+                  >
+                    Dokümanlar
+                  </SideNavLink>
+                  <SideNavLink
+                    href="#jobs"
+                    renderIcon={MagicWand}
+                    isActive={activeWorkspace === 'jobs'}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleWorkspaceChange('jobs');
+                    }}
+                  >
+                    Jobs & Activity
+                  </SideNavLink>
+                  <SideNavLink
+                    href="#quality"
+                    renderIcon={Checkmark}
+                    isActive={activeWorkspace === 'quality'}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleWorkspaceChange('quality');
+                    }}
+                  >
+                    Quality
+                  </SideNavLink>
+                </SideNavItems>
+              </SideNav>
             )}
+            <div className="app-workspace">
+              {isAuthenticated ? (
+                renderContent()
+              ) : (
+                <div className="login-prompt">
+                  <Tile className="login-prompt__card">
+                    <User size={64} className="login-prompt__icon" />
+                    <h2>Carbonac'a Hoş Geldiniz</h2>
+                    <p>Dokümanlarınızı profesyonel PDF'lere dönüştürmek için giriş yapın.</p>
+                    <Button
+                      kind="primary"
+                      size="lg"
+                      renderIcon={Login}
+                      onClick={() => setShowAuth(true)}
+                    >
+                      Giriş Yap / Kayıt Ol
+                    </Button>
+                    <div className="login-prompt__features">
+                      <div className="feature-item">
+                        <Checkmark size={20} />
+                        <span>PDF, Word, Google Docs desteği</span>
+                      </div>
+                      <div className="feature-item">
+                        <Checkmark size={20} />
+                        <span>AI destekli tasarım önerileri</span>
+                      </div>
+                      <div className="feature-item">
+                        <Checkmark size={20} />
+                        <span>Carbon Design System entegrasyonu</span>
+                      </div>
+                      <div className="feature-item">
+                        <Checkmark size={20} />
+                        <span>10 sayfa ücretsiz her ay</span>
+                      </div>
+                    </div>
+                  </Tile>
+                </div>
+              )}
+            </div>
           </div>
         </main>
 
@@ -737,6 +964,10 @@ function AppContent() {
               onLayoutProfileChange={setLayoutProfile}
               selectedPrintProfile={selectedPrintProfile}
               onPrintProfileChange={setPrintProfile}
+              autoSave={autoSaveEnabled}
+              onAutoSaveChange={setAutoSaveEnabled}
+              livePreview={livePreviewEnabled}
+              onLivePreviewChange={setLivePreviewEnabled}
             />
           )}
           {showAuth && (

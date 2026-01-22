@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JobEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jobId", "status", "createdAt"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "jobId": { "type": "string", "format": "uuid" },
+    "status": {
+      "type": "string",
+      "enum": ["queued", "processing", "completed", "failed", "cancelled"]
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "ingest",
+        "parse",
+        "plan",
+        "render-html",
+        "paginate",
+        "export-pdf",
+        "postprocess",
+        "upload",
+        "complete"
+      ]
+    },
+    "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "message": { "type": "string" },
+    "level": { "type": "string", "enum": ["info", "warning", "error"] },
+    "requestId": { "type": "string" },
+    "error": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "details": { "type": ["string", "object", "array", "null"] }
+      }
+    },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

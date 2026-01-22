@@ -174,6 +174,10 @@
     background: var(--cds-layer-02);
   }
 
+  &__options .cds--inline-notification {
+    margin-bottom: $spacing-04;
+  }
+
   &__options-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -255,6 +259,20 @@
     padding: $spacing-04 $spacing-05;
     background: var(--cds-layer-01);
     border-radius: 8px;
+  }
+
+  &__advanced {
+    grid-column: 1;
+    background: var(--cds-layer-01);
+    border-radius: 8px;
+    padding: $spacing-04 $spacing-05;
+  }
+
+  &__advanced-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: $spacing-04;
+    margin-top: $spacing-03;
   }
 
   &__nav-left,

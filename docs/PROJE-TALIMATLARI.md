@@ -309,13 +309,15 @@ font-size: clamp(0.875rem, 0.6vw + 0.75rem, 1rem);
 
 ## Guncel Durum Profili (Snapshot)
 - Core pipeline, Paged.js ve Gemini art director akisi dogrulandi.
-- Template registry + preview pipeline aktif; Press Pack manifest katmani bekliyor.
-- Preview/QA ve lint altyapisi calisiyor; editor wizard ve autosave eksik.
+- Template registry + press pack + release/publish API kodda tamam; Supabase migration apply bekliyor (IPv6 erisim sorunu).
+- Preflight gate ve governance UI aktif; rollback policy eksik.
+- Preview/QA ve lint altyapisi calisiyor; editor wizard ve autosave tamamlandi.
 
 ## Sonraki Adimlar (Odak)
-- Press Pack manifest + editorial states + preflight gate'i release pipeline'a bagla.
-- Frontmatter wizard ile content schema standardizasyonu.
-- Template governance ve publish onay akisi.
+- Supabase migrations (004/005) apply + release tablolari dogrulama.
+- Template rollback policy (kural + API enforcement) tamamlama.
+- Frontmatter wizard + autosave ile editor kalitesini kapatma.
+- QA harness ve otomatik test seti (unit + integration + smoke) genisletme.
 
 ## Referanslar
 - Ayrıntılı, uzun vadeli teknik yol haritası: `docs/YOL-HARITASI-REFERANS.md`.

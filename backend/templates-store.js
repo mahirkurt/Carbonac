@@ -449,6 +449,77 @@ async function setActiveTemplateVersion(templateId, versionId) {
   return data;
 }
 
+async function rollbackTemplateVersion(templateId, targetVersionId) {
+  if (!supabase) return null;
+  if (!templateId || !targetVersionId) {
+    throw new Error('Template and target version are required.');
+  }
+
+  const { data: template, error: templateError } = await supabase
+    .from('templates')
+    .select('id, active_version_id')
+    .eq('id', templateId)
+    .maybeSingle();
+  if (templateError) {
+    throw new Error(templateError.message || 'Failed to load template.');
+  }
+  if (!template) {
+    throw new Error('Template not found.');
+  }
+  if (!template.active_version_id) {
+    throw new Error('Template has no active version to rollback from.');
+  }
+  if (template.active_version_id === targetVersionId) {
+    throw new Error('Template is already using the requested version.');
+  }
+
+  const { data: versions, error: versionsError } = await supabase
+    .from('template_versions')
+    .select('id, template_id, status, version')
+    .in('id', [template.active_version_id, targetVersionId]);
+  if (versionsError) {
+    throw new Error(versionsError.message || 'Failed to load template versions.');
+  }
+
+  const activeVersion = versions.find((version) => version.id === template.active_version_id);
+  const targetVersion = versions.find((version) => version.id === targetVersionId);
+
+  if (!activeVersion) {
+    throw new Error('Active template version not found.');
+  }
+  if (!targetVersion) {
+    throw new Error('Target template version not found.');
+  }
+  if (targetVersion.template_id !== templateId) {
+    throw new Error('Target version does not belong to template.');
+  }
+  if (!['approved', 'published'].includes(activeVersion.status)) {
+    throw new Error('Rollback is only allowed from approved template versions.');
+  }
+  if (!['approved', 'published'].includes(targetVersion.status)) {
+    throw new Error('Rollback target must be an approved template version.');
+  }
+  if (targetVersion.version >= activeVersion.version) {
+    throw new Error('Rollback target must be an earlier template version.');
+  }
+
+  const { data, error } = await supabase
+    .from('templates')
+    .update({ active_version_id: targetVersionId })
+    .eq('id', templateId)
+    .select()
+    .single();
+  if (error) {
+    throw new Error(error.message || 'Failed to rollback template version.');
+  }
+
+  return {
+    template: data,
+    fromVersion: activeVersion,
+    toVersion: targetVersion,
+  };
+}
+
 async function createTemplatePreview({ templateVersionId, storagePath, format = 'png', createdBy = null }) {
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -505,6 +576,7 @@ export {
   deleteTemplate,
   createTemplateVersion,
   setActiveTemplateVersion,
+  rollbackTemplateVersion,
   createTemplatePreview,
   setTemplateVersionStatus,
 };

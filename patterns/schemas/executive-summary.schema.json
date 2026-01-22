@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecutiveSummaryPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary"],
+  "properties": {
+    "summary": { "type": "string" },
+    "keyInsights": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
