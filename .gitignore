@@ -1,5 +1,7 @@
 node_modules/
-output/
+output/*
+!output/qa-baselines/
+!output/qa-baselines/*.png
 *.pdf
 *.log
 .DS_Store

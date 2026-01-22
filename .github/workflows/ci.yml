@@ -41,19 +41,48 @@ jobs:
       - name: Unit + integration tests
         run: npm test
 
-      - name: Install Chromium (QA)
+      - name: QA baseline check
         if: ${{ env.RUN_QA == 'true' }}
+        id: qa_baseline
+        run: |
+          if [ -f "output/qa-baselines/ci-sample.png" ]; then
+            echo "has_baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_baseline=false" >> "$GITHUB_OUTPUT"
+            echo "QA baseline missing (output/qa-baselines/ci-sample.png). Skipping QA harness."
+          fi
+
+      - name: Install Chromium (QA)
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium
+          sudo apt-get install -y chromium python3-pip
+          python3 -m pip install pillow
 
       - name: QA harness
-        if: ${{ env.RUN_QA == 'true' }}
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
         env:
           PUPPETEER_SKIP_DOWNLOAD: "1"
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
           QA_USE_GEMINI: "false"
+          QA_INPUT_PATH: examples/sample.md
+          QA_OUTPUT_PATH: output/qa/ci-qa.pdf
+          QA_SCREENSHOT_PATH: output/qa/ci-qa.png
+          QA_BASELINE_KEY: ci-sample
+          PDF_QA_VISUAL_REGRESSION: "true"
+          PDF_QA_BASELINE_DIR: output/qa-baselines
+          PDF_QA_DIFF_DIR: output/qa-diffs
         run: npm run test:qa
+
+      - name: Upload QA artifacts
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-artifacts
+          path: |
+            output/qa
+            output/qa-baselines
+            output/qa-diffs
 
       - name: API smoke test
         if: ${{ env.RUN_SMOKE == 'true' }}
