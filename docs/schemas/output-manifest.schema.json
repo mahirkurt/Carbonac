@@ -44,7 +44,13 @@
         "accessibilitySummary": { "type": ["object", "null"], "additionalProperties": true }
       }
     },
-    "preflight": { "type": ["object", "null"], "additionalProperties": true },
+    "preflight": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "qualityChecklist": { "type": ["object", "null"], "additionalProperties": true }
+      }
+    },
     "postprocess": { "type": ["object", "null"], "additionalProperties": true },
     "artifacts": {
       "type": "object",

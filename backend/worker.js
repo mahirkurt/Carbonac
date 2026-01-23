@@ -582,12 +582,18 @@ async function handleConvertPdf(job) {
     contentSchema: pressPack?.manifest_json?.contentSchema || null,
     metadata,
     blockCatalogViolations: blockCatalogResult.violations || [],
+    storytelling: blockCatalogResult.layoutJson?.storytelling || null,
+    patternTags: metadata?.patternTags || [],
+    printProfile: resolvedPrintProfile,
+    enforceQualityChecklist: process.env.PREFLIGHT_ENFORCE_QUALITY_CHECKLIST === 'true',
   });
 
-  const aiSummary = blockCatalogResult.layoutJson?.ai || {
+  const aiSummary = {
+    ...(blockCatalogResult.layoutJson?.ai || {}),
     promptVersion: artDirection.promptVersion || null,
     models: artDirection.models || null,
     source: artDirection.source || null,
+    storytelling: blockCatalogResult.layoutJson?.storytelling || null,
   };
 
   if (jobStoreEnabled) {

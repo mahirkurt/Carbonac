@@ -31,6 +31,7 @@ SurveyChartPage icin hedef alanlar:
 - Sample size (sampleSize)
 - Kaynak/Method (source/methodology)
 - Notlar (notes)
+- AI storytelling bloklari icin `methodologyNotes` ve `sources` alanlari kullanilir; PDF'de meta satiri olarak yazdirilir.
 
 Not: Buyuk metrik `chart-highlight` olarak vurgulanir; meta satiri sample/method/source/notes icerir.
 

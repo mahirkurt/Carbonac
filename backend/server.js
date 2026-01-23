@@ -108,6 +108,10 @@ function logEvent(level, payload) {
 const METRICS_WINDOW_SIZE = Number(process.env.METRICS_WINDOW_SIZE || 500);
 const METRICS_REQUIRE_AUTH = process.env.METRICS_REQUIRE_AUTH !== 'false';
 const METRICS_TOKEN = process.env.METRICS_TOKEN || '';
+const METRICS_ALERT_ENABLED = process.env.METRICS_ALERT_ENABLED !== 'false';
+const METRICS_ALERT_P95_MS = Number(process.env.METRICS_ALERT_P95_MS || 800);
+const METRICS_ALERT_ERROR_RATE = Number(process.env.METRICS_ALERT_ERROR_RATE || 5);
+const METRICS_ALERT_QUEUE_DEPTH = Number(process.env.METRICS_ALERT_QUEUE_DEPTH || 20);
 const requestMetrics = {
   total: 0,
   success: 0,
@@ -146,6 +150,40 @@ function buildLatencySummary(samples = []) {
   };
 }
 
+function buildAlertList({ latencyMs, successRate, queueDepth }) {
+  if (!METRICS_ALERT_ENABLED) return [];
+  const alerts = [];
+  const errorRate = Number((100 - successRate).toFixed(2));
+  if (latencyMs.p95 > METRICS_ALERT_P95_MS) {
+    alerts.push({
+      id: 'latency-p95',
+      severity: 'high',
+      message: `p95 latency ${latencyMs.p95}ms > ${METRICS_ALERT_P95_MS}ms`,
+      value: latencyMs.p95,
+      threshold: METRICS_ALERT_P95_MS,
+    });
+  }
+  if (errorRate > METRICS_ALERT_ERROR_RATE) {
+    alerts.push({
+      id: 'error-rate',
+      severity: 'medium',
+      message: `error rate ${errorRate}% > ${METRICS_ALERT_ERROR_RATE}%`,
+      value: errorRate,
+      threshold: METRICS_ALERT_ERROR_RATE,
+    });
+  }
+  if (queueDepth > METRICS_ALERT_QUEUE_DEPTH) {
+    alerts.push({
+      id: 'queue-depth',
+      severity: 'medium',
+      message: `queue depth ${queueDepth} > ${METRICS_ALERT_QUEUE_DEPTH}`,
+      value: queueDepth,
+      threshold: METRICS_ALERT_QUEUE_DEPTH,
+    });
+  }
+  return alerts;
+}
+
 const AI_RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const AI_RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
 const AI_PROMPT_VERSION = process.env.AI_PROMPT_VERSION || 'v1';
@@ -155,6 +193,8 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-pro';
 const GEMINI_API_URL =
   process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
+const PUBLISH_REQUIRE_QUALITY_CHECKLIST =
+  process.env.PUBLISH_REQUIRE_QUALITY_CHECKLIST === 'true';
 
 const aiRateState = new Map();
 const API_RATE_LIMIT_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000);
@@ -1844,6 +1884,9 @@ app.post('/api/releases/:id/preflight', async (req, res) => {
     const jobResult = jobSnapshot.snapshot.result || {};
     const qaReport = jobResult.qaReport || jobResult.outputManifest?.qa?.report || null;
     const metadata = jobResult.outputManifest?.metadata || {};
+    const storytelling = jobResult.outputManifest?.ai?.storytelling || null;
+    const printProfile =
+      jobResult.outputManifest?.template?.printProfile || metadata?.printProfile || null;
     const blockViolations =
       jobResult.preflight?.blockCatalogViolations ||
       jobResult.outputManifest?.preflight?.blockCatalogViolations ||
@@ -1858,6 +1901,10 @@ app.post('/api/releases/:id/preflight', async (req, res) => {
       contentSchema: pressPack?.manifest_json?.contentSchema || null,
       metadata,
       blockCatalogViolations: blockViolations,
+      storytelling,
+      patternTags: metadata?.patternTags || [],
+      printProfile,
+      enforceQualityChecklist: process.env.PREFLIGHT_ENFORCE_QUALITY_CHECKLIST === 'true',
     });
 
     const outputManifest = jobResult.outputManifest || {};
@@ -1908,6 +1955,30 @@ app.post('/api/releases/:id/publish', async (req, res) => {
     const preflightStatus = release.preflight?.status;
     if (preflightStatus !== 'pass') {
       return sendError(res, 409, 'PREFLIGHT_BLOCKED', 'Preflight checks failed.', release.preflight, req.requestId);
+    }
+    if (PUBLISH_REQUIRE_QUALITY_CHECKLIST) {
+      const qualityChecklist = release.preflight?.qualityChecklist || null;
+      if (!qualityChecklist) {
+        return sendError(
+          res,
+          409,
+          'QUALITY_CHECKLIST_MISSING',
+          'Quality checklist is required before publish.',
+          null,
+          req.requestId
+        );
+      }
+      const failures = (qualityChecklist.items || []).filter((item) => item.status === 'fail');
+      if (failures.length) {
+        return sendError(
+          res,
+          409,
+          'QUALITY_CHECKLIST_FAILED',
+          'Quality checklist checks failed.',
+          { failures },
+          req.requestId
+        );
+      }
     }
     if (release.status !== 'approved') {
       return sendError(res, 409, 'RELEASE_NOT_APPROVED', 'Release must be approved before publish.', null, req.requestId);
@@ -2050,6 +2121,10 @@ async function authorizeMetrics(req, res) {
 function renderMetricsDashboard(payload) {
   const reqStats = payload.requests;
   const queue = payload.queue;
+  const alerts = payload.alerts || [];
+  const alertItems = alerts.length
+    ? alerts.map((alert) => `<li>${alert.message}</li>`).join('')
+    : '<li>No active alerts.</li>';
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -2088,6 +2163,10 @@ function renderMetricsDashboard(payload) {
         </tr>
       </table>
     </div>
+    <div class="card">
+      <div class="label">Alerts</div>
+      <ul>${alertItems}</ul>
+    </div>
     <p class="label">Generated at ${payload.generatedAt}</p>
   </body>
 </html>`;
@@ -2112,6 +2191,11 @@ app.get('/api/metrics', async (req, res) => {
     const successRate = requestMetrics.total
       ? Number(((requestMetrics.success / requestMetrics.total) * 100).toFixed(2))
       : 0;
+    const alerts = buildAlertList({
+      latencyMs: latency,
+      successRate,
+      queueDepth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
+    });
 
     return res.json({
       generatedAt: new Date().toISOString(),
@@ -2131,6 +2215,7 @@ app.get('/api/metrics', async (req, res) => {
         paused: queueCounts.paused || 0,
         depth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
       },
+      alerts,
     });
   } catch (error) {
     logEvent('error', {
@@ -2160,6 +2245,11 @@ app.get('/api/metrics/dashboard', async (req, res) => {
     const successRate = requestMetrics.total
       ? Number(((requestMetrics.success / requestMetrics.total) * 100).toFixed(2))
       : 0;
+    const alerts = buildAlertList({
+      latencyMs: latency,
+      successRate,
+      queueDepth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
+    });
 
     const payload = {
       generatedAt: new Date().toISOString(),
@@ -2179,6 +2269,7 @@ app.get('/api/metrics/dashboard', async (req, res) => {
         paused: queueCounts.paused || 0,
         depth: (queueCounts.waiting || 0) + (queueCounts.delayed || 0),
       },
+      alerts,
     };
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

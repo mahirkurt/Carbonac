@@ -1,5 +1,7 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
+import { getProjectRoot } from './file-utils.js';
 
 function normalizeKeywords(value) {
   if (!value) return [];
@@ -12,17 +14,78 @@ function normalizeKeywords(value) {
     .filter(Boolean);
 }
 
+function normalizePatternKeywords(value) {
+  const tags = normalizeKeywords(value);
+  return tags.map((tag) => (
+    tag.startsWith('pattern:') ? tag : `pattern:${tag}`
+  ));
+}
+
 function normalizeBoolean(value, fallback) {
   if (value === undefined || value === null) return fallback;
   return Boolean(value);
 }
 
+async function resolveBuildInfo(options = {}) {
+  const build = options.build || {};
+  const buildSha =
+    build.sha ||
+    options.buildSha ||
+    process.env.BUILD_SHA ||
+    process.env.GITHUB_SHA ||
+    '';
+  const buildDate =
+    build.date ||
+    options.buildDate ||
+    process.env.BUILD_DATE ||
+    process.env.GITHUB_RUN_STARTED_AT ||
+    new Date().toISOString();
+  let buildVersion =
+    build.version ||
+    options.buildVersion ||
+    process.env.BUILD_VERSION ||
+    process.env.npm_package_version ||
+    '';
+  if (!buildVersion) {
+    try {
+      const packagePath = path.join(getProjectRoot(), 'package.json');
+      const packageJson = JSON.parse(await fs.readFile(packagePath, 'utf-8'));
+      buildVersion = packageJson?.version || '';
+    } catch {
+      buildVersion = '';
+    }
+  }
+
+  const shortSha = buildSha ? buildSha.slice(0, 7) : '';
+  const keywords = [
+    buildVersion ? `build-version:${buildVersion}` : null,
+    buildSha ? `build-sha:${buildSha}` : null,
+    buildDate ? `build-date:${buildDate}` : null,
+  ].filter(Boolean);
+  const summaryParts = [
+    buildVersion ? `v${buildVersion}` : null,
+    shortSha ? `sha:${shortSha}` : null,
+    buildDate ? `date:${buildDate}` : null,
+  ].filter(Boolean);
+
+  return {
+    version: buildVersion,
+    sha: buildSha,
+    shortSha,
+    date: buildDate,
+    keywords,
+    summary: summaryParts.join(' '),
+  };
+}
+
 async function applyMetadata(pdfDoc, metadata = {}, options = {}) {
+  const buildInfo = options.buildInfo || await resolveBuildInfo(options);
+  const buildSuffix = buildInfo.summary ? ` (${buildInfo.summary})` : '';
   const title = metadata.title || options.title || 'Carbon Report';
   const author = metadata.author || options.author || 'Carbonac';
   const subject = metadata.subject || metadata.subtitle || options.subject || '';
-  const producer = options.producer || 'Carbonac PDF Engine';
-  const creator = options.creator || 'Carbonac';
+  const producer = options.producer || `Carbonac PDF Engine${buildSuffix}`;
+  const creator = options.creator || `Carbonac${buildSuffix}`;
 
   pdfDoc.setTitle(title);
   pdfDoc.setAuthor(author);
@@ -33,8 +96,26 @@ async function applyMetadata(pdfDoc, metadata = {}, options = {}) {
   pdfDoc.setCreator(creator);
 
   const keywords = normalizeKeywords(metadata.keywords || options.keywords);
-  if (keywords.length) {
-    pdfDoc.setKeywords(keywords);
+  const patternKeywords = normalizePatternKeywords(
+    metadata.patternTags || options.patternTags
+  );
+  const mergedKeywords = Array.from(
+    new Set([...keywords, ...patternKeywords, ...buildInfo.keywords])
+  );
+  if (mergedKeywords.length) {
+    pdfDoc.setKeywords(mergedKeywords);
+  }
+
+  if (buildInfo.date) {
+    const parsedDate = new Date(buildInfo.date);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      if (typeof pdfDoc.setCreationDate === 'function') {
+        pdfDoc.setCreationDate(parsedDate);
+      }
+      if (typeof pdfDoc.setModificationDate === 'function') {
+        pdfDoc.setModificationDate(parsedDate);
+      }
+    }
   }
 }
 
@@ -84,12 +165,21 @@ export async function postprocessPdf({
     String(status).toLowerCase() === 'draft'
   );
 
-  await applyMetadata(pdfDoc, metadata, options);
+  const buildInfo = await resolveBuildInfo(options);
+  await applyMetadata(pdfDoc, metadata, { ...options, buildInfo });
 
   const keywords = normalizeKeywords(metadata.keywords || options.keywords);
-  if (pdfaReady && !keywords.includes('pdfa-ready')) {
-    keywords.push('pdfa-ready');
-    pdfDoc.setKeywords(keywords);
+  const patternKeywords = normalizePatternKeywords(
+    metadata.patternTags || options.patternTags
+  );
+  const mergedKeywords = Array.from(
+    new Set([...keywords, ...patternKeywords, ...buildInfo.keywords])
+  );
+  if (pdfaReady && !mergedKeywords.includes('pdfa-ready')) {
+    mergedKeywords.push('pdfa-ready');
+  }
+  if (mergedKeywords.length) {
+    pdfDoc.setKeywords(mergedKeywords);
   }
 
   if (draftWatermark) {
@@ -108,6 +198,7 @@ export async function postprocessPdf({
     pdfaReady,
     optimized: optimize,
     watermarked: draftWatermark,
+    build: buildInfo,
   };
 }
 

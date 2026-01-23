@@ -81,14 +81,20 @@ docker-compose.raspberry.yml
 
 Baslatma (API):
 ```
-docker compose -f docker-compose.raspberry.yml up -d
+docker compose -f docker-compose.raspberry.yml --profile api up -d
 ```
 
-Worker opsiyonel (profile ile):
+Worker (profile ile):
 ```
 docker compose -f docker-compose.raspberry.yml --profile worker up -d
 ```
 
+API + Worker birlikte:
+```
+docker compose -f docker-compose.raspberry.yml --profile api --profile worker up -d
+```
+
+Not: Profil kullanildigi icin `docker compose up -d` tek basina sadece profili olmayan servisleri (redis) calistirir.
 Not: Worker icin Paged.js ve headless Chromium gereklidir. `PUPPETEER_SKIP_DOWNLOAD=1` ve `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` ayarlidir.
 Not: Compose dosyasi named volume kullanir; output ve temp verileri Raspberry uzerinde saklanir.
 Not: Redis servisi compose icinde vardir; `REDIS_URL=redis://redis:6379` kullanilir.
@@ -103,12 +109,18 @@ python scripts/raspberry/pi_bridge.py run "uname -a"
 python scripts/raspberry/pi_bridge.py docker "ps -a"
 python scripts/raspberry/pi_bridge.py compose --path ~/carbonac "up -d"
 python scripts/raspberry/pi_bridge.py deploy-worker --path ~/carbonac --git-url <repo-url>
+python scripts/raspberry/pi_bridge.py deploy-smoke --path ~/carbonac --git-url <repo-url>
 ```
 
 Varsayilan repo yolu `../Raspberry` olarak beklenir. Farkli ise:
 ```
 set RASPBERRY_REPO_PATH=D:\Repositories\Raspberry
 ```
+
+`deploy-smoke` komutu:
+- Pi tarafinda `git pull` + `docker compose` ile api+worker gunceller.
+- Lokal ortamda `scripts/tests/api-smoke.js` calistirir.
+- Loglari `output/smoke/pi-deploy-<timestamp>.log` altina kaydeder.
 
 ## 6. Frontend Icin API Adresi
 Frontend calisirken API adresi Raspberry'ye yonlendirilmelidir.
@@ -129,3 +141,17 @@ VITE_API_URL=http://raspberrypi.local:3001
 ## 9. Sonraki Adimlar
 - Raspberry `.env` ile Carbonac `.env` senkronu korunmali.
 - Worker image rebuild ve smoke testleri periyodik calistirilmali.
+
+## 10. Domain Deploy (carbonac.com)
+Backend:
+- Cloudflare tunnel ingress: `api.carbonac.com -> http://localhost:3001`
+- DNS: `api.carbonac.com` icin CNAME kaydi `CLOUDFLARE_TUNNEL_ID.cfargotunnel.com`
+- TLS: Cloudflare proxy (SSL/TLS mode: Full) onerilir.
+
+Frontend (Netlify):
+- `frontend/netlify.toml` icinde `VITE_API_URL=https://api.carbonac.com`
+- Netlify UI'de custom domain `carbonac.com` tanimlanir ve SSL aktif edilir.
+
+Cloudflare otomasyon (opsiyonel):
+- `../Raspberry/scripts/setup_carbonac_domain.py` (zone + DNS + tunnel ingress merge)
+- GoDaddy kullaniyorsaniz `GODADDY_API_KEY` ve `GODADDY_API_SECRET` ayarlayin.

@@ -28,6 +28,13 @@ const keyInsightsSchema = z.preprocess((value) => {
   return value;
 }, z.array(z.string()));
 
+const sourcesSchema = z.preprocess((value) => {
+  if (typeof value === 'string') {
+    return [value];
+  }
+  return value;
+}, z.array(z.string()));
+
 const componentSchema = z.object({
   type: z.string(),
   layoutProps: layoutPropsSchema.optional(),
@@ -73,6 +80,8 @@ const layoutJsonSchema = z.object({
   storytelling: z.object({
     executiveSummary: z.string().optional(),
     keyInsights: keyInsightsSchema.optional(),
+    methodologyNotes: z.string().optional(),
+    sources: sourcesSchema.optional(),
   }).optional(),
   styleHints: z.object({
     avoidBreakSelectors: z.array(z.string()).optional(),
@@ -93,6 +102,7 @@ function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme }) {
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
 Tone: concise executive summary, no jargon, no emojis. Highlight any outliers or trends when data is present.
+Include sources/methodology notes for survey-style reports when available.
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -115,7 +125,9 @@ Output schema:
   ],
   "storytelling": {
     "executiveSummary": "Short executive summary.",
-    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"]
+    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"],
+    "methodologyNotes": "Optional survey methodology notes.",
+    "sources": ["Optional source references"]
   },
   "styleHints": {
     "avoidBreakSelectors": ["table", "pre", "blockquote"],
@@ -171,7 +183,7 @@ function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, d
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
 Create a layoutPlan with gridSystem, components, and pageBreaks.
-Include storytelling (executiveSummary + keyInsights) and styleHints.
+Include storytelling (executiveSummary + keyInsights + methodologyNotes + sources) and styleHints.
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -205,7 +217,9 @@ Output schema:
   },
   "storytelling": {
     "executiveSummary": "Short executive summary.",
-    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"]
+    "keyInsights": ["Highlight outliers or trends", "Use clear, executive wording"],
+    "methodologyNotes": "Optional survey methodology notes.",
+    "sources": ["Optional source references"]
   },
   "styleHints": {
     "avoidBreakSelectors": ["table", "pre", "blockquote"],
@@ -403,15 +417,34 @@ function buildFallbackLayoutPlan({ layoutProfile, documentPlan }) {
   };
 }
 
+function normalizeSourcesInput(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return [value.trim()].filter(Boolean);
+  }
+  return [];
+}
+
 function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfile, theme, documentPlan }) {
   const executiveSummary = summarizeContent(content);
   const keyInsights = buildFallbackInsights(content);
+  const methodologyNotes =
+    metadata.methodologyNotes ||
+    metadata.methodology ||
+    metadata.method ||
+    '';
+  const sources = normalizeSourcesInput(metadata.sources || metadata.source);
   const forceBreakSelectors = content.length > 800 ? ['h2'] : [];
   const resolvedDocumentPlan = documentPlan || buildFallbackDocumentPlan({ metadata, content });
-  const storytelling = (executiveSummary || keyInsights.length)
+  const storytelling = (executiveSummary || keyInsights.length || methodologyNotes || sources.length)
     ? {
         executiveSummary,
         keyInsights,
+        methodologyNotes,
+        sources,
       }
     : null;
   const layoutPlan = buildFallbackLayoutPlan({ layoutProfile, documentPlan: resolvedDocumentPlan });
@@ -495,12 +528,20 @@ function normalizeLayoutJson(input, fallback, layoutProfile, printProfile) {
       const keyInsights = Array.isArray(input.storytelling.keyInsights)
         ? input.storytelling.keyInsights.map((item) => item.trim()).filter(Boolean)
         : output.storytelling?.keyInsights || [];
+      const sources = Array.isArray(input.storytelling.sources)
+        ? input.storytelling.sources.map((item) => String(item).trim()).filter(Boolean)
+        : output.storytelling?.sources || [];
       output.storytelling = {
         executiveSummary:
           typeof input.storytelling.executiveSummary === 'string'
             ? input.storytelling.executiveSummary
             : output.storytelling?.executiveSummary || '',
         keyInsights,
+        methodologyNotes:
+          typeof input.storytelling.methodologyNotes === 'string'
+            ? input.storytelling.methodologyNotes
+            : output.storytelling?.methodologyNotes || '',
+        sources,
       };
     }
     if (input.styleHints && typeof input.styleHints === 'object') {

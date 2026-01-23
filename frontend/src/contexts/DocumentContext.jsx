@@ -14,25 +14,14 @@ import React, {
 } from 'react';
 import { useDebounce, useLocalStorage } from '../hooks';
 import { lintMarkdown, buildLintCacheKey } from '../utils/markdownLint';
+import { buildApiUrl } from '../utils/apiBase';
 import { supabase } from '../lib/supabase';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-const API_URL = API_BASE_URL.replace(/\/$/, '');
 const AUTOSAVE_STORAGE_KEY = 'carbonac_autosave_v1';
 const REVIEWER_EMAILS = (import.meta.env.VITE_TEMPLATE_REVIEWER_EMAILS || '')
   .split(',')
   .map((entry) => entry.trim().toLowerCase())
   .filter(Boolean);
-
-function buildApiUrl(path) {
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (!API_URL) {
-    return path;
-  }
-  return path.startsWith('/') ? `${API_URL}${path}` : `${API_URL}/${path}`;
-}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

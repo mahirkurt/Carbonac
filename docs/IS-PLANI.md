@@ -150,16 +150,26 @@ Kabul kriterleri:
 ### Faz 4 - Urunlesme (Sprint 7-8)
 Ama: Operasyona hazir, guvenli ve izlenebilir urun.
 Sprint 7 Epics:
+- Release readiness (preflight gate + artifact retention + version stamping)
 - Dokuman versiyonlama ve diff
-- Yorum/annotation
 - Usage stats (conversion count, storage)
+- Monitoring temelleri (metrics endpoint + dashboard iskeleti)
+- DoD enforcement (CI/PR checklist + release gate)
 Sprint 8 Epics:
 - Billing limitleri (free/pro)
 - Security hardening (rate limit, scanning)
-- Observability dashboard
+- Observability dashboard + alerting
+- Release pipeline stabilizasyonu (rollback drill + publish audit log)
 Kabul kriterleri:
 - Kullanici rol/limitleri aktif
 - Temel metrikler izlenebilir
+- Release pipeline preflight + kalite checklist'ine bagli
+- DoD enforcement CI/PR seviyesinde gorunur
+
+Faz 4 Backlog Detayi (release/monitoring/DoD):
+- Release: manifest dogrulama, artifact retention SLA, rollback rehearsal, publish audit log.
+- Monitoring: latency/queue depth/error rate dashboard, alert kurallari, runbook linkleri.
+- DoD: preflight/QA gate zorunlu, PR checklist + CI DoD step, manual test kaydi.
 
 ## 9. Mimarik ve Teknik Standartlar
 API Standartlari:
@@ -251,11 +261,8 @@ Storage:
 - Faz 0 tamam: mimari kararlar, contract ve backlog kayitlari mevcut.
 - Faz 1 tamam: job pipeline + Paged.js + Gemini art director + signed URL akisi dogrulandi.
 - Faz 2 tamam: Sprint 3 preview/QA + autosave + frontmatter wizard tamam; Sprint 4 tamam.
-- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam; Sprint 6 press pack + release/publish + preflight + governance UI tamam. Rollback policy ve migration apply bekliyor.
+- Faz 3 tamam: Sprint 5 template registry + preview + gallery tamam; Sprint 6 press pack + release/publish + preflight + governance UI tamam. Rollback policy enforce edildi ve 004/005 migrations uygulandi.
 - Pi runtime stabil: Docker api/worker + Cloudflare SSH ile uzaktan calisma dogrulandi.
 
 ## 20. Sonraki Adimlar (Oncelik)
-- Supabase migrations (004/005) apply + release tablolarini dogrula.
-- Template rollback policy (kural + enforcement) tamamla.
-- Frontmatter wizard + autosave ile editor akisini kapat.
-- QA harness ve otomatik test setini genislet.
+- Opsiyonel: alert esiklerini ortam KPI'larina gore kalibre et.

@@ -1,9 +1,18 @@
 // Carbon Design System - Styles
-// Font warnings are expected - Google Fonts in index.html provides the fonts
+// Google Fonts in index.html provide IBM Plex. Disable Carbon font-face blocks.
+@use '@carbon/styles/scss/config' with (
+  $css--font-face: false
+);
 @use '@carbon/react';
 
 // Import abstracts (variables, mixins, motion tokens)
 @use 'abstracts' as *;
+@use '../components/document/DocumentUploader';
+@use '../components/wizard/ReportWizard';
+@use '../components/layout/AppHeader';
+@use '../components/layout/AppFooter';
+@use '../components/auth/AuthModal';
+@use '../components/pricing/PricingModal';
 
 // Custom CSS Variables for Carbon Design System
 :root {
@@ -1462,9 +1471,3 @@ body {
 // Component Imports
 // =============================================================================
 
-@import '../components/document/DocumentUploader.scss';
-@import '../components/wizard/ReportWizard.scss';
-@import '../components/layout/AppHeader.scss';
-@import '../components/layout/AppFooter.scss';
-@import '../components/auth/AuthModal.scss';
-@import '../components/pricing/PricingModal.scss';

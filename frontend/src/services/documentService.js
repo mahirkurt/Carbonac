@@ -4,19 +4,7 @@
  */
 
 import { db, storage, supabase } from '../lib/supabase';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-const API_URL = API_BASE_URL.replace(/\/$/, '');
-
-function buildApiUrl(path) {
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (!API_URL) {
-    return path;
-  }
-  return path.startsWith('/') ? `${API_URL}${path}` : `${API_URL}/${path}`;
-}
+import { buildApiUrl } from '../utils/apiBase';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

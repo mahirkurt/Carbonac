@@ -28,7 +28,7 @@ export {
 } from './animations';
 
 // Auth components
-export { AuthModal } from './auth';
+export { AuthModal, AuthCallback, AuthResetPassword } from './auth';
 
 // Pricing components
 export { PricingModal } from './pricing';

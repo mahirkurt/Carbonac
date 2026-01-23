@@ -30,6 +30,29 @@ npm run dev
 ```
 Uygulama `http://localhost:3000` adresinde çalışır.
 
+## CLI (Batch Build)
+
+Tek dosya:
+```bash
+npx carbonac build report.md --html --png
+```
+
+QA odaklı build:
+```bash
+npx carbonac qa report.md --output-dir output/qa
+```
+
+Birden fazla dosya + paralel:
+```bash
+npx carbonac build docs/*.md --output-dir output/cli --concurrency 2
+```
+
+Cache varsayılan olarak aktiftir (`.cache/carbonac`). Kapatmak için:
+```bash
+npx carbonac build report.md --no-cache
+```
+
+
 ## Temel Akış
 
 1. Dosya yükleme veya markdown içerik oluşturma

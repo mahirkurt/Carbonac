@@ -10,6 +10,14 @@
 
 import { useRef, useCallback, useEffect } from 'react';
 
+const useFocusManagement = () => ({
+  useFocusRestoration,
+  useRovingTabIndex,
+  useSkipLink,
+  useFocusVisible,
+  useAnnounce,
+});
+
 /**
  * Focus restoration hook
  * Stores and restores focus when a component mounts/unmounts

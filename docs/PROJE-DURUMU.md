@@ -15,7 +15,9 @@
 - Signed URL refresh/redirect mantigi aktif.
 - Press Pack schema validation, release metadata ve publish akisi kodlandi.
 - Preflight gate: lint + QA raporu + job_events loglama entegre.
+- EK-GELISTIRME kalite checklist'i preflight sonucuna baglandi.
 - Template governance (state + approval) API tarafinda mevcut.
+- Template rollback endpointi ve politika dogrulamasi aktif.
 
 ### Worker ve Rendering
 - Paged.js tabanli render ve print CSS katmani aktif.
@@ -36,16 +38,14 @@
 - Worker container ARM Chromium ile paketlendi.
 - Pi uzaktan yonetim icin `scripts/raspberry/pi_bridge.py` akisi mevcut.
 - Supabase MCP ve migration dosyalari repo icinde hazir.
-- CI workflow (unit + integration, opsiyonel QA/smoke) eklendi.
+- CI workflow (unit + integration, QA/smoke, DoD check) eklendi.
+- Metrics dashboard + alert esikleri (p95/error rate/queue depth) aktif.
 
 ## 3. Bekleyenler (Oncelik)
-- QA harness ve smoke testlerinin CI'da rutin calistirilmasi (RUN_QA/RUN_SMOKE) planlanmali.
+- Kritik backlog yok (Faz 4 epics tamam).
 
 ## 4. Riskler ve Bagimliliklar
-- Editor wizard/autosave eksigi, content schema standardizasyonunu geciktiriyor.
-- Otomatik QA harness yoksa visual regressions artis riski.
-- CI testleri yoksa degisikliklerin geri donusu zorlasir.
+- Alert esiklerinin ortam bazli ayarlanmasi gerekebilir.
 
 ## 5. Sonraki Adimlar (2 Hafta)
-- Frontmatter wizard + autosave tasklari kapatilacak.
-- QA harness + test otomasyonu (unit + integration + smoke) kurulacak.
+- Opsiyonel: alert esiklerini ortam KPI'larina gore kalibre et.

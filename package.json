@@ -6,6 +6,7 @@
   "type": "module",
   "bin": {
     "carbon-pdf": "./src/cli.js",
+    "carbonac": "./src/cli.js",
     "carbon-advisor": "./src/ai/advisor-cli.js"
   },
   "scripts": {
@@ -21,6 +22,9 @@
     "test:integration": "node scripts/tests/preflight-integration.js",
     "test:qa": "node scripts/tests/qa-harness.js",
     "test:smoke": "node scripts/tests/api-smoke.js",
+    "test:optional": "node scripts/tests/optional-tests.js",
+    "qa": "npm run test:qa",
+    "smoke": "npm run test:smoke",
     "lint:tokens": "node scripts/token-lint.js"
   },
   "keywords": [
@@ -35,6 +39,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "dependencies": {
     "@carbon/colors": "^11.23.1",
     "@carbon/layout": "^11.22.1",

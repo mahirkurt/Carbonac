@@ -77,6 +77,7 @@ import {
   useDocument,
   WORKFLOW_STEPS,
 } from './contexts';
+import { AuthCallback, AuthResetPassword } from './components/auth';
 
 // Lazy loaded components
 const SettingsModal = lazy(() => import('./components/layout/SettingsModal'));
@@ -990,6 +991,23 @@ function AppContent() {
 
 // Root App with Providers
 function App() {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  const isAuthRoute = pathname.startsWith('/auth/');
+
+  if (isAuthRoute) {
+    return (
+      <ThemeProvider>
+        <AuthProvider>
+          {pathname.startsWith('/auth/reset-password') ? (
+            <AuthResetPassword />
+          ) : (
+            <AuthCallback />
+          )}
+        </AuthProvider>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider>
       <AuthProvider>

@@ -14,5 +14,8 @@ build/
 *.out
 *.toc
 
+# Allow reference PDFs tracked via Git LFS
+!library/pdfs/*.pdf
+
 # Local Netlify folder
 .netlify

@@ -82,7 +82,7 @@ Ust seviye alanlar:
 - `documentPlan`: semantik iskelet (bolumler + gerekli bloklar)
 - `layoutPlan`: uzamsal yerlesim (grid + component listesi + page breaks)
 - `components`: LayoutPlan ile ayni format (geri uyumluluk)
-- `storytelling`: executive summary + key insights
+- `storytelling`: executive summary + key insights + methodology notes + sources
 - `styleHints`: avoid/force break selectors
 
 StyleOverrides whitelist:
@@ -108,7 +108,9 @@ Ornek (ozet):
   },
   "storytelling": {
     "executiveSummary": "Genel performans yukseliyor.",
-    "keyInsights": ["Gelir 3 ceyrektir artiyor."]
+    "keyInsights": ["Gelir 3 ceyrektir artiyor."],
+    "methodologyNotes": "Online anket, n=120, TR geneli.",
+    "sources": ["Internal survey dataset v3"]
   },
   "styleHints": {
     "avoidBreakSelectors": ["table", "blockquote"],
@@ -131,6 +133,8 @@ Schema: `docs/schemas/component-node.schema.json`
 Worker PDF ciktisi ile birlikte metadata/QA/preflight bilgilerini tek payload'da tasir.
 
 Schema: `docs/schemas/output-manifest.schema.json`
+
+Not: `preflight.qualityChecklist` EK-GELISTIRME kalite kontrol listesinin sonuclarini tasir.
 
 Ornek (ozet):
 ```json

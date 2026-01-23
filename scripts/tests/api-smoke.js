@@ -8,8 +8,26 @@ const headers = {
   ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
 };
 
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+const requestTimeoutMs = Number(process.env.API_SMOKE_REQUEST_TIMEOUT_MS || 20000);
+const downloadTimeoutMs = Number(process.env.API_SMOKE_DOWNLOAD_TIMEOUT_MS || 60000);
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = requestTimeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchJson(url, options = {}, timeoutMs = requestTimeoutMs) {
+  const response = await fetchWithTimeout(url, options, timeoutMs);
   const payload = await response.json().catch(() => ({}));
   return { response, payload };
 }
@@ -32,6 +50,9 @@ async function pollJob(jobId, { maxAttempts = 60, intervalMs = 1500 } = {}) {
 }
 
 async function runSmoke() {
+  const maxAttempts = Number(process.env.API_SMOKE_MAX_ATTEMPTS || 60);
+  const intervalMs = Number(process.env.API_SMOKE_INTERVAL_MS || 1500);
+  console.log('Smoke test started.');
   const payload = {
     markdown: '# Smoke Test\n\nAPI smoke test running.',
     settings: {
@@ -57,11 +78,13 @@ async function runSmoke() {
     throw new Error('Job id missing in response.');
   }
 
-  const status = await pollJob(jobId);
+  console.log('Smoke test job created:', jobId);
+  const status = await pollJob(jobId, { maxAttempts, intervalMs });
   const downloadPath = status.result?.signedUrl || status.result?.downloadUrl || `/api/jobs/${jobId}/download`;
   const downloadUrl = downloadPath.startsWith('http') ? downloadPath : `${apiBase}${downloadPath}`;
 
-  const downloadResponse = await fetch(downloadUrl);
+  console.log('Smoke test downloading:', downloadUrl);
+  const downloadResponse = await fetchWithTimeout(downloadUrl, {}, downloadTimeoutMs);
   if (!downloadResponse.ok) {
     throw new Error('Download failed.');
   }

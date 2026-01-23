@@ -15,7 +15,7 @@
 
 ### System Dependencies
 
-- Node.js 18+ (AI/worker icin 20+ onerilir)
+- Node.js 20.19+ (AI/worker icin zorunlu)
 - Headless Chromium (server-side PDF uretimi icin)
 
 ### Node Dependencies
@@ -67,11 +67,12 @@ Raspberry Pi uzerinden Docker ile calistirma:
 ## Documentation Map
 
 - Source of truth and AI agent instructions: `docs/PROJE-TALIMATLARI.md`
+- Consolidated architecture + current status: `docs/PROJE-MIMARISI.md`
 - Sprint 0 decisions + API contract: `docs/SPRINT-0-DELIVERABLES.md`
 - Phase/sprint plan: `docs/IS-PLANI.md`
-- Sprint detail plans: `docs/FAZ-0-SPRINT-0.md`, `docs/FAZ-1-SPRINT-1.md`, `docs/FAZ-1-SPRINT-2.md`
+- Archived sprint detail plans: `docs/archive/FAZ-0-SPRINT-0.md`, `docs/archive/FAZ-1-SPRINT-1.md`, `docs/archive/FAZ-1-SPRINT-2.md`
 - Remote runtime runbook: `docs/RASPBERRY-DOCKER.md`
-- Long-term reference roadmap: `docs/YOL-HARITASI-REFERANS.md`
+- Long-term reference roadmap (archived): `docs/archive/YOL-HARITASI-REFERANS.md`
 
 ## Project Structure
 

@@ -15,6 +15,10 @@ on:
         description: "Run API smoke test (requires API_BASE_URL + API_AUTH_TOKEN)"
         required: false
         default: "false"
+      run_dod:
+        description: "Run DoD checklist presence check"
+        required: false
+        default: "false"
 
 jobs:
   tests:
@@ -22,6 +26,7 @@ jobs:
     env:
       RUN_QA: ${{ github.event.inputs.run_qa || 'false' }}
       RUN_SMOKE: ${{ github.event.inputs.run_smoke || 'false' }}
+      RUN_DOD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_dod || 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,8 +37,18 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Set build metadata
+        run: |
+          echo "BUILD_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "BUILD_VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+
       - name: SoT consistency check
         run: node scripts/check-sot.js
+
+      - name: DoD checklist check
+        if: ${{ env.RUN_DOD == 'true' }}
+        run: node scripts/check-dod.js
 
       - name: Install dependencies
         run: npm ci

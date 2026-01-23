@@ -139,6 +139,51 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function normalizeKeywordList(value) {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizePatternTag(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function extractPatternTags(components, metadata) {
+  const tags = new Set(normalizeKeywordList(metadata?.patternTags));
+  const list = Array.isArray(components) ? components : [];
+  for (const component of list) {
+    if (!component || component.type !== 'PatternBlock') {
+      continue;
+    }
+    const rawType =
+      component.props?.type || component.props?.pattern || component.props?.patternType;
+    const normalized = normalizePatternTag(rawType);
+    if (normalized) {
+      tags.add(normalized);
+    }
+  }
+  return Array.from(tags);
+}
+
+function buildPatternKeywords(patternTags) {
+  return (patternTags || []).map((tag) => (
+    tag.startsWith('pattern:') ? tag : `pattern:${tag}`
+  ));
+}
+
 function normalizeHyphenationExceptions(exceptions) {
   if (!Array.isArray(exceptions)) {
     return [];
@@ -326,13 +371,29 @@ function buildStorytellingBlock(storytelling) {
     ? escapeHtml(storytelling.executiveSummary)
     : '';
   const insights = Array.isArray(storytelling.keyInsights) ? storytelling.keyInsights : [];
+  const methodology = storytelling.methodologyNotes
+    ? escapeHtml(storytelling.methodologyNotes)
+    : '';
+  const sources = Array.isArray(storytelling.sources) ? storytelling.sources : [];
   const safeInsights = insights
     .filter((item) => typeof item === 'string' && item.trim())
     .map((item) => `<li>${escapeHtml(item)}</li>`)
     .join('');
+  const safeSources = sources
+    .filter((item) => typeof item === 'string' && item.trim())
+    .map((item) => escapeHtml(item))
+    .join('; ');
 
-  if (!summary && !safeInsights) {
+  if (!summary && !safeInsights && !methodology && !safeSources) {
     return '';
+  }
+
+  const metaItems = [];
+  if (methodology) {
+    metaItems.push(`<span class="ai-insight__meta-item"><strong>Methodology:</strong> ${methodology}</span>`);
+  }
+  if (safeSources) {
+    metaItems.push(`<span class="ai-insight__meta-item"><strong>Sources:</strong> ${safeSources}</span>`);
   }
 
   return `
@@ -340,6 +401,7 @@ function buildStorytellingBlock(storytelling) {
       <h2 class="ai-insight__title">AI Insight</h2>
       ${summary ? `<p class="ai-insight__summary">${summary}</p>` : ''}
       ${safeInsights ? `<ul class="ai-insight__list">${safeInsights}</ul>` : ''}
+      ${metaItems.length ? `<div class="ai-insight__meta">${metaItems.join('')}</div>` : ''}
     </section>
   `;
 }
@@ -1761,7 +1823,12 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
     const markdownContent = await readFile(inputPath);
 
     if (verbose) console.log('🔍 Parsing markdown...');
-    const { metadata, content } = parseMarkdown(markdownContent);
+    const { metadata, content, components } = parseMarkdown(markdownContent);
+    const patternTags = extractPatternTags(components, metadata);
+    const mergedKeywords = Array.from(new Set([
+      ...normalizeKeywordList(metadata.keywords),
+      ...buildPatternKeywords(patternTags),
+    ]));
 
     const mergedMetadata = {
       ...metadata,
@@ -1770,6 +1837,8 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
       author: author || metadata.author,
       date: date || metadata.date,
       language: language || metadata.language,
+      keywords: mergedKeywords,
+      patternTags,
     };
 
     const typography = resolveTypographySettings(mergedMetadata, options.typography || {});

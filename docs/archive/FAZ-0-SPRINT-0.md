@@ -3,6 +3,8 @@
 > Bu dokuman `docs/PROJE-TALIMATLARI.md` ve `docs/SPRINT-0-DELIVERABLES.md` ile uyumlu olmak zorundadir.
 
 ## 1. Amac ve Kapsam
+**Status:** Completed. Referans: `docs/SPRINT-0-DELIVERABLES.md`.
+
 Sprint 0, urun gelistirme oncesi temel hizalamayi ve mimari kararlarini netlestirmek icindir.
 Bu sprintte ozellikle API hedefi, conversion pipeline, deploy modeli, guvenlik/anahtar yonetimi,
 ve ortak backlog yapisi kesinlestirilir.
@@ -188,121 +190,121 @@ Referans: `docs/SPRINT-0-DELIVERABLES.md`.
 Labels: [ARCH] [OPS]
 Goal: Tek API hedefi, worker modeli ve deploy stratejisi netlestirilsin.
 Tasks:
-- [ ] Mevcut calisan servisleri ve bagimliliklari listele (backend, frontend, CLI).
-- [ ] Express + worker vs serverless karsilastirma notu yaz.
-- [ ] Paged.js/headless chromium/marker runtime gereksinimlerini belirle.
-- [ ] API base URL ve auth modeli (token/session) karari al.
-- [ ] Local dev runbook taslagi yaz.
+- [x] Mevcut calisan servisleri ve bagimliliklari listele (backend, frontend, CLI).
+- [x] Express + worker vs serverless karsilastirma notu yaz.
+- [x] Paged.js/headless chromium/marker runtime gereksinimlerini belirle.
+- [x] API base URL ve auth modeli (token/session) karari al.
+- [x] Local dev runbook taslagi yaz.
 Acceptance:
-- [ ] Deploy karar dokumani tamam.
-- [ ] Runtime bagimliliklari listesi tamam.
+- [x] Deploy karar dokumani tamam.
+- [x] Runtime bagimliliklari listesi tamam.
 
 ### ISSUE S0-02: API Contract Taslagi
 Labels: [API] [DOCS]
 Goal: Endpoint, payload ve hata sozlesmesi net olsun.
 Tasks:
-- [ ] Endpoint listesi ve amaclari yaz (convert, jobs, health).
-- [ ] Request/response schema taslaklari cikar.
-- [ ] Hata formatini standartlastir (code, message, details, request_id).
-- [ ] Ornek curl ve JSON paylas.
+- [x] Endpoint listesi ve amaclari yaz (convert, jobs, health).
+- [x] Request/response schema taslaklari cikar.
+- [x] Hata formatini standartlastir (code, message, details, request_id).
+- [x] Ornek curl ve JSON paylas.
 Acceptance:
-- [ ] API contract taslagi paylasildi.
+- [x] API contract taslagi paylasildi.
 
 ### ISSUE S0-03: Job State Modeli + PoC
 Labels: [API] [DB]
 Goal: Job state machine ve basic PoC hazir.
 Tasks:
-- [ ] Job state listesi ve gecisleri tanimla.
-- [ ] Job tipleri (convert-md, convert-pdf, ai-analysis) belirle.
-- [ ] PoC: /api/jobs create ve /api/jobs/{id} read (mock).
-- [ ] Loglarda job_id kullanimi standartlari.
+- [x] Job state listesi ve gecisleri tanimla.
+- [x] Job tipleri (convert-md, convert-pdf, ai-analysis) belirle.
+- [x] PoC: /api/jobs create ve /api/jobs/{id} read (mock).
+- [x] Loglarda job_id kullanimi standartlari.
 Acceptance:
-- [ ] Job state diagram mevcut.
-- [ ] PoC endpointler calisiyor (mock).
+- [x] Job state diagram mevcut.
+- [x] PoC endpointler calisiyor (mock).
 
 ### ISSUE S0-04: Frontend Servis Haritasi ve Gecis Plani
 Labels: [FE] [API]
 Goal: Frontend yeni API ile uyumlu planlansin.
 Tasks:
-- [ ] documentService endpoint kullanimi haritalama.
-- [ ] Netlify functions bagimlilik listesi.
-- [ ] Yeni API adapter/bridge taslagi.
-- [ ] UI flow risk analizi (Upload -> Processing -> Wizard -> Preview).
+- [x] documentService endpoint kullanimi haritalama.
+- [x] Netlify functions bagimlilik listesi.
+- [x] Yeni API adapter/bridge taslagi.
+- [x] UI flow risk analizi (Upload -> Processing -> Wizard -> Preview).
 Acceptance:
-- [ ] FE service refactor plan dokumani tamam.
+- [x] FE service refactor plan dokumani tamam.
 
 ### ISSUE S0-05: Template Strategy ve Naming Standardi
 Labels: [TEMPLATE]
 Goal: Template secimi UI->backend->converter hizali olsun.
 Tasks:
-- [ ] Template isim standardi listesi (carbon-advanced, carbon-template, carbon-theme-g100).
-- [ ] Backend tarafinda template parametresi gecis taslagi.
-- [ ] Template registry MVP ihtiyac listesi.
+- [x] Template isim standardi listesi (carbon-advanced, carbon-template, carbon-theme-g100).
+- [x] Backend tarafinda template parametresi gecis taslagi.
+- [x] Template registry MVP ihtiyac listesi.
 Acceptance:
-- [ ] Template strategy notu tamam.
+- [x] Template strategy notu tamam.
 
 ### ISSUE S0-06: Token Mapping Taslagi
 Labels: [TEMPLATE] [DESIGN]
 Goal: React/Carbon + Paged.js icin ortak token sozlugu taslaklansin.
 Tasks:
-- [ ] Tipografi, renk, spacing token listesi.
-- [ ] Mevcut template dosyalarinda token kullanimi tespiti.
-- [ ] Token mapping tablosu taslak (common -> typst/quarto).
+- [x] Tipografi, renk, spacing token listesi.
+- [x] Mevcut template dosyalarinda token kullanimi tespiti.
+- [x] Token mapping tablosu taslak (common -> typst/quarto).
 Acceptance:
-- [ ] Token mapping taslak dokumani tamam.
+- [x] Token mapping taslak dokumani tamam.
 
 ### ISSUE S0-07: AI Servis Plan ve Guvenlik
 Labels: [AI] [SEC]
 Goal: AI cagrilari server tarafina tasinsin, riskler kapansin.
 Tasks:
-- [ ] AI endpoint taslagi (analyze, ask).
-- [ ] Rate limit ve audit log gereksinimleri.
-- [ ] Prompt dosyasi boyut limitleri ve cache plani.
-- [ ] Secret yonetimi (.env, server config).
+- [x] AI endpoint taslagi (analyze, ask).
+- [x] Rate limit ve audit log gereksinimleri.
+- [x] Prompt dosyasi boyut limitleri ve cache plani.
+- [x] Secret yonetimi (.env, server config).
 Acceptance:
-- [ ] AI servis taslak plani tamam.
+- [x] AI servis taslak plani tamam.
 
 ### ISSUE S0-08: Supabase Job Schema Taslagi
 Labels: [DB]
 Goal: Jobs ve job_events tablolarinin tasarimi net olsun.
 Tasks:
-- [ ] jobs tablo kolonlari ve tipleri belirle.
-- [ ] job_events tablo kolonlari ve tipleri belirle.
-- [ ] Index ve RLS policy taslaklari.
-- [ ] Migration dosyasi yapisi belirle.
+- [x] jobs tablo kolonlari ve tipleri belirle.
+- [x] job_events tablo kolonlari ve tipleri belirle.
+- [x] Index ve RLS policy taslaklari.
+- [x] Migration dosyasi yapisi belirle.
 Acceptance:
-- [ ] DB taslak notu tamam.
+- [x] DB taslak notu tamam.
 
 ### ISSUE S0-09: QA ve Observability Baslangic Seti
 Labels: [QA] [OPS]
 Goal: Minimum test ve log/metric standartlari.
 Tasks:
-- [ ] Manuel test checklist yaz (upload, convert, error).
-- [ ] Log format standardi (request_id, job_id, error_code).
-- [ ] Metric listesi (latency, success rate, file size).
+- [x] Manuel test checklist yaz (upload, convert, error).
+- [x] Log format standardi (request_id, job_id, error_code).
+- [x] Metric listesi (latency, success rate, file size).
 Acceptance:
-- [ ] Test checklist tamam.
-- [ ] Observability baslangic notu tamam.
+- [x] Test checklist tamam.
+- [x] Observability baslangic notu tamam.
 
 ### ISSUE S0-10: Risk ve Guvenlik Kayitlari
 Labels: [SEC] [ARCH]
 Goal: Sprint 0 riskleri ve onlemleri kayit altina al.
 Tasks:
-- [ ] AI key sizintisi risk analizi.
-- [ ] File upload guvenligi (mimetype, size, scanning) notu.
-- [ ] Storage lifecycle ve temizleme plan taslagi.
+- [x] AI key sizintisi risk analizi.
+- [x] File upload guvenligi (mimetype, size, scanning) notu.
+- [x] Storage lifecycle ve temizleme plan taslagi.
 Acceptance:
-- [ ] Risk listesi ve onlemler tamam.
+- [x] Risk listesi ve onlemler tamam.
 
 ### ISSUE S0-11: Dokumantasyon ve Sprint 0 Ozeti
 Labels: [DOCS]
 Goal: Tum kararlar ve planlar tek yerde toparlansin.
 Tasks:
-- [ ] PROJE-TALIMATLARI.md ve IS-PLANI.md ile uyum kontrolu.
-- [ ] Sprint 0 summary dokumani taslagi.
-- [ ] Karar logu (decision log) taslagi.
+- [x] PROJE-TALIMATLARI.md ve IS-PLANI.md ile uyum kontrolu.
+- [x] Sprint 0 summary dokumani taslagi.
+- [x] Karar logu (decision log) taslagi.
 Acceptance:
-- [ ] Sprint 0 summary tamam.
+- [x] Sprint 0 summary tamam.
 
 ## 7. Acceptance Checklist (Detay)
 - [x] API contract taslagi paylasildi

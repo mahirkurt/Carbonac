@@ -7,12 +7,10 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { buildApiUrl } from '../utils/apiBase';
 
 // Pricing Context
 const PricingContext = createContext(null);
-
-// API Base URL
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 // Pricing tiers
 export const PRICING_TIERS = {
@@ -112,7 +110,7 @@ export function PricingProvider({ children }) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('carbonac_token');
-      const response = await fetch(`${API_BASE}/billing/status`, {
+      const response = await fetch(buildApiUrl('/api/billing/status'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -153,7 +151,7 @@ export function PricingProvider({ children }) {
 
     try {
       const token = localStorage.getItem('carbonac_token');
-      const response = await fetch(`${API_BASE}/billing/use-credits`, {
+      const response = await fetch(buildApiUrl('/api/billing/use-credits'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +184,7 @@ export function PricingProvider({ children }) {
 
     try {
       const token = localStorage.getItem('carbonac_token');
-      const response = await fetch(`${API_BASE}/billing/create-checkout`, {
+      const response = await fetch(buildApiUrl('/api/billing/create-checkout'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,7 +226,7 @@ export function PricingProvider({ children }) {
         PAYG_PRICING.minimumPurchase
       );
 
-      const response = await fetch(`${API_BASE}/billing/purchase-credits`, {
+      const response = await fetch(buildApiUrl('/api/billing/purchase-credits'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +251,7 @@ export function PricingProvider({ children }) {
   const cancelSubscription = useCallback(async () => {
     try {
       const token = localStorage.getItem('carbonac_token');
-      const response = await fetch(`${API_BASE}/billing/cancel-subscription`, {
+      const response = await fetch(buildApiUrl('/api/billing/cancel-subscription'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

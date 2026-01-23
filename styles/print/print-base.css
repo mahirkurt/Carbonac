@@ -329,6 +329,18 @@ body {
   padding-left: calc(var(--space-4) + var(--space-1));
 }
 
+.ai-insight__meta {
+  margin-top: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--font-size-meta);
+  color: var(--cds-text-secondary);
+}
+
+.ai-insight__meta-item strong {
+  font-weight: 600;
+}
+
 .layout-grid {
   display: grid;
   grid-template-columns: repeat(16, minmax(0, 1fr));

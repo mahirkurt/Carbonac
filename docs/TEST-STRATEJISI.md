@@ -37,6 +37,7 @@
 - QA harness: `npm run test:qa` (Chromium + opsiyonel Gemini).
 - Token lint: `npm run lint:tokens` (print CSS hex/px kontrolu).
 - CI: `.github/workflows/ci.yml` (RUN_QA/RUN_SMOKE opsiyonel).
+- Optional local/CI: `RUN_QA=true RUN_SMOKE=true npm run test:optional` (kosullu QA + smoke).
 
 QA harness kapsami:
 - axe-core audit (`scripts/vendor/axe.min.js`)
@@ -48,6 +49,7 @@ QA harness kapsami:
 
 ## 6. Gatelar ve Kabul Kriterleri
 - Preflight gate fail ise publish olmamali.
+- Preflight sonucunda qualityChecklist (EK-GELISTIRME) raporu uretilmeli.
 - Signed URL yenileme basarili olmali (expiresAt > 30s).
 - Job status akisi: queued -> processing -> completed/failed.
 - Output manifest alanlari zorunlu (template/version/hash/qa).

@@ -32,7 +32,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import './AuthModal.scss';
 
 export function AuthModal({ isOpen, onClose }) {
-  const { login, register, forgotPassword, isLoading, error } = useAuth();
+  const { login, loginWithGoogle, register, forgotPassword, isLoading, error } = useAuth();
   
   // Form state
   const [activeTab, setActiveTab] = useState(0);
@@ -87,6 +87,14 @@ export function AuthModal({ isOpen, onClose }) {
     if (result.success) {
       handleClose();
     } else {
+      setFormError(result.error);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setFormError(null);
+    const result = await loginWithGoogle();
+    if (!result.success) {
       setFormError(result.error);
     }
   };
@@ -276,6 +284,17 @@ export function AuthModal({ isOpen, onClose }) {
                 >
                   Giriş Yap
                 </Button>
+
+                <Button
+                  type="button"
+                  kind="tertiary"
+                  size="lg"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="auth-modal__oauth"
+                >
+                  Google ile devam et
+                </Button>
               </form>
 
               <div className="auth-modal__divider">
@@ -367,6 +386,17 @@ export function AuthModal({ isOpen, onClose }) {
                   className="auth-modal__submit"
                 >
                   Kayıt Ol
+                </Button>
+
+                <Button
+                  type="button"
+                  kind="tertiary"
+                  size="lg"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="auth-modal__oauth"
+                >
+                  Google ile devam et
                 </Button>
               </form>
 

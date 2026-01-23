@@ -308,10 +308,8 @@ Sprint 0 deliverables tamamlandi:
 ## 12. Mevcut Durum Profili (Snapshot)
 - Faz 0 tamam: karar ve planlar SoT ile hizali.
 - Faz 1 tamam: job pipeline + Paged.js + Gemini art director + signed URL akisi dogrulandi.
-- Faz 2 kismi: Sprint 3'te autosave + frontmatter wizard bekliyor; Sprint 4 tamam.
-- Faz 3 kismi: Sprint 5 template registry + preview + gallery tamam; Press Pack manifest bekliyor.
+- Faz 2 tamam: Sprint 3 preview/QA + autosave + frontmatter wizard tamam; Sprint 4 tamam.
+- Faz 3 tamam: Sprint 5 template registry + preview + gallery tamam; Sprint 6 press pack + release/publish + preflight + governance UI tamam.
 
 ## 13. Sonraki Adimlar (Odak)
-- Press Pack manifest ve block catalog kurallari.
-- Editorial/publish akisi + preflight gate tasarimi.
-- Frontmatter wizard ile content schema standardizasyonu.
+- Opsiyonel: alert esiklerini ortam KPI'larina gore kalibre et.

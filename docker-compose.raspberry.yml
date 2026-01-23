@@ -33,6 +33,8 @@ services:
     volumes:
       - output-data:/app/output
       - temp-data:/app/temp
+    profiles:
+      - api
   worker:
     build:
       context: .

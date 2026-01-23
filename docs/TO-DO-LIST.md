@@ -1,7 +1,7 @@
 # Carbonac Master TO-DO (Merged)
 
 Bu dokuman, `docs/nihai-todo-list.md` ve `docs/TO-DO-LIST.md` iceriklerini tek bir master plan olarak birlestirir.
-Amac: kalan isleri **fazlara bolup**, bir AI agent icin **uygulanabilir adimlar** halinde tanimlamaktir.
+Amac: kalan ve tamamlanan isleri **fazlara bolup**, bir AI agent icin **uygulanabilir adimlar** halinde tanimlamaktir.
 
 Kaynaklar (SoT oncelik sirasi):
 1) `docs/PROJE-TALIMATLARI.md`
@@ -14,7 +14,6 @@ Kaynaklar (SoT oncelik sirasi):
 
 ## Legend
 - [x] tamamlandi
-- [ ] yapilacak
 - [~] bloke / karar bekliyor
 
 ---
@@ -95,7 +94,7 @@ Ciktilar:
 - [x] Fallback layout
 - [x] Prompt versioning + rollback hooks
 - [x] Data storytelling (insight + executive summary)
-- [ ] **Eksik:** Survey report kaynak/ornemlem notlari
+- [x] Survey report kaynak/orneklem notlari
 
 ## 2.2 QA Harness + Visual Regression
 - [x] Markdown lint + a11y + typography scoring
@@ -120,9 +119,9 @@ Ciktilar:
 
 ---
 
-# FAZ 3 - Operasyon, CI/CD ve Governance (KALAN ISLER)
+# FAZ 3 - Operasyon, CI/CD ve Governance (Tamamlandi)
 
-Aşağıdaki tüm maddeler **kalan islerdir**. Her madde, bir AI agent icin uygulama runbook'u seklinde tarif edilmiştir.
+Aşağıdaki maddeler runbook kaydi olarak tutulur; kalanlar veya tamamlananlar burada yer alir.
 
 ## 3.1 AI Art-Director - Survey kaynak notlari
 - [x] **Hedef:** Survey report kaynaklari ve ornekleme notlarini standartlastir.
@@ -173,7 +172,7 @@ Aşağıdaki tüm maddeler **kalan islerdir**. Her madde, bir AI agent icin uygu
 - Kabul Kriteri: CI run'larinda indirilebilir artifact mevcut (`qa-artifacts`).
 
 ### 3.2.5 Version stamping
-- [ ] **Hedef:** Cikti PDF metadata'sina commit/date/version yaz.
+- [x] **Hedef:** Cikti PDF metadata'sina commit/date/version yaz.
 - Girdiler: `src/utils/pdf-postprocess.js`, CI env (GITHUB_SHA).
 - Adimlar:
   1) Build sirasinda `BUILD_SHA`, `BUILD_DATE` env set et.
@@ -181,53 +180,64 @@ Aşağıdaki tüm maddeler **kalan islerdir**. Her madde, bir AI agent icin uygu
 - Kabul Kriteri: PDF metadata'da commit ve tarih var.
 
 ### 3.2.6 RUN_QA / RUN_SMOKE otomasyon
-- [ ] **Hedef:** CI ve lokalda tek komutla smoke/QA.
+- [x] **Hedef:** CI ve lokalda tek komutla smoke/QA.
 - Adimlar:
   1) `npm run qa` ve `npm run smoke` scriptlerini netlestir.
   2) `RUN_QA` / `RUN_SMOKE` env bayraklari ile kosullu calistir.
 - Kabul Kriteri: pipeline kosullu QA/smoke calisiyor.
 
 ### 3.2.7 Pi redeploy + smoke test
-- [ ] **Hedef:** Pi ortaminda gunluk deploy + `/api/convert/to-pdf` smoke.
+- [x] **Hedef:** Pi ortaminda gunluk deploy + `/api/convert/to-pdf` smoke.
 - Adimlar:
   1) `scripts/raspberry/pi_bridge.py` ile pull + compose up.
   2) Smoke test scriptini calistir ve logu arsivle.
 - Kabul Kriteri: Pi'de yeni build calisiyor, smoke test basarili.
 
 ## 3.3 Referans Kutuphane + Tasarim Yonerghesi
-- [ ] **Hedef:** Referans PDF kutuphanesi ve tasarim standardi.
+- [x] **Hedef:** Referans PDF kutuphanesi ve tasarim standardi.
 - Girdiler: `docs/design/` dizini, `patterns/` katalog.
 - Adimlar:
   1) `library/manifest.json` (URL + metadata + lisans).
   2) PDF metadata (pattern tags) ekle.
   3) `docs/design/Carbon_PDF_Tasarim_Yonergesi.md` olustur.
   4) Pattern extraction notes olustur.
-- Ciktilar: `library/` manifest + tasarim yonergesi.
-- Kabul Kriteri: tasarim referanslari repo icinde kataloglu.
+- Ciktilar:
+  - `library/manifest.json`
+  - `docs/design/Carbon_PDF_Tasarim_Yonergesi.md`
+  - `docs/design/PATTERN-EXTRACTION-NOTES.md`
+- Kabul Kriteri: tasarim referanslari repo icinde kataloglu, PDF keyword taglari ekleniyor.
 
 ## 3.4 CLI + Multi-Output + Cache
-- [ ] **Hedef:** CI/batch uretim icin CLI facade.
+- [x] **Hedef:** CI/batch uretim icin CLI facade.
 - Girdiler: `src/convert-paged.js`, `package.json`.
 - Adimlar:
   1) `carbonac build <file.md>` ve `carbonac qa <file.md>` komutlari.
   2) Multi-output: PNG thumbnail + HTML export (EPUB opsiyonel).
   3) Build cache (md+template+theme hash).
   4) Parallel build (worker concurrency).
-- Ciktilar: CLI dokumani + komutlar.
-- Kabul Kriteri: CLI ile batch PDF+PNG cikti uretiliyor.
+- Ciktilar:
+  - `src/cli.js` (build/qa + cache + parallel)
+  - `package.json` (carbonac bin)
+- Kabul Kriteri: CLI ile batch PDF+PNG/HTML cikti uretiliyor.
 
 ## 3.5 DoD Enforcement
-- [ ] **Hedef:** Her task kapanisinda dogrulama standardi.
+- [x] **Hedef:** Her task kapanisinda dogrulama standardi.
 - Girdiler: `.github/pull_request_template.md`, `docs/PROJE-TALIMATLARI.md`.
 - Adimlar:
   1) DoD checklist dokumani ekle (manual test + error path + doc update).
   2) PR template'e linkle.
   3) CI jobuna DoD kontrolu (opsiyonel) ekle.
-- Ciktilar: DoD checklist + PR template entegrasyonu.
+- Ciktilar:
+  - `docs/DEFINITION-OF-DONE.md`
+  - `.github/pull_request_template.md` (DoD checklist)
+  - `.github/workflows/ci.yml` (opsiyonel DoD check)
 - Kabul Kriteri: Her PR'da DoD checklist dolduruluyor.
 
 ---
 
 ## Durum Ozeti (Kisa)
-- Tamamlananlar: Faz 0-2 ana kalemleri (parser/renderer/QA/UI/press-pack/observability).
-- Kalanlar: Faz 3 devops/CI + referans kutuphane + CLI + DoD enforcement + survey kaynak notlari.
+- Tamamlananlar: Faz 0-3 ana kalemleri (parser/renderer/QA/UI/press-pack/observability/devops).
+- Kalanlar: Program backlogu (kalite checklist entegrasyonu + Faz 4 detaylandirma).
+
+## Program Backlog (Tamamlandi)
+- [x] Faz 4 epics implementation (release gating, monitoring/alerts, DoD enforcement).

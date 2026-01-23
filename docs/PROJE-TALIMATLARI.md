@@ -38,14 +38,16 @@ ve AI art director modulu.
 - Print token pack + pattern library: PDF icin zorunlu tasarim standardi.
 - PDF kalite zinciri: statik PDF lint + Gemini QA (self-healing).
 - CarbonPress uyumu: Press Pack (template + tokens + patterns + QA rules + sample content) ve preflight gate zorunlu.
+- Release publish: preflight pass zorunlu; opsiyonel kalite checklist enforcement `PUBLISH_REQUIRE_QUALITY_CHECKLIST=true`.
 
 ## Doküman Haritası ve Sorumluluklar
+- `docs/PROJE-MIMARISI.md`: Konsolide mimari, tamamlanan isler ve kalan backlog.
 - `docs/SPRINT-0-DELIVERABLES.md`: Sprint 0 kararları, API contract ve job state kaydı.
 - `docs/IS-PLANI.md`: Fazlar, sprint planı ve kabul kriterleri.
-- `docs/FAZ-0-SPRINT-0.md`: Sprint 0 görevleri ve detaylı checklist.
-- `docs/FAZ-1-SPRINT-1.md`: Sprint 1 teknik kapsam ve backlog.
+- `docs/archive/FAZ-0-SPRINT-0.md`: Sprint 0 görevleri ve detaylı checklist (arsiv).
+- `docs/archive/FAZ-1-SPRINT-1.md`: Sprint 1 teknik kapsam ve backlog (arsiv).
 - `docs/RASPBERRY-DOCKER.md`: Raspberry/remote runtime runbook.
-- `docs/YOL-HARITASI-REFERANS.md`: Uzun vadeli referans yol haritası (uygulama için bağlayıcı değildir).
+- `docs/archive/YOL-HARITASI-REFERANS.md`: Uzun vadeli referans yol haritası (arsiv, baglayici degildir).
 
 ## Dokümantasyon Kuralları
 - Karar değişirse: önce bu dokümanı güncelle, sonra ilgili karar dokümanını (Sprint 0) güncelle.
@@ -309,15 +311,14 @@ font-size: clamp(0.875rem, 0.6vw + 0.75rem, 1rem);
 
 ## Guncel Durum Profili (Snapshot)
 - Core pipeline, Paged.js ve Gemini art director akisi dogrulandi.
-- Template registry + press pack + release/publish API kodda tamam; Supabase migration apply bekliyor (IPv6 erisim sorunu).
-- Preflight gate ve governance UI aktif; rollback policy eksik.
+- Template registry + press pack + release/publish API kodda tamam; Supabase migrations 004/005 uygulandi.
+- Preflight gate ve governance UI aktif; rollback policy enforce edildi.
 - Preview/QA ve lint altyapisi calisiyor; editor wizard ve autosave tamamlandi.
+- EK-GELISTIRME kalite checklist'i preflight sonucuna baglandi.
+- Metrics dashboard + alert esikleri ve CI DoD enforcement aktif.
 
 ## Sonraki Adimlar (Odak)
-- Supabase migrations (004/005) apply + release tablolari dogrulama.
-- Template rollback policy (kural + API enforcement) tamamlama.
-- Frontmatter wizard + autosave ile editor kalitesini kapatma.
-- QA harness ve otomatik test seti (unit + integration + smoke) genisletme.
+- Opsiyonel: alert esiklerini ortam KPI'larina gore kalibre et.
 
 ## Referanslar
-- Ayrıntılı, uzun vadeli teknik yol haritası: `docs/YOL-HARITASI-REFERANS.md`.
+- Ayrıntılı, uzun vadeli teknik yol haritası (arsiv): `docs/archive/YOL-HARITASI-REFERANS.md`.

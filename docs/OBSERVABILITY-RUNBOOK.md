@@ -18,11 +18,16 @@ Bu dokuman, Carbonac servislerinin izlenebilirlik, guvenlik ve kullanim izleme (
 Dondurulen metrikler:
 - request: toplam istek, hata oranlari, p50/p95/p99, ortalama gecikme
 - queue: waiting/active/failed/completed/delayed + depth
+- alerts: SLO esikleri asilirsa uyarilar listelenir
 
 Env:
 - `METRICS_REQUIRE_AUTH` (default: true)
 - `METRICS_TOKEN` (opsiyonel)
 - `METRICS_WINDOW_SIZE` (default: 500)
+- `METRICS_ALERT_ENABLED` (default: true)
+- `METRICS_ALERT_P95_MS` (default: 800)
+- `METRICS_ALERT_ERROR_RATE` (default: 5)
+- `METRICS_ALERT_QUEUE_DEPTH` (default: 20)
 
 ## 3) Rate Limit
 

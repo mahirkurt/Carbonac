@@ -6,12 +6,10 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../services/authService';
 
 // Auth Context
 const AuthContext = createContext(null);
-
-// API Base URL
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 /**
  * Auth Provider Component
@@ -21,38 +19,53 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Check for existing session on mount
   useEffect(() => {
-    checkAuth();
+    let active = true;
+
+    const hydrateSession = async () => {
+      const { session, error: sessionError } = await authService.getSession();
+      if (!active) return;
+      if (sessionError) {
+        setIsLoading(false);
+        return;
+      }
+      if (session?.access_token) {
+        localStorage.setItem('carbonac_token', session.access_token);
+      } else {
+        localStorage.removeItem('carbonac_token');
+      }
+      setUser(mapSupabaseUser(session?.user));
+      setIsLoading(false);
+    };
+
+    hydrateSession();
+
+    const unsubscribe = authService.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      if (session?.access_token) {
+        localStorage.setItem('carbonac_token', session.access_token);
+      } else {
+        localStorage.removeItem('carbonac_token');
+      }
+      setUser(mapSupabaseUser(session?.user));
+      setIsLoading(false);
+    });
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, []);
 
   // Check authentication status
   const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem('carbonac_token');
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await fetch(`${API_BASE}/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        // Token invalid, clear it
-        localStorage.removeItem('carbonac_token');
-      }
-    } catch (err) {
-      console.error('Auth check failed:', err);
-    } finally {
-      setIsLoading(false);
+    const { session } = await authService.getSession();
+    if (session?.access_token) {
+      localStorage.setItem('carbonac_token', session.access_token);
+    } else {
+      localStorage.removeItem('carbonac_token');
     }
+    setUser(mapSupabaseUser(session?.user));
   };
 
   // Login
@@ -61,22 +74,16 @@ export function AuthProvider({ children }) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Giriş başarısız');
+      const result = await authService.signIn(email, password);
+      if (!result.success) {
+        throw new Error(result.error || 'Giriş başarısız');
       }
 
-      localStorage.setItem('carbonac_token', data.token);
-      setUser(data.user);
+      const session = result.session;
+      if (session?.access_token) {
+        localStorage.setItem('carbonac_token', session.access_token);
+      }
+      setUser(mapSupabaseUser(result.user));
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -86,29 +93,49 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async () => {
+    setError(null);
+    setIsLoading(true);
+    let redirected = false;
+
+    try {
+      const result = await authService.signInWithOAuth('google');
+      if (!result.success) {
+        throw new Error(result.error || 'Google ile giris basarisiz');
+      }
+      if (!result.url) {
+        throw new Error('OAuth yonlendirme adresi bulunamadi');
+      }
+      redirected = true;
+      window.location.assign(result.url);
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      if (!redirected) {
+        setIsLoading(false);
+      }
+    }
+  }, []);
+
   // Register
   const register = useCallback(async (name, email, password) => {
     setError(null);
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Kayıt başarısız');
+      const result = await authService.signUp(email, password, { fullName: name });
+      if (!result.success) {
+        throw new Error(result.error || 'Kayıt başarısız');
       }
 
-      localStorage.setItem('carbonac_token', data.token);
-      setUser(data.user);
-      return { success: true };
+      const session = result.session;
+      if (session?.access_token) {
+        localStorage.setItem('carbonac_token', session.access_token);
+      }
+      setUser(mapSupabaseUser(result.user));
+      return { success: true, message: result.message };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };
@@ -119,22 +146,12 @@ export function AuthProvider({ children }) {
 
   // Logout
   const logout = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('carbonac_token');
-      if (token) {
-        await fetch(`${API_BASE}/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-      }
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      localStorage.removeItem('carbonac_token');
-      setUser(null);
+    const result = await authService.signOut();
+    if (!result.success) {
+      console.error('Logout error:', result.error);
     }
+    localStorage.removeItem('carbonac_token');
+    setUser(null);
   }, []);
 
   // Forgot password
@@ -142,20 +159,10 @@ export function AuthProvider({ children }) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'İstek başarısız');
+      const result = await authService.resetPassword(email);
+      if (!result.success) {
+        throw new Error(result.error || 'İstek başarısız');
       }
-
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -165,25 +172,12 @@ export function AuthProvider({ children }) {
 
   // Update user profile
   const updateProfile = useCallback(async (updates) => {
-    const token = localStorage.getItem('carbonac_token');
-    
     try {
-      const response = await fetch(`${API_BASE}/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(updates),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Güncelleme başarısız');
+      const result = await authService.updateProfile(updates);
+      if (!result.success) {
+        throw new Error(result.error || 'Güncelleme başarısız');
       }
-
-      setUser(data.user);
+      setUser(mapSupabaseUser(result.user));
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -196,6 +190,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     error,
     login,
+    loginWithGoogle,
     register,
     logout,
     forgotPassword,
@@ -222,3 +217,19 @@ export function useAuth() {
 }
 
 export default AuthContext;
+
+function mapSupabaseUser(user) {
+  if (!user) return null;
+  const metadata = user.user_metadata || {};
+  const name =
+    metadata.full_name ||
+    metadata.name ||
+    metadata.company ||
+    (user.email ? user.email.split('@')[0] : 'Kullanıcı');
+  return {
+    id: user.id,
+    name,
+    email: user.email,
+    metadata,
+  };
+}

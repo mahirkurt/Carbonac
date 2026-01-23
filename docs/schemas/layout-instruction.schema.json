@@ -92,6 +92,11 @@
         "keyInsights": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "methodologyNotes": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
         }
       }
     },

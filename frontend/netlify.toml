@@ -5,6 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_API_URL = "https://api.carbonac.com"
+  VITE_SUPABASE_URL = "https://gsdlpsirkdbhekioxley.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_F99l7SNwMPARLORmh066fQ_cqxv6d0N"
 
 [[redirects]]
   from = "/*"
