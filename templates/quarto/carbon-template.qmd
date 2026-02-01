@@ -1,0 +1,111 @@
+---
+title: "{{title}}"
+subtitle: "{{subtitle}}"
+author: "{{author}}"
+date: "{{date}}"
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 11pt
+    geometry:
+      - margin=2.5cm
+    include-in-header:
+      text: |
+        \usepackage{fontspec}
+        \usepackage{xcolor}
+        \usepackage{fancyhdr}
+        \usepackage{graphicx}
+        \usepackage{tcolorbox}
+        \usepackage{listings}
+        \usepackage{sectsty}
+
+        % Use system fonts (Liberation Sans/Mono as fallback)
+        \IfFontExistsTF{IBM Plex Sans}{
+          \setmainfont{IBM Plex Sans}
+        }{
+          \setmainfont{Liberation Sans}
+        }
+        \IfFontExistsTF{IBM Plex Mono}{
+          \setmonofont{IBM Plex Mono}
+        }{
+          \setmonofont{Liberation Mono}
+        }
+
+        % IBM Carbon Colors
+        \definecolor{carbonBlue}{HTML}{0f62fe}
+        \definecolor{carbonBlack}{HTML}{161616}
+        \definecolor{carbonGray90}{HTML}{262626}
+        \definecolor{carbonGray70}{HTML}{525252}
+        \definecolor{carbonGray50}{HTML}{8d8d8d}
+        \definecolor{carbonGray30}{HTML}{c6c6c6}
+        \definecolor{carbonGray20}{HTML}{e0e0e0}
+        \definecolor{carbonGray10}{HTML}{f4f4f4}
+        \definecolor{carbonGreen}{HTML}{24a148}
+        \definecolor{carbonRed}{HTML}{da1e28}
+        \definecolor{carbonPurple}{HTML}{8a3ffc}
+        \definecolor{carbonCyan}{HTML}{1192e8}
+
+        % Section Formatting
+        \sectionfont{\color{carbonBlack}\fontsize{32}{38}\selectfont}
+        \subsectionfont{\color{carbonBlack}\fontsize{24}{28}\selectfont}
+        \subsubsectionfont{\color{carbonBlack}\fontsize{18}{22}\selectfont}
+
+        % Header and Footer
+        \pagestyle{fancy}
+        \fancyhf{}
+        \fancyhead[R]{\color{carbonGray70}\small\textit{ {{title}} }}
+        \fancyfoot[L]{\color{carbonGray70}\small {{author}} }
+        \fancyfoot[C]{\color{carbonGray70}\small\thepage}
+        \fancyfoot[R]{\color{carbonGray70}\small {{date}} }
+        \renewcommand{\headrulewidth}{0.5pt}
+        \renewcommand{\footrulewidth}{0.5pt}
+        \renewcommand{\headrule}{\hbox to\headwidth{\color{carbonGray20}\leaders\hrule height \headrulewidth\hfill}}
+        \renewcommand{\footrule}{\hbox to\headwidth{\color{carbonGray20}\leaders\hrule height \footrulewidth\hfill}}
+
+        % Code Blocks
+        \lstset{
+          basicstyle=\ttfamily\small\color{carbonBlack},
+          backgroundcolor=\color{carbonGray10},
+          frame=single,
+          rulecolor=\color{carbonGray20},
+          framesep=10pt,
+          breaklines=true,
+          commentstyle=\color{carbonGray70},
+          keywordstyle=\color{carbonPurple}\bfseries,
+          stringstyle=\color{carbonGreen},
+          numberstyle=\tiny\color{carbonGray50},
+          numbers=left,
+          numbersep=8pt,
+          tabsize=2
+        }
+
+        % Quote Blocks
+        \renewenvironment{quote}
+          {\begin{tcolorbox}[
+            colback=carbonGray10,
+            colframe=carbonBlue,
+            leftrule=4pt,
+            rightrule=0pt,
+            toprule=0pt,
+            bottomrule=0pt,
+            arc=0pt,
+            boxsep=5pt,
+            left=10pt,
+            right=10pt,
+            top=8pt,
+            bottom=8pt
+          ]\itshape\color{carbonGray70}}
+          {\end{tcolorbox}}
+
+        % Hyperlinks
+        \usepackage{hyperref}
+        \hypersetup{
+          colorlinks=true,
+          linkcolor=carbonBlue,
+          urlcolor=carbonBlue,
+          citecolor=carbonBlue
+        }
+---
+
+{{content}}

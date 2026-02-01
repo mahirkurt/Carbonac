@@ -1,0 +1,78 @@
+{
+  "name": "carbon-markdown-pdf",
+  "version": "1.0.0",
+  "description": "Convert markdown to print-ready PDFs using IBM Carbon Design System, Gemini 3 Pro, and Paged.js",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "carbon-pdf": "./src/cli.js",
+    "carbonac": "./src/cli.js",
+    "carbon-advisor": "./src/ai/advisor-cli.js"
+  },
+  "scripts": {
+    "convert:paged": "node src/convert-paged.js",
+    "convert": "node src/cli.js",
+    "example": "node src/cli.js examples/sample.md",
+    "advisor": "node src/ai/advisor-cli.js",
+    "advisor:analyze": "node src/ai/advisor-cli.js analyze",
+    "advisor:chat": "node src/ai/advisor-cli.js chat",
+    "advisor:tips": "node src/ai/advisor-cli.js tips",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "node src/test.js",
+    "test:integration": "node scripts/tests/preflight-integration.js",
+    "test:qa": "node scripts/tests/qa-harness.js",
+    "test:smoke": "node scripts/tests/api-smoke.js",
+    "test:optional": "node scripts/tests/optional-tests.js",
+    "qa": "npm run test:qa",
+    "smoke": "npm run test:smoke",
+    "lint:tokens": "node scripts/token-lint.js"
+  },
+  "keywords": [
+    "markdown",
+    "pdf",
+    "carbon",
+    "ibm",
+    "pagedjs",
+    "print",
+    "report",
+    "gemini"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@carbon/colors": "^11.46.0",
+    "@carbon/layout": "^11.47.0",
+    "@carbon/themes": "^11.67.0",
+    "@carbon/type": "^11.53.0",
+    "@puppeteer/browsers": "^2.11.2",
+    "chalk": "^5.3.0",
+    "commander": "^14.0.2",
+    "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
+    "mdast-util-to-string": "^4.0.0",
+    "mustache": "^4.2.0",
+    "pagedjs": "^0.4.3",
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.58.1",
+    "puppeteer": "^24.36.1",
+    "puppeteer-core": "^24.36.1",
+    "rehype-raw": "^7.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-directive": "^4.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.0",
+    "remark-smartypants": "^3.0.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "yaml": "^2.3.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
+  }
+}

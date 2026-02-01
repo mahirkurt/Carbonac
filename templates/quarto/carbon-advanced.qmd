@@ -1,0 +1,389 @@
+---
+title: "{{title}}"
+subtitle: "{{subtitle}}"
+author: "{{author}}"
+date: "{{date}}"
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 16pt
+    geometry:
+      - top=48pt
+      - bottom=48pt
+      - left=48pt
+      - right=48pt
+    include-in-header:
+      text: |
+        \usepackage{fontspec}
+        \usepackage{xcolor}
+        \usepackage{fancyhdr}
+        \usepackage{graphicx}
+        \usepackage{tcolorbox}
+        \usepackage{listings}
+        \usepackage{sectsty}
+        \usepackage{titling}
+        \usepackage{parskip}
+        \usepackage{enumitem}
+
+        % ============================================
+        % IBM PLEX FONT FAMILY
+        % ============================================
+
+        % Use IBM Plex fonts with fallbacks
+        \IfFontExistsTF{IBM Plex Sans}{
+          \setmainfont{IBM Plex Sans}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold,
+            ItalicFont = *-Italic,
+            BoldItalicFont = *-SemiBoldItalic
+          ]
+        }{
+          \setmainfont{Liberation Sans}
+        }
+
+        \IfFontExistsTF{IBM Plex Mono}{
+          \setmonofont{IBM Plex Mono}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold
+          ]
+        }{
+          \setmonofont{Liberation Mono}
+        }
+
+        % ============================================
+        % CARBON COLOR TOKENS
+        % ============================================
+
+        % Primary Colors
+        \definecolor{carbonBlue60}{HTML}{0f62fe}
+        \definecolor{carbonGray10}{HTML}{f4f4f4}
+        \definecolor{carbonGray20}{HTML}{e0e0e0}
+        \definecolor{carbonGray50}{HTML}{8d8d8d}
+        \definecolor{carbonGray70}{HTML}{525252}
+        \definecolor{carbonGray80}{HTML}{393939}
+        \definecolor{carbonGray90}{HTML}{262626}
+        \definecolor{carbonGray100}{HTML}{161616}
+
+        % Extended Colors
+        \definecolor{carbonRed60}{HTML}{da1e28}
+        \definecolor{carbonGreen50}{HTML}{24a148}
+        \definecolor{carbonPurple60}{HTML}{8a3ffc}
+        \definecolor{carbonCyan50}{HTML}{1192e8}
+        \definecolor{carbonMagenta60}{HTML}{d02670}
+        \definecolor{carbonTeal60}{HTML}{007d79}
+
+        % ============================================
+        % CARBON TYPOGRAPHY SCALE
+        % ============================================
+
+        % Base text: Body Long 02 (16pt, regular, 1.5 line height)
+        \setlength{\parindent}{0pt}
+        \setlength{\parskip}{0.5em}
+        \linespread{1.5}
+
+        % Heading 1 → Heading 06 (42pt, light weight, 1.19 line height)
+        \sectionfont{%
+          \color{carbonGray100}%
+          \fontsize{42}{50}\selectfont%
+          \fontseries{l}\selectfont%
+        }
+
+        % Heading 2 → Heading 05 (32pt, regular weight, 1.25 line height)
+        \subsectionfont{%
+          \color{carbonGray100}%
+          \fontsize{32}{40}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % Heading 3 → Heading 04 (28pt, regular weight, 1.29 line height)
+        \subsubsectionfont{%
+          \color{carbonGray100}%
+          \fontsize{28}{36}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % Heading 4 → Heading 03 (20pt, regular weight, 1.4 line height)
+        \paragraphfont{%
+          \color{carbonGray90}%
+          \fontsize{20}{28}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % Heading 5 → Heading 02 (16pt, semibold weight, 1.375 line height)
+        \subparagraphfont{%
+          \color{carbonGray90}%
+          \fontsize{16}{22}\selectfont%
+          \fontseries{sb}\selectfont%
+        }
+
+        % ============================================
+        % HEADER AND FOOTER
+        % ============================================
+
+        \pagestyle{fancy}
+        \fancyhf{}
+
+        % Header (Label 01: 12pt)
+        \fancyhead[L]{%
+          \color{carbonGray70}%
+          \fontsize{12}{16}\selectfont%
+          \textit{ {{title}} }%
+        }
+
+        % Footer (Label 01: 12pt)
+        \fancyfoot[L]{%
+          \color{carbonGray70}%
+          \fontsize{12}{16}\selectfont%
+          {{author}}%
+        }
+        \fancyfoot[C]{%
+          \color{carbonGray70}%
+          \fontsize{12}{16}\selectfont%
+          \thepage%
+        }
+        \fancyfoot[R]{%
+          \color{carbonGray70}%
+          \fontsize{12}{16}\selectfont%
+          {{date}}%
+        }
+
+        % Header/Footer rules
+        \renewcommand{\headrulewidth}{0.5pt}
+        \renewcommand{\footrulewidth}{0.5pt}
+        \renewcommand{\headrule}{%
+          \hbox to\headwidth{%
+            \color{carbonGray20}\leaders\hrule height \headrulewidth\hfill%
+          }%
+        }
+        \renewcommand{\footrule}{%
+          \hbox to\headwidth{%
+            \color{carbonGray20}\leaders\hrule height \footrulewidth\hfill%
+          }%
+        }
+
+        % ============================================
+        % CODE BLOCKS (Code 02: 14pt)
+        % ============================================
+
+        \lstset{
+          basicstyle=\fontsize{14}{20}\ttfamily\color{carbonGray100},
+          backgroundcolor=\color{carbonGray10},
+          frame=single,
+          rulecolor=\color{carbonGray20},
+          framesep=16pt,
+          breaklines=true,
+          commentstyle=\color{carbonGray70},
+          keywordstyle=\color{carbonPurple60}\bfseries,
+          stringstyle=\color{carbonGreen50},
+          numberstyle=\tiny\color{carbonGray50},
+          numbers=left,
+          numbersep=12pt,
+          tabsize=2,
+          xleftmargin=16pt,
+          xrightmargin=16pt
+        }
+
+        % Inline code (Code 01: 12pt, blue color)
+        \let\oldtexttt\texttt
+        \renewcommand{\texttt}[1]{%
+          \colorbox{carbonGray10}{%
+            \color{carbonBlue60}%
+            \fontsize{12}{16}\ttfamily#1%
+          }%
+        }
+
+        % ============================================
+        % BLOCKQUOTES
+        % ============================================
+
+        \renewenvironment{quote}{%
+          \begin{tcolorbox}[
+            colback=carbonGray10,
+            colframe=carbonBlue60,
+            leftrule=4pt,
+            rightrule=0pt,
+            toprule=0pt,
+            bottomrule=0pt,
+            arc=4pt,
+            boxsep=16pt,
+            left=16pt,
+            right=16pt,
+            top=12pt,
+            bottom=12pt
+          ]%
+          \itshape\color{carbonGray70}%
+        }{%
+          \end{tcolorbox}%
+        }
+
+        % ============================================
+        % LISTS
+        % ============================================
+
+        \setlist[itemize]{%
+          label=\textcolor{carbonBlue60}{\textbullet},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        \setlist[enumerate]{%
+          label=\textcolor{carbonBlue60}{\arabic*.},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        % ============================================
+        % TABLES
+        % ============================================
+
+        \usepackage{booktabs}
+        \usepackage{array}
+
+        % ============================================
+        % CALLOUT BOXES (Note, Tip, Warning, Important)
+        % ============================================
+
+        % Note callout (Blue)
+        \newtcolorbox{carbonnote}{
+          colback=blue-10,
+          colframe=carbonBlue60,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=12pt,
+          title={\textbf{Note}},
+          fonttitle=\color{carbonBlue60}\fontsize{12}{16}\selectfont,
+          coltitle=carbonBlue60,
+          attach boxed title to top left={yshift=-2mm, xshift=4mm}
+        }
+
+        % Tip callout (Green)
+        \newtcolorbox{carbontip}{
+          colback=carbonGreen10,
+          colframe=carbonGreen50,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=12pt
+        }
+
+        % Warning callout (Yellow)
+        \newtcolorbox{carbonwarning}{
+          colback=yellow-10,
+          colframe=yellow-30,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=12pt
+        }
+
+        % Important/Error callout (Red)
+        \newtcolorbox{carbonimportant}{
+          colback=red-10,
+          colframe=carbonRed60,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=12pt
+        }
+
+        % ============================================
+        % BADGE/TAG COMMANDS
+        % ============================================
+
+        \newcommand{\carbonbadge}[2][carbonBlue60]{%
+          \colorbox{#1!15}{%
+            \textcolor{#1}{\fontsize{10}{12}\selectfont\bfseries #2}%
+          }%
+        }
+
+        \newcommand{\carbontag}[1]{%
+          \fcolorbox{carbonGray20}{carbonGray10}{%
+            \fontsize{10}{12}\selectfont #1%
+          }%
+        }
+
+        % ============================================
+        % STAT TILE COMMAND
+        % ============================================
+
+        \newcommand{\carbonstat}[2]{%
+          \begin{tcolorbox}[
+            colback=carbonGray10,
+            colframe=carbonGray20,
+            arc=4pt,
+            boxsep=16pt
+          ]
+          \centering
+          {\color{carbonBlue60}\fontsize{36}{44}\fontseries{l}\selectfont #1}\\[8pt]
+          {\color{carbonGray70}\fontsize{10}{14}\selectfont\MakeUppercase{#2}}
+          \end{tcolorbox}%
+        }
+
+        % ============================================
+        % HYPERLINKS
+        % ============================================
+
+        \usepackage{hyperref}
+        \hypersetup{
+          colorlinks=true,
+          linkcolor=carbonBlue60,
+          urlcolor=carbonBlue60,
+          citecolor=carbonBlue60,
+          pdfborder={0 0 0}
+        }
+
+        % ============================================
+        % TITLE PAGE
+        % ============================================
+
+        \pretitle{%
+          \begin{center}%
+          \color{carbonBlue60}\rule{\textwidth}{4pt}\par
+          \vspace{32pt}%
+          \color{carbonGray100}\fontsize{42}{50}\selectfont\fontseries{l}\selectfont
+        }
+        \posttitle{%
+          \par\vspace{16pt}%
+          \end{center}%
+        }
+
+        \preauthor{%
+          \begin{center}%
+          \color{carbonGray100}\fontsize{16}{24}\selectfont\bfseries
+        }
+        \postauthor{%
+          \par\vspace{8pt}%
+          \end{center}%
+        }
+
+        \predate{%
+          \begin{center}%
+          \color{carbonGray70}\fontsize{14}{16}\selectfont
+        }
+        \postdate{%
+          \par\vspace{48pt}%
+          \begin{tcolorbox}[
+            colback=carbonGray10,
+            colframe=carbonGray20,
+            arc=4pt,
+            boxsep=12pt
+          ]
+          \centering\color{carbonGray70}\fontsize{12}{16}\selectfont
+          \textit{Styled with IBM Carbon Design System (Advanced Template)}
+          \end{tcolorbox}
+          \end{center}%
+          \vfill
+        }
+---
+
+{{content}}

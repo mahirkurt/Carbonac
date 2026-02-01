@@ -1,0 +1,407 @@
+---
+title: "{{title}}"
+subtitle: "{{subtitle}}"
+author: "{{author}}"
+date: "{{date}}"
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 16pt
+    geometry:
+      - top=48pt
+      - bottom=48pt
+      - left=48pt
+      - right=48pt
+    include-in-header:
+      text: |
+        \usepackage{fontspec}
+        \usepackage{xcolor}
+        \usepackage{fancyhdr}
+        \usepackage{graphicx}
+        \usepackage{tcolorbox}
+        \usepackage{listings}
+        \usepackage{sectsty}
+        \usepackage{titling}
+        \usepackage{parskip}
+        \usepackage{enumitem}
+        \usepackage{booktabs}
+        \usepackage{array}
+        \usepackage{multicol}
+        \usepackage{calc}
+
+        % ============================================
+        % IBM PLEX FONT FAMILY
+        % ============================================
+
+        \IfFontExistsTF{IBM Plex Sans}{
+          \setmainfont{IBM Plex Sans}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold,
+            ItalicFont = *-Italic,
+            BoldItalicFont = *-SemiBoldItalic
+          ]
+        }{
+          \setmainfont{Liberation Sans}
+        }
+
+        \IfFontExistsTF{IBM Plex Mono}{
+          \setmonofont{IBM Plex Mono}[
+            UprightFont = *-Regular,
+            BoldFont = *-SemiBold
+          ]
+        }{
+          \setmonofont{Liberation Mono}
+        }
+
+        % ============================================
+        % CARBON COLORS
+        % ============================================
+
+        \definecolor{blue60}{HTML}{0f62fe}
+        \definecolor{gray10}{HTML}{f4f4f4}
+        \definecolor{gray20}{HTML}{e0e0e0}
+        \definecolor{gray30}{HTML}{c6c6c6}
+        \definecolor{gray50}{HTML}{8d8d8d}
+        \definecolor{gray70}{HTML}{525252}
+        \definecolor{gray100}{HTML}{161616}
+        \definecolor{green50}{HTML}{24a148}
+        \definecolor{green10}{HTML}{defbe6}
+        \definecolor{red60}{HTML}{da1e28}
+        \definecolor{red10}{HTML}{fff1f1}
+        \definecolor{yellow30}{HTML}{f1c21b}
+        \definecolor{yellow10}{HTML}{fcf4d6}
+        \definecolor{blue10}{HTML}{edf5ff}
+        \definecolor{purple60}{HTML}{8a3ffc}
+
+        % Theme tokens
+        \colorlet{themeBackground}{white}
+        \colorlet{themeLayer01}{gray10}
+        \colorlet{themeBorderSubtle}{gray20}
+        \colorlet{themeTextPrimary}{gray100}
+        \colorlet{themeTextSecondary}{gray70}
+        \colorlet{themeLinkPrimary}{blue60}
+        \colorlet{themeInteractive}{blue60}
+
+        % ============================================
+        % SPACING TOKENS (8px base unit)
+        % ============================================
+
+        \newlength{\spOne}
+        \newlength{\spTwo}
+        \newlength{\spThree}
+        \newlength{\spFour}
+        \newlength{\spFive}
+        \newlength{\spSix}
+        \newlength{\spSeven}
+        \newlength{\spEight}
+        \newlength{\spNine}
+        \newlength{\spTen}
+        \newlength{\spEleven}
+        \newlength{\spTwelve}
+        \newlength{\spThirteen}
+
+        \setlength{\spOne}{2pt}      % 2px
+        \setlength{\spTwo}{4pt}      % 4px
+        \setlength{\spThree}{8pt}    % 8px - Base unit
+        \setlength{\spFour}{12pt}    % 12px
+        \setlength{\spFive}{16pt}    % 16px
+        \setlength{\spSix}{24pt}     % 24px
+        \setlength{\spSeven}{32pt}   % 32px
+        \setlength{\spEight}{40pt}   % 40px
+        \setlength{\spNine}{48pt}    % 48px
+        \setlength{\spTen}{64pt}     % 64px
+        \setlength{\spEleven}{80pt}  % 80px
+        \setlength{\spTwelve}{96pt}  % 96px
+        \setlength{\spThirteen}{160pt} % 160px
+
+        % ============================================
+        % GRID CONFIGURATION
+        % ============================================
+
+        \newlength{\gridGutter}
+        \newlength{\gridMargin}
+        \setlength{\gridGutter}{\spSeven}  % 32px
+        \setlength{\gridMargin}{\spFive}   % 16px
+
+        % ============================================
+        % LAYOUT COMPONENTS
+        % ============================================
+
+        % Card component
+        \newtcolorbox{carboncard}[1][]{
+          colback=themeLayer01,
+          colframe=themeBorderSubtle,
+          arc=4pt,
+          boxsep=\spFive,
+          left=\spFive,
+          right=\spFive,
+          top=\spFour,
+          bottom=\spFour,
+          #1
+        }
+
+        % Info box (blue)
+        \newtcolorbox{carboninfo}{
+          colback=blue10,
+          colframe=blue60,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=\spFive,
+          left=\spFive,
+          right=\spFive,
+          top=\spFour,
+          bottom=\spFour
+        }
+
+        % Warning box (yellow)
+        \newtcolorbox{carbonwarning}{
+          colback=yellow10,
+          colframe=yellow30,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=\spFive,
+          left=\spFive,
+          right=\spFive,
+          top=\spFour,
+          bottom=\spFour
+        }
+
+        % Error box (red)
+        \newtcolorbox{carbonerror}{
+          colback=red10,
+          colframe=red60,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=\spFive,
+          left=\spFive,
+          right=\spFive,
+          top=\spFour,
+          bottom=\spFour
+        }
+
+        % Success box (green)
+        \newtcolorbox{carbonsuccess}{
+          colback=green10,
+          colframe=green50,
+          leftrule=4pt,
+          rightrule=0pt,
+          toprule=0pt,
+          bottomrule=0pt,
+          arc=4pt,
+          boxsep=\spFive,
+          left=\spFive,
+          right=\spFive,
+          top=\spFour,
+          bottom=\spFour
+        }
+
+        % ============================================
+        % TYPOGRAPHY SCALE
+        % ============================================
+
+        \setlength{\parindent}{0pt}
+        \setlength{\parskip}{0.5em}
+        \linespread{1.5}
+
+        % Heading 1 → Heading 06 (42pt)
+        \sectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{42}{50}\selectfont%
+          \fontseries{l}\selectfont%
+        }
+
+        % Heading 2 → Heading 05 (32pt)
+        \subsectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{32}{40}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % Heading 3 → Heading 04 (28pt)
+        \subsubsectionfont{%
+          \color{themeTextPrimary}%
+          \fontsize{28}{36}\selectfont%
+          \fontseries{m}\selectfont%
+        }
+
+        % ============================================
+        % HEADER AND FOOTER
+        % ============================================
+
+        \pagestyle{fancy}
+        \fancyhf{}
+
+        \fancyhead[L]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          \textit{ {{title}} }%
+        }
+
+        \fancyfoot[L]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          {{author}}%
+        }
+        \fancyfoot[C]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          \thepage%
+        }
+        \fancyfoot[R]{%
+          \color{themeTextSecondary}%
+          \fontsize{12}{16}\selectfont%
+          {{date}}%
+        }
+
+        \renewcommand{\headrulewidth}{0.5pt}
+        \renewcommand{\footrulewidth}{0.5pt}
+        \renewcommand{\headrule}{%
+          \hbox to\headwidth{%
+            \color{themeBorderSubtle}\leaders\hrule height \headrulewidth\hfill%
+          }%
+        }
+        \renewcommand{\footrule}{%
+          \hbox to\headwidth{%
+            \color{themeBorderSubtle}\leaders\hrule height \footrulewidth\hfill%
+          }%
+        }
+
+        % ============================================
+        % CODE BLOCKS
+        % ============================================
+
+        \lstset{
+          basicstyle=\fontsize{14}{20}\ttfamily\color{themeTextPrimary},
+          backgroundcolor=\color{themeLayer01},
+          frame=single,
+          rulecolor=\color{themeBorderSubtle},
+          framesep=\spFive,
+          breaklines=true,
+          commentstyle=\color{themeTextSecondary},
+          keywordstyle=\color{purple60}\bfseries,
+          stringstyle=\color{green50},
+          numberstyle=\tiny\color{gray50},
+          numbers=left,
+          numbersep=\spFour,
+          tabsize=2,
+          xleftmargin=\spFive,
+          xrightmargin=\spFive
+        }
+
+        % Inline code
+        \let\oldtexttt\texttt
+        \renewcommand{\texttt}[1]{%
+          \colorbox{themeLayer01}{%
+            \color{themeLinkPrimary}%
+            \fontsize{12}{16}\ttfamily#1%
+          }%
+        }
+
+        % ============================================
+        % BLOCKQUOTES
+        % ============================================
+
+        \renewenvironment{quote}{%
+          \begin{tcolorbox}[
+            colback=themeLayer01,
+            colframe=themeInteractive,
+            leftrule=4pt,
+            rightrule=0pt,
+            toprule=0pt,
+            bottomrule=0pt,
+            arc=4pt,
+            boxsep=\spFive,
+            left=\spFive,
+            right=\spFive,
+            top=\spFour,
+            bottom=\spFour
+          ]%
+          \itshape\color{themeTextSecondary}%
+        }{%
+          \end{tcolorbox}%
+        }
+
+        % ============================================
+        % LISTS
+        % ============================================
+
+        \setlist[itemize]{%
+          label=\textcolor{themeInteractive}{\textbullet},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        \setlist[enumerate]{%
+          label=\textcolor{themeInteractive}{\arabic*.},%
+          leftmargin=1em,%
+          itemsep=0.5em%
+        }
+
+        % ============================================
+        % HYPERLINKS
+        % ============================================
+
+        \usepackage{hyperref}
+        \hypersetup{
+          colorlinks=true,
+          linkcolor=themeLinkPrimary,
+          urlcolor=themeLinkPrimary,
+          citecolor=themeLinkPrimary,
+          pdfborder={0 0 0}
+        }
+
+        % ============================================
+        % TITLE PAGE
+        % ============================================
+
+        \pretitle{%
+          \begin{center}%
+          \color{themeInteractive}\rule{\textwidth}{4pt}\par
+          \vspace{32pt}%
+          \color{themeTextPrimary}\fontsize{42}{50}\selectfont\fontseries{l}\selectfont
+        }
+        \posttitle{%
+          \par\vspace{16pt}%
+          \end{center}%
+        }
+
+        \preauthor{%
+          \begin{center}%
+          \color{themeTextPrimary}\fontsize{16}{24}\selectfont\bfseries
+        }
+        \postauthor{%
+          \par\vspace{8pt}%
+          \end{center}%
+        }
+
+        \predate{%
+          \begin{center}%
+          \color{themeTextSecondary}\fontsize{14}{16}\selectfont
+        }
+        \postdate{%
+          \par\vspace{48pt}%
+          \begin{tcolorbox}[
+            colback=themeLayer01,
+            colframe=themeBorderSubtle,
+            arc=4pt,
+            boxsep=12pt
+          ]
+          \centering\color{themeTextSecondary}\fontsize{12}{16}\selectfont
+          \textit{Styled with IBM Carbon 2x Grid System}
+          \end{tcolorbox}
+          \end{center}%
+          \vfill
+        }
+---
+
+{{content}}
