@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { InlineNotification, Loading, Tile, Button } from '@carbon/react';
-import { auth } from '../../lib/supabase';
+import { auth, supabase } from '../../lib/supabase';
 import './AuthPages.scss';
 
 export function AuthCallback() {
@@ -16,6 +16,22 @@ export function AuthCallback() {
     let active = true;
 
     const finalize = async () => {
+      // When we use `skipBrowserRedirect: true`, Supabase returns an OAuth URL and
+      // then redirects back with a `?code=...` parameter (PKCE). We must exchange
+      // that code for a session explicitly.
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (!active) return;
+        if (exchangeError) {
+          setError(exchangeError.message || 'Oturum acma basarisiz.');
+          setStatus('error');
+          return;
+        }
+      }
+
       const { session, error: sessionError } = await auth.getSession();
       if (!active) return;
       if (sessionError) {
