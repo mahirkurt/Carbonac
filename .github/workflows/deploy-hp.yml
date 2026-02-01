@@ -1,0 +1,199 @@
+name: Deploy to HP Thin Client
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'docker/**'
+      - 'docker-compose.raspberry.yml'
+      - '.github/workflows/deploy-hp.yml'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Docker Compose profile to deploy'
+        required: false
+        default: 'worker'
+        type: choice
+        options:
+          - worker
+          - api
+          - api,worker
+      skip_build:
+        description: 'Skip Docker build (use existing images)'
+        required: false
+        default: false
+        type: boolean
+      run_smoke:
+        description: 'Run smoke test after deploy'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  COMPOSE_FILE: docker-compose.raspberry.yml
+  DEFAULT_PROFILE: worker
+
+jobs:
+  deploy:
+    name: Deploy to HP Thin Client
+    runs-on: [self-hosted, hp-ai-node]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set deployment variables
+        id: vars
+        run: |
+          PROFILE="${{ github.event.inputs.profile || env.DEFAULT_PROFILE }}"
+          SKIP_BUILD="${{ github.event.inputs.skip_build || 'false' }}"
+          RUN_SMOKE="${{ github.event.inputs.run_smoke || 'true' }}"
+
+          echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
+          echo "skip_build=$SKIP_BUILD" >> "$GITHUB_OUTPUT"
+          echo "run_smoke=$RUN_SMOKE" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +'%Y%m%dT%H%M%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Load environment
+        run: |
+          if [[ -f .env ]]; then
+            echo "Loading .env file..."
+            set -a
+            source .env
+            set +a
+          fi
+
+      - name: Docker system prune (optional)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Cleaning up unused Docker resources..."
+          docker system prune -f --volumes || true
+
+      - name: Build Docker images
+        if: steps.vars.outputs.skip_build != 'true'
+        run: |
+          PROFILE="${{ steps.vars.outputs.profile }}"
+          IFS=',' read -ra PROFILES <<< "$PROFILE"
+
+          PROFILE_FLAGS=""
+          for p in "${PROFILES[@]}"; do
+            PROFILE_FLAGS="$PROFILE_FLAGS --profile $p"
+          done
+
+          echo "Building with profiles: $PROFILE"
+          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS build
+
+      - name: Stop existing containers
+        run: |
+          PROFILE="${{ steps.vars.outputs.profile }}"
+          IFS=',' read -ra PROFILES <<< "$PROFILE"
+
+          PROFILE_FLAGS=""
+          for p in "${PROFILES[@]}"; do
+            PROFILE_FLAGS="$PROFILE_FLAGS --profile $p"
+          done
+
+          echo "Stopping containers..."
+          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS down --remove-orphans || true
+
+      - name: Start containers
+        run: |
+          PROFILE="${{ steps.vars.outputs.profile }}"
+          IFS=',' read -ra PROFILES <<< "$PROFILE"
+
+          PROFILE_FLAGS=""
+          for p in "${PROFILES[@]}"; do
+            PROFILE_FLAGS="$PROFILE_FLAGS --profile $p"
+          done
+
+          echo "Starting containers with profiles: $PROFILE"
+          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS up -d
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for services to be healthy..."
+          sleep 10
+          docker compose -f ${{ env.COMPOSE_FILE }} ps
+
+      - name: Health check
+        if: contains(steps.vars.outputs.profile, 'api')
+        run: |
+          echo "Running health check..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=1
+
+          while [[ $ATTEMPT -le $MAX_ATTEMPTS ]]; do
+            if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+              echo "API is healthy!"
+              exit 0
+            fi
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting..."
+            sleep 2
+            ((ATTEMPT++))
+          done
+
+          echo "Health check failed after $MAX_ATTEMPTS attempts"
+          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50
+          exit 1
+
+      - name: Smoke test
+        if: steps.vars.outputs.run_smoke == 'true' && contains(steps.vars.outputs.profile, 'api')
+        env:
+          API_BASE_URL: http://localhost:3001
+          API_SMOKE_MAX_ATTEMPTS: 30
+          API_SMOKE_INTERVAL_MS: 2000
+        run: |
+          echo "Running smoke test..."
+          npm ci --prefix backend || npm install --prefix backend
+          node scripts/tests/api-smoke.js
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Timestamp: ${{ steps.vars.outputs.timestamp }}"
+          echo "Profile: ${{ steps.vars.outputs.profile }}"
+          echo "Skip Build: ${{ steps.vars.outputs.skip_build }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "=== Container Status ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} ps
+          echo ""
+          echo "=== Resource Usage ==="
+          docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" || true
+
+  notify:
+    name: Notify on failure
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    steps:
+      - name: Create issue on failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Deploy to HP failed: ${context.sha.substring(0, 7)}`;
+            const body = `
+            ## Deployment Failed
+
+            - **Workflow:** ${context.workflow}
+            - **Run:** [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            - **Commit:** ${context.sha}
+            - **Branch:** ${context.ref}
+            - **Actor:** @${context.actor}
+
+            Please check the workflow logs for details.
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['deployment', 'hp-ai-node', 'bug']
+            });
