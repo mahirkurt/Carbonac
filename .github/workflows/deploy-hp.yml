@@ -59,14 +59,17 @@ jobs:
           echo "run_smoke=$RUN_SMOKE" >> "$GITHUB_OUTPUT"
           echo "timestamp=$(date -u +'%Y%m%dT%H%M%SZ')" >> "$GITHUB_OUTPUT"
 
-      - name: Load environment
+      - name: Create environment file
         run: |
-          if [[ -f .env ]]; then
-            echo "Loading .env file..."
-            set -a
-            source .env
-            set +a
-          fi
+          cat > .env << 'EOF'
+          REDIS_URL=redis://redis:6379
+          JOB_QUEUE_NAME=carbonac-jobs
+          PORT=3001
+          PUPPETEER_SKIP_DOWNLOAD=1
+          PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+          NODE_ENV=production
+          EOF
+          echo ".env file created"
 
       - name: Docker system prune (optional)
         if: github.event_name == 'workflow_dispatch'
