@@ -19,6 +19,7 @@ import {
   SwitcherItem,
   SwitcherDivider,
   Button,
+  TextInput,
   Dropdown,
   TextArea,
   Tag,
@@ -606,6 +607,7 @@ function AppContent() {
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [notification, setNotification] = useState(null);
   const [activeWorkspace, setActiveWorkspace] = useState('workflow');
+  const passwordGateMode = true;
   const isGuestMode = true;
   const canAccessWorkspace = isAuthenticated || isGuestMode;
 
@@ -751,7 +753,7 @@ function AppContent() {
 
           <HeaderGlobalBar>
             {/* Credits Display */}
-            {isAuthenticated && (
+            {!passwordGateMode && isAuthenticated && (
               <div className="app-header__credits" onClick={() => setShowPricing(true)}>
                 <Tag type="blue" size="sm">
                   <Currency size={14} style={{ marginRight: '0.25rem' }} />
@@ -776,14 +778,16 @@ function AppContent() {
               <Settings size={20} />
             </HeaderGlobalAction>
             
-            <HeaderGlobalAction
-              aria-label={isAuthenticated ? 'Hesap' : 'Giriş Yap'}
-              onClick={() => isAuthenticated ? setShowUserPanel(!showUserPanel) : setShowAuth(true)}
-              isActive={showUserPanel}
-              tooltipAlignment="end"
-            >
-              {isAuthenticated ? <User size={20} /> : <Login size={20} />}
-            </HeaderGlobalAction>
+            {!passwordGateMode && (
+              <HeaderGlobalAction
+                aria-label={isAuthenticated ? 'Hesap' : 'Giriş Yap'}
+                onClick={() => isAuthenticated ? setShowUserPanel(!showUserPanel) : setShowAuth(true)}
+                isActive={showUserPanel}
+                tooltipAlignment="end"
+              >
+                {isAuthenticated ? <User size={20} /> : <Login size={20} />}
+              </HeaderGlobalAction>
+            )}
           </HeaderGlobalBar>
 
           {/* User Panel */}
@@ -890,9 +894,18 @@ function AppContent() {
               </SideNav>
             )}
             <div className="app-workspace">
-              {canAccessWorkspace ? (
+            {canAccessWorkspace ? (
                 <>
-                  {!isAuthenticated && (
+                  {!isAuthenticated && passwordGateMode && (
+                    <InlineNotification
+                      kind="info"
+                      title="Geçici erişim modu"
+                      subtitle="Parola ile giriş yaptınız. Bu mod geçicidir; kullanıcı hesabı/Google login daha sonra yeniden açılacaktır."
+                      lowContrast
+                      style={{ marginBottom: '1rem' }}
+                    />
+                  )}
+                  {!isAuthenticated && !passwordGateMode && (
                     <InlineNotification
                       kind="info"
                       title="Misafir modundasınız"
@@ -984,7 +997,7 @@ function AppContent() {
               onLivePreviewChange={setLivePreviewEnabled}
             />
           )}
-          {showAuth && (
+          {!passwordGateMode && showAuth && (
             <AuthModal
               isOpen={showAuth}
               onClose={() => setShowAuth(false)}
@@ -1002,10 +1015,92 @@ function AppContent() {
   );
 }
 
+function PasswordGate({ onUnlock }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
+
+  const submit = useCallback(() => {
+    const ok = (password || '').trim().toUpperCase() === 'CARBON';
+    if (!ok) {
+      setError('Parola hatalı.');
+      return;
+    }
+    try {
+      window.localStorage.setItem('carbonac_gate_unlocked', '1');
+    } catch (e) {
+      // ignore
+    }
+    onUnlock();
+  }, [password, onUnlock]);
+
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem',
+      }}
+    >
+      <Tile style={{ width: 'min(520px, 100%)' }}>
+        <h2 style={{ marginTop: 0 }}>Giriş</h2>
+        <p>Geçici erişim için parolayı girin.</p>
+
+        {error && (
+          <InlineNotification
+            kind="error"
+            title="Giriş başarısız"
+            subtitle={error}
+            lowContrast
+            style={{ marginBottom: '1rem' }}
+            onCloseButtonClick={() => setError(null)}
+          />
+        )}
+
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+          <TextInput
+            id="password-gate"
+            type="password"
+            labelText="Parola"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+            style={{ flex: 1 }}
+          />
+          <Button kind="primary" onClick={submit}>
+            Devam Et
+          </Button>
+        </div>
+      </Tile>
+    </div>
+  );
+}
+
 // Root App with Providers
 function App() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
   const isAuthRoute = pathname.startsWith('/auth/');
+
+  const [unlocked, setUnlocked] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      return window.localStorage.getItem('carbonac_gate_unlocked') === '1';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  // Sadece auth route'larını gate dışında bırakıyoruz (reset/callback gibi akışlar bozulmasın).
+  if (!unlocked && !isAuthRoute) {
+    return (
+      <ThemeProvider>
+        <PasswordGate onUnlock={() => setUnlocked(true)} />
+      </ThemeProvider>
+    );
+  }
 
   if (isAuthRoute) {
     return (
