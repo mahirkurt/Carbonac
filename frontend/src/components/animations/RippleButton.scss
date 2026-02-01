@@ -1,0 +1,87 @@
+/**
+ * RippleButton Styles
+ * Uses Carbon motion tokens for ripple animation
+ */
+
+@use '../../styles/abstracts' as *;
+
+.ripple-button {
+  position: relative;
+  overflow: hidden;
+  
+  // Content layer
+  &__content {
+    position: relative;
+    z-index: 1;
+  }
+  
+  // Ripple container
+  &__ripple-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  // Individual ripple
+  &__ripple {
+    position: absolute;
+    border-radius: 50%;
+    background-color: var(--ripple-color, rgba(255, 255, 255, 0.3));
+    transform: scale(0);
+    animation: ripple-expand 500ms cubic-bezier(0.4, 0.14, 0.3, 1) forwards;
+    
+    // GPU acceleration
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+}
+
+// Primary button ripple
+.cds--btn--primary .ripple-button__ripple {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+// Secondary button ripple
+.cds--btn--secondary .ripple-button__ripple {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+// Tertiary button ripple
+.cds--btn--tertiary .ripple-button__ripple {
+  background-color: rgba(15, 98, 254, 0.2);
+}
+
+// Ghost button ripple
+.cds--btn--ghost .ripple-button__ripple {
+  background-color: rgba(141, 141, 141, 0.15);
+}
+
+// Danger button ripple
+.cds--btn--danger .ripple-button__ripple {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+// Reduced motion
+@media (prefers-reduced-motion: reduce) {
+  .ripple-button__ripple {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+// Keyframe animation
+@keyframes ripple-expand {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}

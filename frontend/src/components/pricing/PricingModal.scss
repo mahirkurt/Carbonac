@@ -1,0 +1,224 @@
+/**
+ * PricingModal Styles
+ */
+
+@use '../../styles/abstracts' as *;
+
+.pricing-modal {
+  .cds--modal-container {
+    max-width: 1200px;
+  }
+
+  &__description {
+    font-size: 1rem;
+    color: var(--cds-text-secondary);
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  &__notification {
+    margin-bottom: 1.5rem;
+  }
+
+  // Pricing Tiers Grid
+  &__tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  // Pay-as-you-go Section
+  &__payg {
+    margin-bottom: 2rem;
+  }
+
+  &__payg-tile {
+    padding: 1.5rem;
+  }
+
+  &__payg-header {
+    margin-bottom: 1.5rem;
+
+    h4 {
+      margin: 0 0 0.5rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--cds-text-secondary);
+    }
+  }
+
+  &__payg-content {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  &__payg-input {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  &__payg-price {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  &__payg-label {
+    font-size: 0.875rem;
+    color: var(--cds-text-secondary);
+  }
+
+  &__payg-amount {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+  }
+
+  &__payg-per-page {
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+  }
+
+  &__payg-button {
+    min-width: 160px;
+  }
+
+  &__payg-discounts {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--cds-border-subtle-01);
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+
+    p {
+      margin: 0 0 0.5rem;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1rem;
+
+      li {
+        margin-bottom: 0.25rem;
+      }
+    }
+  }
+
+  // Enterprise CTA
+  &__enterprise {
+    text-align: center;
+    padding: 1rem;
+    background: var(--cds-layer-02);
+    border-radius: 4px;
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--cds-text-secondary);
+    }
+
+    a {
+      color: var(--cds-link-primary);
+    }
+  }
+}
+
+// Pricing Card
+.pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  background: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle-01);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+
+  &:hover {
+    border-color: var(--cds-border-strong-01);
+  }
+
+  &--popular {
+    border-color: var(--cds-link-primary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  &--current {
+    border-color: var(--cds-support-success);
+  }
+
+  &__badge {
+    position: absolute;
+    top: -0.75rem;
+    right: 1rem;
+  }
+
+  &__name {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  &__price {
+    margin-bottom: 0.5rem;
+  }
+
+  &__amount {
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--cds-text-primary);
+  }
+
+  &__period {
+    font-size: 0.875rem;
+    color: var(--cds-text-secondary);
+  }
+
+  &__pages {
+    margin: 0 0 1.5rem;
+    font-size: 0.875rem;
+    color: var(--cds-text-secondary);
+  }
+
+  &__features {
+    flex: 1;
+    list-style: none;
+    margin: 0 0 1.5rem;
+    padding: 0;
+
+    li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--cds-text-secondary);
+
+      svg {
+        flex-shrink: 0;
+        margin-top: 2px;
+        color: var(--cds-support-success);
+      }
+    }
+  }
+
+  &__button {
+    width: 100%;
+  }
+}
+
+// Dark theme
+[data-carbon-theme="g90"],
+[data-carbon-theme="g100"] {
+  .pricing-card--popular {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+}

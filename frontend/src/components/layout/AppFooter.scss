@@ -1,0 +1,151 @@
+/**
+ * AppFooter Styles
+ */
+
+@use '../../styles/abstracts' as *;
+
+.app-footer {
+  background-color: var(--cds-layer-01);
+  border-top: 1px solid var(--cds-border-subtle-01);
+  margin-top: auto;
+
+  // Main footer content
+  &__main {
+    padding: 3rem 1rem 2rem;
+  }
+
+  // Brand section
+  &__brand {
+    margin-bottom: 2rem;
+
+    @media (min-width: 66rem) {
+      margin-bottom: 0;
+    }
+  }
+
+  &__logo {
+    height: 28px;
+    width: auto;
+    margin-bottom: 1rem;
+  }
+
+  &__description {
+    font-size: 0.875rem;
+    color: var(--cds-text-secondary);
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    max-width: 280px;
+  }
+
+  &__company {
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+
+    p {
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    strong {
+      color: var(--cds-text-primary);
+    }
+  }
+
+  // Links sections
+  &__links {
+    margin-bottom: 1.5rem;
+
+    @media (min-width: 42rem) {
+      margin-bottom: 0;
+    }
+  }
+
+  &__links-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    margin: 0 0 1rem;
+  }
+
+  &__links-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    a {
+      font-size: 0.875rem;
+      color: var(--cds-text-secondary);
+      text-decoration: none;
+      transition: color 110ms ease;
+
+      &:hover {
+        color: var(--cds-link-primary-hover, var(--cds-link-primary));
+      }
+    }
+  }
+
+  // Bottom bar
+  &__bottom {
+    padding: 1.5rem 1rem;
+    border-top: 1px solid var(--cds-border-subtle-01);
+    background-color: var(--cds-layer-02);
+  }
+
+  &__copyright {
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+
+    p {
+      margin: 0;
+    }
+  }
+
+  &__tagline {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    opacity: 0.7;
+  }
+
+  &__social {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    margin-top: 1rem;
+
+    @media (min-width: 66rem) {
+      justify-content: flex-end;
+      margin-top: 0;
+    }
+  }
+
+  &__social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    color: var(--cds-text-secondary);
+    transition: color 110ms ease;
+
+    &:hover {
+      color: var(--cds-link-primary);
+    }
+  }
+}
+
+// Dark theme adjustments
+[data-carbon-theme="g90"],
+[data-carbon-theme="g100"] {
+  .app-footer {
+    background-color: var(--cds-layer-01);
+
+    &__bottom {
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+  }
+}

@@ -1,0 +1,208 @@
+/**
+ * SkeletonLoader Styles
+ * Uses Carbon skeleton tokens and motion patterns
+ */
+
+@use '../../styles/abstracts' as *;
+
+// Base skeleton shimmer animation
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// Skeleton base mixin
+@mixin skeleton-base {
+  background: linear-gradient(
+    90deg,
+    var(--cds-skeleton-background, #e8e8e8) 25%,
+    var(--cds-skeleton-element, #c6c6c6) 50%,
+    var(--cds-skeleton-background, #e8e8e8) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  
+  // Reduced motion
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background: var(--cds-skeleton-background, #e8e8e8);
+  }
+}
+
+// Card skeleton
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cds-spacing-05, 1rem);
+  padding: var(--cds-spacing-05, 1rem);
+  background: var(--cds-layer-01, #f4f4f4);
+  border-radius: 0;
+  
+  &__image {
+    width: 100%;
+    height: 160px;
+    @include skeleton-base;
+  }
+  
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cds-spacing-03, 0.5rem);
+  }
+}
+
+// List item skeleton
+.skeleton-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--cds-spacing-04, 0.75rem);
+  padding: var(--cds-spacing-04, 0.75rem) var(--cds-spacing-05, 1rem);
+  
+  &__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--cds-spacing-02, 0.25rem);
+  }
+  
+  &__action {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+}
+
+// Table row skeleton
+.skeleton-table-row {
+  &__cell {
+    padding: var(--cds-spacing-04, 0.75rem) var(--cds-spacing-05, 1rem);
+  }
+}
+
+// Avatar skeleton
+.skeleton-avatar {
+  border-radius: 50%;
+  
+  &--sm {
+    width: 24px;
+    height: 24px;
+  }
+  
+  &--md {
+    width: 40px;
+    height: 40px;
+  }
+  
+  &--lg {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+// Panel skeleton
+.skeleton-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--cds-spacing-05, 1rem);
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--cds-spacing-06, 1.5rem);
+    
+    &-action {
+      width: 80px;
+      height: 32px;
+    }
+  }
+  
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cds-spacing-05, 1rem);
+  }
+  
+  &__block {
+    padding: var(--cds-spacing-04, 0.75rem);
+    background: var(--cds-layer-01, #f4f4f4);
+  }
+}
+
+// Editor skeleton
+.skeleton-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  
+  &__toolbar {
+    display: flex;
+    gap: var(--cds-spacing-03, 0.5rem);
+    padding: var(--cds-spacing-03, 0.5rem) var(--cds-spacing-05, 1rem);
+    border-bottom: 1px solid var(--cds-border-subtle-01, #e0e0e0);
+    
+    &-btn {
+      width: 32px;
+      height: 32px;
+    }
+  }
+  
+  &__content {
+    flex: 1;
+    padding: var(--cds-spacing-05, 1rem);
+  }
+}
+
+// Preview skeleton
+.skeleton-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: var(--cds-spacing-05, 1rem);
+  background: var(--cds-layer-02, #e0e0e0);
+  
+  &__document {
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 8.5 / 11;
+    @include skeleton-base;
+  }
+}
+
+// Sidebar skeleton
+.skeleton-sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: var(--cds-spacing-04, 0.75rem) 0;
+}
+
+// Loader wrapper
+.skeleton-loader {
+  width: 100%;
+}
+
+// Theme adjustments
+[data-carbon-theme="g90"],
+[data-carbon-theme="g100"] {
+  .skeleton-card,
+  .skeleton-panel__block {
+    background: var(--cds-layer-01, #393939);
+  }
+  
+  .skeleton-preview {
+    background: var(--cds-layer-02, #525252);
+  }
+}

@@ -1,0 +1,159 @@
+// ============================================================================
+// Carbon Design System - Global SCSS Variables
+// ============================================================================
+
+// -----------------------------------------------------------------------------
+// Breakpoints (Carbon Grid System)
+// -----------------------------------------------------------------------------
+
+$breakpoint-sm: 320px;
+$breakpoint-md: 672px;
+$breakpoint-lg: 1056px;
+$breakpoint-xlg: 1312px;
+$breakpoint-max: 1584px;
+
+$breakpoints: (
+  'sm': $breakpoint-sm,
+  'md': $breakpoint-md,
+  'lg': $breakpoint-lg,
+  'xlg': $breakpoint-xlg,
+  'max': $breakpoint-max
+);
+
+// -----------------------------------------------------------------------------
+// Grid Configuration
+// -----------------------------------------------------------------------------
+
+$grid-columns: 16;
+$grid-gutter: 32px;
+$grid-gutter-condensed: 1px;
+$grid-gutter-narrow: 16px;
+
+$grid-margin: (
+  'sm': 0,
+  'md': 16px,
+  'lg': 16px,
+  'xlg': 16px,
+  'max': 24px
+);
+
+// -----------------------------------------------------------------------------
+// Spacing Tokens (8px base unit)
+// -----------------------------------------------------------------------------
+
+$spacing-01: 0.125rem;  // 2px
+$spacing-02: 0.25rem;   // 4px
+$spacing-03: 0.5rem;    // 8px
+$spacing-04: 0.75rem;   // 12px
+$spacing-05: 1rem;      // 16px
+$spacing-06: 1.5rem;    // 24px
+$spacing-07: 2rem;      // 32px
+$spacing-08: 2.5rem;    // 40px
+$spacing-09: 3rem;      // 48px
+$spacing-10: 4rem;      // 64px
+$spacing-11: 5rem;      // 80px
+$spacing-12: 6rem;      // 96px
+$spacing-13: 10rem;     // 160px
+
+// Layout tokens
+$layout-01: 1rem;       // 16px
+$layout-02: 1.5rem;     // 24px
+$layout-03: 2rem;       // 32px
+$layout-04: 3rem;       // 48px
+$layout-05: 4rem;       // 64px
+$layout-06: 6rem;       // 96px
+$layout-07: 10rem;      // 160px
+
+// Container tokens
+$container-01: 1.5rem;  // 24px
+$container-02: 2rem;    // 32px
+$container-03: 2.5rem;  // 40px
+$container-04: 3rem;    // 48px
+$container-05: 4rem;    // 64px
+
+// -----------------------------------------------------------------------------
+// Typography Scale
+// -----------------------------------------------------------------------------
+
+// Font families
+$font-family-sans: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+$font-family-serif: 'IBM Plex Serif', Georgia, serif;
+$font-family-mono: 'IBM Plex Mono', Menlo, Consolas, monospace;
+$font-family-condensed: 'IBM Plex Sans Condensed', system-ui, sans-serif;
+
+// Font weights
+$font-weight-light: 300;
+$font-weight-regular: 400;
+$font-weight-semibold: 600;
+
+// Type scale
+$type-scale: (
+  'caption-01': (font-size: 0.75rem, line-height: 1rem, letter-spacing: 0.32px),
+  'caption-02': (font-size: 0.875rem, line-height: 1.125rem, letter-spacing: 0.32px),
+  'label-01': (font-size: 0.75rem, line-height: 1rem, letter-spacing: 0.32px),
+  'label-02': (font-size: 0.875rem, line-height: 1.125rem, letter-spacing: 0.16px),
+  'helper-text-01': (font-size: 0.75rem, line-height: 1rem, letter-spacing: 0.32px),
+  'helper-text-02': (font-size: 0.875rem, line-height: 1.125rem, letter-spacing: 0.16px),
+  'body-compact-01': (font-size: 0.875rem, line-height: 1.125rem, letter-spacing: 0.16px),
+  'body-compact-02': (font-size: 1rem, line-height: 1.375rem, letter-spacing: 0),
+  'body-01': (font-size: 0.875rem, line-height: 1.25rem, letter-spacing: 0.16px),
+  'body-02': (font-size: 1rem, line-height: 1.5rem, letter-spacing: 0),
+  'heading-compact-01': (font-size: 0.875rem, line-height: 1.125rem, letter-spacing: 0.16px, font-weight: 600),
+  'heading-compact-02': (font-size: 1rem, line-height: 1.375rem, letter-spacing: 0, font-weight: 600),
+  'heading-01': (font-size: 0.875rem, line-height: 1.25rem, letter-spacing: 0.16px, font-weight: 600),
+  'heading-02': (font-size: 1rem, line-height: 1.5rem, letter-spacing: 0, font-weight: 600),
+  'heading-03': (font-size: 1.25rem, line-height: 1.625rem, letter-spacing: 0, font-weight: 400),
+  'heading-04': (font-size: 1.75rem, line-height: 2.25rem, letter-spacing: 0, font-weight: 400),
+  'heading-05': (font-size: 2rem, line-height: 2.5rem, letter-spacing: 0, font-weight: 400),
+  'heading-06': (font-size: 2.625rem, line-height: 3.125rem, letter-spacing: 0, font-weight: 300),
+  'heading-07': (font-size: 3.375rem, line-height: 4rem, letter-spacing: 0, font-weight: 300)
+);
+
+// -----------------------------------------------------------------------------
+// Z-index Scale
+// -----------------------------------------------------------------------------
+
+$z-index-dropdown: 9000;
+$z-index-sticky: 9100;
+$z-index-header: 9100;
+$z-index-overlay: 9200;
+$z-index-modal: 9300;
+$z-index-notification: 9400;
+$z-index-tooltip: 9500;
+
+// -----------------------------------------------------------------------------
+// Border Radius
+// -----------------------------------------------------------------------------
+
+$border-radius-sm: 2px;
+$border-radius-md: 4px;
+$border-radius-lg: 8px;
+$border-radius-xl: 16px;
+$border-radius-full: 9999px;
+
+// -----------------------------------------------------------------------------
+// Box Shadows
+// -----------------------------------------------------------------------------
+
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-md: 0 2px 6px rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+$shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.16);
+$shadow-focus: 0 0 0 2px var(--cds-focus);
+
+// Raised shadows (for cards, modals)
+$shadow-raised-01: 0 2px 6px rgba(0, 0, 0, 0.2);
+$shadow-raised-02: 0 4px 8px rgba(0, 0, 0, 0.2);
+$shadow-raised-03: 0 6px 12px rgba(0, 0, 0, 0.2);
+$shadow-raised-04: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+// Overlay shadow (for modals)
+$shadow-overlay: 0 12px 24px rgba(0, 0, 0, 0.3);
+
+// -----------------------------------------------------------------------------
+// Focus Ring
+// -----------------------------------------------------------------------------
+
+$focus-outline-width: 2px;
+$focus-outline-offset: 2px;
+$focus-inset-offset: -2px;
