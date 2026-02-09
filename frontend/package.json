@@ -12,10 +12,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@carbon/ai-chat": "^1.5.1",
+    "@carbon/charts": "^1.27.2",
+    "@carbon/charts-react": "^1.27.2",
     "@carbon/icons-react": "^11.74.0",
     "@carbon/react": "^1.100.0",
+    "@carbon/web-components": "^2.47.0",
     "@ibm/plex": "^6.4.1",
     "@supabase/supabase-js": "^2.93.3",
+    "d3": "^7.9.0",
+    "d3-cloud": "^1.2.8",
+    "d3-sankey": "^0.12.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0"
