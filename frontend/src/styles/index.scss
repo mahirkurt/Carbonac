@@ -515,6 +515,48 @@ body {
   }
 }
 
+.pdf-preview__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.carbonac-chart {
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 8px;
+  background: var(--cds-layer-01);
+  padding: 1rem;
+}
+
+.carbonac-chart__highlight {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.75rem;
+}
+
+.carbonac-chart__caption {
+  margin-top: 0.75rem;
+  font-weight: 600;
+}
+
+.carbonac-chart__meta {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary);
+}
+
+.carbonac-chart__empty,
+.carbonac-chart__error {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary);
+}
+
+.carbonac-chart__error {
+  color: var(--cds-support-error);
+}
+
 // =============================================================================
 // DEPRECATED - AI Advisor panel styles (removed in v2.0)
 // =============================================================================
@@ -914,6 +956,12 @@ body {
 // Fix Carbon Header Panel z-index
 .cds--header-panel {
   z-index: 8001;
+}
+
+// IMPORTANT: Size/visuals must only apply when expanded.
+// Otherwise the panel can appear "stuck" open (width/border even when collapsed).
+.cds--header-panel--expanded {
+  inline-size: 20rem;
   width: 20rem;
   background: var(--cds-layer-02);
   border-left: 1px solid var(--cds-border-subtle-01);
