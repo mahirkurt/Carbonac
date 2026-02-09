@@ -34,7 +34,6 @@ import {
 import {
   Document,
   DocumentPdf,
-  Chat,
   Settings,
   Light,
   Asleep,
@@ -65,7 +64,7 @@ import PreviewPanel from './components/layout/PreviewPanel';
 import AppFooter from './components/layout/AppFooter';
 import { focusEditorLocation } from './utils/editorFocus';
 import directiveTemplates from './utils/directiveTemplates';
-import { useLocalStorage } from './hooks';
+// NOTE: AI chat integration temporarily disabled to keep Netlify builds green.
 
 import DocumentsPanel from './components/workspace/DocumentsPanel';
 import JobsPanel from './components/workspace/JobsPanel';
@@ -92,7 +91,6 @@ const PricingModal = lazy(() => import('./components/pricing/PricingModal'));
 const DocumentUploader = lazy(() => import('./components/document/DocumentUploader'));
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
 const TemplateGallery = lazy(() => import('./components/templates/TemplateGallery'));
-const CarbonacAiChat = lazy(() => import('./components/ai/CarbonacAiChat'));
 
 const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
 const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === 'true';
@@ -501,13 +499,7 @@ function AppContent() {
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [showSideNav, setShowSideNav] = useState(true);
   const [notification, setNotification] = useState(null);
-  const [aiChatEnabled, setAiChatEnabled] = useLocalStorage('carbonac-ai-chat-enabled', true);
-  const [aiChatMounted, setAiChatMounted] = useState(false);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const userPanelRef = useRef(null);
-  const aiChatInstanceRef = useRef(null);
-  const aiChatPendingOpenRef = useRef(false);
-  const aiChatWiredInstanceRef = useRef(null);
   const [activeWorkspace, setActiveWorkspace] = useState(() => {
     if (typeof window === 'undefined') return 'workflow';
     const path = window.location.pathname || '';
@@ -524,68 +516,7 @@ function AppContent() {
   const isGuestMode = GUEST_MODE;
   const canAccessWorkspace = isAuthenticated || isGuestMode;
 
-  const handleAiChatInstanceReady = useCallback((instance) => {
-    if (!instance) return;
-
-    aiChatInstanceRef.current = instance;
-    const initialOpen = Boolean(instance.getState?.().viewState?.mainWindow);
-    setIsAiChatOpen(initialOpen);
-
-    // Attach a single view-state listener per instance (avoid duplicate listeners).
-    if (aiChatWiredInstanceRef.current !== instance) {
-      aiChatWiredInstanceRef.current = instance;
-      instance.on({
-        type: 'view:change',
-        handler: (event) => {
-          setIsAiChatOpen(Boolean(event?.newViewState?.mainWindow));
-        },
-      });
-    }
-
-    if (aiChatPendingOpenRef.current) {
-      aiChatPendingOpenRef.current = false;
-      void instance.changeView('mainWindow');
-      try {
-        instance.requestFocus?.();
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
-
-  const toggleAiChat = useCallback(() => {
-    const instance = aiChatInstanceRef.current;
-    if (!instance) {
-      aiChatPendingOpenRef.current = true;
-      setAiChatMounted(true);
-      return;
-    }
-
-    const nextOpen = !Boolean(instance.getState?.().viewState?.mainWindow);
-    void instance.changeView(nextOpen ? 'mainWindow' : 'launcher');
-    if (nextOpen) {
-      try {
-        instance.requestFocus?.();
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
-
-  const handleToggleAiChatEnabled = useCallback((checked) => {
-    setAiChatEnabled(Boolean(checked));
-    if (!checked) {
-      const instance = aiChatInstanceRef.current;
-      if (instance) {
-        void instance.changeView('launcher');
-      }
-      aiChatPendingOpenRef.current = false;
-      aiChatInstanceRef.current = null;
-      aiChatWiredInstanceRef.current = null;
-      setAiChatMounted(false);
-      setIsAiChatOpen(false);
-    }
-  }, [setAiChatEnabled]);
+  // AI chat integration removed (Netlify build was failing due to missing tracked files).
 
   // Close user panel on outside click / Escape
   useEffect(() => {
@@ -833,16 +764,7 @@ function AppContent() {
               </div>
             )}
 
-            {aiChatEnabled && canAccessWorkspace && (
-              <HeaderGlobalAction
-                aria-label={isAiChatOpen ? 'AI Danışmanı kapat' : 'AI Danışmanı aç'}
-                onClick={toggleAiChat}
-                tooltipAlignment="end"
-                isActive={isAiChatOpen}
-              >
-                <Chat size={20} />
-              </HeaderGlobalAction>
-            )}
+            {/* AI chat toggle removed */}
             
             <HeaderGlobalAction
               aria-label="Tema Değiştir"
@@ -1094,8 +1016,8 @@ function AppContent() {
               onLayoutProfileChange={setLayoutProfile}
               selectedPrintProfile={selectedPrintProfile}
               onPrintProfileChange={setPrintProfile}
-              showAdvisor={aiChatEnabled}
-              onToggleAdvisor={handleToggleAiChatEnabled}
+                showAdvisor={false}
+                onToggleAdvisor={() => {}}
               autoSave={autoSaveEnabled}
               onAutoSaveChange={setAutoSaveEnabled}
               livePreview={livePreviewEnabled}
@@ -1116,16 +1038,7 @@ function AppContent() {
           )}
         </Suspense>
 
-        <Suspense fallback={null}>
-          {aiChatEnabled && aiChatMounted && canAccessWorkspace && (
-            <CarbonacAiChat
-              enabled={aiChatEnabled}
-              isAuthenticated={isAuthenticated}
-              onRequestLogin={() => setShowAuth(true)}
-              onInstanceReady={handleAiChatInstanceReady}
-            />
-          )}
-        </Suspense>
+        {/* AI chat container removed */}
       </div>
     </Theme>
   );
