@@ -3,7 +3,7 @@
  * Main Application with Document Workflow
  */
 
-import React, { useState, useCallback, Suspense, lazy, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo, useRef } from 'react';
 import {
   Theme,
   Header,
@@ -51,14 +51,17 @@ import {
   Logout,
   Currency,
   Checkmark,
+  Close,
   Home,
   Edit,
+  Menu,
   View,
   MagicWand,
 } from '@carbon/icons-react';
 
 import './styles/index.scss';
-import { useThrottle } from './hooks';
+import PreviewPanel from './components/layout/PreviewPanel';
+import AppFooter from './components/layout/AppFooter';
 import { focusEditorLocation } from './utils/editorFocus';
 import directiveTemplates from './utils/directiveTemplates';
 
@@ -88,17 +91,20 @@ const DocumentUploader = lazy(() => import('./components/document/DocumentUpload
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
 const TemplateGallery = lazy(() => import('./components/templates/TemplateGallery'));
 
+const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
+const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === 'true';
+
 // Layout profile options
 const layoutProfileOptions = [
-  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
-  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
+  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', label: 'Dashboard (Yoğun)' },
 ];
 
 // Print profile options
 const printProfileOptions = [
-  { id: 'pagedjs-a4', text: 'Paged.js A4' },
-  { id: 'pagedjs-a3', text: 'Paged.js A3' },
+  { id: 'pagedjs-a4', label: 'Paged.js A4' },
+  { id: 'pagedjs-a3', label: 'Paged.js A3' },
 ];
 
 // Workflow step configuration
@@ -111,22 +117,22 @@ const WORKFLOW_STEP_CONFIG = {
   [WORKFLOW_STEPS.PROCESSING]: { 
     label: 'İşleniyor', 
     icon: MagicWand, 
-    description: 'Markdown\'a dönüştürülüyor' 
+    description: 'Markdown\'a dönüştürülüyor ve önizleme hazırlanıyor' 
   },
   [WORKFLOW_STEPS.WIZARD]: { 
     label: 'Stil Sihirbazı', 
     icon: ColorPalette, 
-    description: 'Rapor tasarımını belirleyin' 
+    description: 'Rapor tasarımını belirleyin ve özet onayı verin' 
   },
   [WORKFLOW_STEPS.EDITOR]: { 
     label: 'Düzenle', 
     icon: Edit, 
-    description: 'Markdown içeriği düzenleyin' 
+    description: 'Markdown içeriği düzenleyin ve QA kontrolü yapın' 
   },
   [WORKFLOW_STEPS.PREVIEW]: { 
     label: 'Önizleme', 
     icon: View, 
-    description: 'PDF önizleme ve indirme' 
+    description: 'PDF önizleme, job durumu ve indirme' 
   },
 };
 
@@ -172,13 +178,13 @@ function EditorPanel() {
   const textAreaRef = useRef(null);
 
   const severityOptions = useMemo(() => ([
-    { id: 'all', label: 'Tum Seviyeler' },
-    { id: 'warning', label: 'Uyari' },
+    { id: 'all', label: 'Tüm Seviyeler' },
+    { id: 'warning', label: 'Uyarı' },
     { id: 'info', label: 'Bilgi' },
   ]), []);
 
   const ruleOptions = useMemo(() => {
-    const base = [{ id: 'all', label: 'Tum Kurallar' }];
+    const base = [{ id: 'all', label: 'Tüm Kurallar' }];
     const uniqueRules = Array.from(new Set(lintIssues.map((issue) => issue.ruleId)));
     uniqueRules.forEach((ruleId) => {
       base.push({ id: ruleId, label: ruleId });
@@ -332,7 +338,7 @@ function EditorPanel() {
       <div className="editor-panel__lint">
         <div className="editor-panel__lint-header">
           <div>
-            <h4>Lint Uyarilari</h4>
+            <h4>Lint Uyarıları</h4>
             <span>{lintIssues.length} bulgu</span>
           </div>
           <div className="editor-panel__lint-filters">
@@ -369,7 +375,7 @@ function EditorPanel() {
                     focusLintLocation(issue);
                   }
                 }}
-                title={`Satir ${issue.line}, Kolon ${issue.column}`}
+                title={`Satır ${issue.line}, Kolon ${issue.column}`}
               >
                 <span className={`lint-tag lint-tag--${issue.severity}`}>{issue.severity}</span>
                 <div>
@@ -386,122 +392,7 @@ function EditorPanel() {
   );
 }
 
-// Preview Panel Component
-function PreviewPanel() {
-  const {
-    markdownContent,
-    isConverting,
-    generatePdf,
-    outputPath,
-    downloadError,
-    setDownloadError,
-    livePreviewEnabled,
-    selectedTheme,
-  } = useDocument();
-  const throttledMarkdown = useThrottle(markdownContent, 200);
-  const effectiveMarkdown = livePreviewEnabled ? throttledMarkdown : '';
-
-  const previewHtml = useMemo(() => {
-    if (!effectiveMarkdown) {
-      return '';
-    }
-    return effectiveMarkdown
-      .replace(/^---[\s\S]*?---/m, '')
-      .replace(/^# (.+)$/gm, '<h1 style="font-size: 2.5rem; font-weight: 300; margin-bottom: 1rem;">$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2 style="font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 1rem;">$1</h2>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code style="background: var(--cds-layer-01); padding: 0.125rem 0.25rem; font-family: IBM Plex Mono;">$1</code>')
-      .replace(/^> (.+)$/gm, '<blockquote style="border-left: 3px solid var(--cds-interactive); padding-left: 1rem; color: var(--cds-text-secondary); margin: 1rem 0;">$1</blockquote>')
-      .replace(/^- (.+)$/gm, '<li style="margin-left: 1.5rem;">$1</li>')
-      .replace(/\n/g, '<br/>');
-  }, [effectiveMarkdown]);
-
-  const handleDownload = useCallback(() => {
-    if (outputPath) {
-      const link = document.createElement('a');
-      link.href = outputPath;
-      link.download = 'document.pdf';
-      link.click();
-    }
-  }, [outputPath]);
-
-  return (
-    <div className="preview-panel panel">
-      <div className="panel__header">
-        <h3>
-          <DocumentPdf size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          PDF Önizleme
-        </h3>
-        <p>Çıktı önizlemesi</p>
-      </div>
-      <div className="pdf-preview">
-        <div className="pdf-preview__container">
-          <div
-            className={`pdf-preview__document${outputPath ? ' pdf-preview__document--pdf' : ''}`}
-            data-carbon-theme={selectedTheme}
-          >
-            {isConverting ? (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '300px'
-              }}>
-                <Loading withOverlay={false} description="PDF oluşturuluyor..." />
-              </div>
-            ) : outputPath ? (
-              <iframe
-                className="pdf-preview__iframe"
-                title="PDF Önizleme"
-                src={outputPath}
-              />
-            ) : !markdownContent ? (
-              <div className="pdf-preview__empty">
-                <h4>Preview hazir degil</h4>
-                <p>Markdown ekleyerek veya dokuman yukleyerek preview olusturabilirsiniz.</p>
-              </div>
-            ) : !livePreviewEnabled ? (
-              <div className="pdf-preview__empty">
-                <h4>Canli onizleme kapali</h4>
-                <p>Ayarlar menusu uzerinden canli onizlemeyi acabilirsiniz.</p>
-              </div>
-            ) : (
-              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'IBM Plex Sans' }}>
-                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <div className="preview-panel__actions">
-        {downloadError && (
-          <InlineNotification
-            kind="error"
-            title="PDF indirilemedi"
-            subtitle={downloadError}
-            onCloseButtonClick={() => setDownloadError(null)}
-          />
-        )}
-        <Button
-          kind="primary"
-          renderIcon={Play}
-          onClick={generatePdf}
-          disabled={isConverting || !markdownContent}
-        >
-          {isConverting ? 'Oluşturuluyor...' : 'PDF Oluştur'}
-        </Button>
-        <Button
-          kind="secondary"
-          renderIcon={Download}
-          onClick={handleDownload}
-          disabled={!outputPath}
-        >
-          PDF İndir
-        </Button>
-      </div>
-    </div>
-  );
-}
+// Preview Panel Component now lives in components/layout/PreviewPanel
 
 // Settings Sidebar Component
 function SettingsSidebar() {
@@ -605,14 +496,104 @@ function AppContent() {
   const [showAuth, setShowAuth] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [showUserPanel, setShowUserPanel] = useState(false);
+  const [showSideNav, setShowSideNav] = useState(true);
   const [notification, setNotification] = useState(null);
-  const [activeWorkspace, setActiveWorkspace] = useState('workflow');
-  const passwordGateMode = true;
-  const isGuestMode = true;
+  const userPanelRef = useRef(null);
+  const [activeWorkspace, setActiveWorkspace] = useState(() => {
+    if (typeof window === 'undefined') return 'workflow';
+    const path = window.location.pathname || '';
+    const hash = window.location.hash || '';
+    if (path === '/templates') return 'templates';
+    if (hash === '#templates') return 'templates';
+    if (hash === '#documents') return 'documents';
+    if (hash === '#jobs') return 'jobs';
+    if (hash === '#quality') return 'quality';
+    if (hash === '#workflow') return 'workflow';
+    return 'workflow';
+  });
+  const passwordGateMode = PASSWORD_GATE_MODE;
+  const isGuestMode = GUEST_MODE;
   const canAccessWorkspace = isAuthenticated || isGuestMode;
+
+  // Close user panel on outside click / Escape
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (!showUserPanel) return undefined;
+
+    const handlePointerDown = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      // Don't treat clicks on the toggle button as outside clicks.
+      if (target.closest('[data-user-panel-toggle="true"]')) return;
+
+      // Don't close if the click is inside the panel.
+      if (userPanelRef.current?.contains?.(target)) return;
+
+      setShowUserPanel(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowUserPanel(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown, true);
+    document.addEventListener('touchstart', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true);
+      document.removeEventListener('touchstart', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showUserPanel]);
 
   const handleWorkspaceChange = useCallback((nextWorkspace) => {
     setActiveWorkspace(nextWorkspace);
+    if (typeof window !== 'undefined') {
+      if (nextWorkspace === 'templates') {
+        window.history.pushState({}, '', '/templates#templates');
+        return;
+      }
+      window.history.pushState({}, '', `/#${nextWorkspace}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onPopStateOrHash = () => {
+      const path = window.location.pathname || '';
+      const hash = window.location.hash || '';
+      if (hash === '#templates' || (path === '/templates' && (!hash || hash === '#templates'))) {
+        setActiveWorkspace('templates');
+        return;
+      }
+      if (hash === '#documents') {
+        setActiveWorkspace('documents');
+        return;
+      }
+      if (hash === '#jobs') {
+        setActiveWorkspace('jobs');
+        return;
+      }
+      if (hash === '#quality') {
+        setActiveWorkspace('quality');
+        return;
+      }
+      if (hash === '#workflow') {
+        setActiveWorkspace('workflow');
+        return;
+      }
+    };
+
+    window.addEventListener('hashchange', onPopStateOrHash);
+    window.addEventListener('popstate', onPopStateOrHash);
+    return () => {
+      window.removeEventListener('hashchange', onPopStateOrHash);
+      window.removeEventListener('popstate', onPopStateOrHash);
+    };
   }, []);
 
   const handleOpenDocument = useCallback((doc) => {
@@ -625,6 +606,15 @@ function AppContent() {
 
   // Render content based on workflow step
   const renderContent = () => {
+    if (activeWorkspace === 'templates') {
+      return (
+        <div className="workspace-panel">
+          <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
+            <TemplateGallery />
+          </Suspense>
+        </div>
+      );
+    }
     if (activeWorkspace === 'documents') {
       return (
         <DocumentsPanel
@@ -675,7 +665,7 @@ function AppContent() {
           <div className="editor-preview-layout">
             <SettingsSidebar />
             <div className="editor-preview-body">
-              <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yukleniyor..." />}>
+              <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
                 <TemplateGallery />
               </Suspense>
               <div className="editor-preview-panels">
@@ -735,7 +725,7 @@ function AppContent() {
               href="#templates"
               onClick={(e) => {
                 e.preventDefault();
-                handleWorkspaceChange('workflow');
+                handleWorkspaceChange('templates');
               }}
             >
               Şablonlar
@@ -752,6 +742,17 @@ function AppContent() {
           </HeaderNavigation>
 
           <HeaderGlobalBar>
+            {canAccessWorkspace && (
+              <HeaderGlobalAction
+                aria-label={showSideNav ? 'Yan menüyü kapat' : 'Yan menüyü aç'}
+                onClick={() => setShowSideNav((prev) => !prev)}
+                tooltipAlignment="end"
+                isActive={showSideNav}
+              >
+                {showSideNav ? <Close size={20} /> : <Menu size={20} />}
+              </HeaderGlobalAction>
+            )}
+
             {/* Credits Display */}
             {!passwordGateMode && isAuthenticated && (
               <div className="app-header__credits" onClick={() => setShowPricing(true)}>
@@ -783,6 +784,9 @@ function AppContent() {
                 aria-label={isAuthenticated ? 'Hesap' : 'Giriş Yap'}
                 onClick={() => isAuthenticated ? setShowUserPanel(!showUserPanel) : setShowAuth(true)}
                 isActive={showUserPanel}
+                aria-expanded={showUserPanel}
+                aria-controls="user-panel"
+                data-user-panel-toggle="true"
                 tooltipAlignment="end"
               >
                 {isAuthenticated ? <User size={20} /> : <Login size={20} />}
@@ -792,12 +796,23 @@ function AppContent() {
 
           {/* User Panel */}
           <HeaderPanel
+            id="user-panel"
             aria-label="User panel"
             expanded={showUserPanel}
             onHeaderPanelFocus={() => {}}
           >
             {isAuthenticated && user && (
-              <div className="app-header__user-panel">
+              <div className="app-header__user-panel" ref={userPanelRef}>
+                <div className="app-header__user-panel-header">
+                  <Button
+                    kind="ghost"
+                    size="sm"
+                    hasIconOnly
+                    renderIcon={Close}
+                    iconDescription="Kapat"
+                    onClick={() => setShowUserPanel(false)}
+                  />
+                </div>
                 <div className="app-header__user-info">
                   <div className="app-header__user-avatar">
                     <User size={32} />
@@ -808,7 +823,14 @@ function AppContent() {
                   </div>
                 </div>
                 <Switcher aria-label="User menu">
-                  <SwitcherItem aria-label="Hesabım" href="#">
+                  <SwitcherItem
+                    aria-label="Hesabım"
+                    href="#"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setShowUserPanel(false);
+                    }}
+                  >
                     Hesabım
                   </SwitcherItem>
                   <SwitcherItem aria-label="Abonelik" onClick={() => { setShowPricing(true); setShowUserPanel(false); }}>
@@ -839,7 +861,7 @@ function AppContent() {
 
           {/* Content Area */}
           <div className="app-body">
-            {canAccessWorkspace && (
+            {canAccessWorkspace && showSideNav && (
               <SideNav
                 aria-label="Yan menü"
                 className="app-sidenav"
@@ -856,6 +878,17 @@ function AppContent() {
                     }}
                   >
                     Workflow
+                  </SideNavLink>
+                  <SideNavLink
+                    href="#templates"
+                    renderIcon={Template}
+                    isActive={activeWorkspace === 'templates'}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      handleWorkspaceChange('templates');
+                    }}
+                  >
+                    Şablonlar
                   </SideNavLink>
                   <SideNavLink
                     href="#documents"
@@ -956,18 +989,7 @@ function AppContent() {
         </main>
 
         {/* Footer */}
-        <footer className="app-footer">
-          <div className="app-footer__content">
-            <div className="app-footer__brand">
-              <span>© 2026 Cureonics LLC. Wyoming, USA</span>
-            </div>
-            <div className="app-footer__links">
-              <a href="#">Gizlilik Politikası</a>
-              <a href="#">Kullanım Şartları</a>
-              <a href="#">İletişim</a>
-            </div>
-          </div>
-        </footer>
+        <AppFooter />
 
         {/* Notifications */}
         {notification && (
@@ -1085,6 +1107,7 @@ function App() {
   const isAuthRoute = pathname.startsWith('/auth/');
 
   const [unlocked, setUnlocked] = useState(() => {
+    if (!PASSWORD_GATE_MODE) return true;
     if (typeof window === 'undefined') return true;
     try {
       return window.localStorage.getItem('carbonac_gate_unlocked') === '1';
@@ -1094,7 +1117,7 @@ function App() {
   });
 
   // Sadece auth route'larını gate dışında bırakıyoruz (reset/callback gibi akışlar bozulmasın).
-  if (!unlocked && !isAuthRoute) {
+  if (PASSWORD_GATE_MODE && !unlocked && !isAuthRoute) {
     return (
       <ThemeProvider>
         <PasswordGate onUnlock={() => setUnlocked(true)} />
