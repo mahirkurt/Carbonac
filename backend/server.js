@@ -57,6 +57,7 @@ import {
 } from './release-store.js';
 import { evaluatePreflight } from './preflight.js';
 import { usageStoreEnabled, createUsageEvent } from './usage-store.js';
+import { LOCAL_TEMPLATE_FALLBACKS } from './template-fallbacks.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,33 +65,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const OUTPUT_ROOT = path.resolve(__dirname, '../output/jobs');
-const LOCAL_TEMPLATE_FALLBACKS = [
-  {
-    id: 'local-carbon-advanced',
-    key: 'carbon-advanced',
-    name: 'Carbon Advanced',
-    description: 'Local fallback template using the advanced token pack.',
-    engine: 'pagedjs',
-    status: 'active',
-    is_public: true,
-    is_system: true,
-    category: 'report',
-    tags: ['default', 'local'],
-    created_at: null,
-    updated_at: null,
-    activeVersion: {
-      id: 'local-carbon-advanced-v1',
-      version: 1,
-      layout_profile: 'symmetric',
-      print_profile: 'pagedjs-a4',
-      theme: 'white',
-      status: 'approved',
-      schema_json: null,
-    },
-    previewUrl: null,
-    previewExpiresAt: null,
-  },
-];
 
 // Middleware
 app.use(cors());
@@ -319,7 +293,13 @@ async function callGemini({ prompt, model }) {
   });
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    const err = new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    err.status = response.status;
+    // Provide a stable-ish code for clients.
+    if (response.status === 429) {
+      err.code = 'GEMINI_RATE_LIMITED';
+    }
+    throw err;
   }
   const data = await response.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -491,6 +471,79 @@ function isSignedUrlValid(expiresAt) {
   return expiresMs - Date.now() > 30 * 1000;
 }
 
+function resolveIsoTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return null;
+  }
+  return date.toISOString();
+}
+
+function buildJobTelemetry({ snapshot = {}, events = [] } = {}) {
+  const orderedEvents = [...events]
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.created_at || '') || 0;
+      const rightTime = Date.parse(right.created_at || '') || 0;
+      return leftTime - rightTime;
+    });
+  const firstEvent = orderedEvents[0] || null;
+  const lastEvent = orderedEvents[orderedEvents.length - 1] || null;
+
+  const startedAt =
+    firstEvent?.created_at ||
+    snapshot.createdAt ||
+    snapshot.timings?.createdAt ||
+    snapshot.timings?.processedAt ||
+    null;
+  const updatedAt =
+    lastEvent?.created_at ||
+    snapshot.updatedAt ||
+    snapshot.timings?.finishedAt ||
+    snapshot.timings?.processedAt ||
+    null;
+  const durationMs =
+    startedAt && updatedAt ? Math.max(0, Date.parse(updatedAt) - Date.parse(startedAt)) : null;
+
+  const progress = Number.isFinite(lastEvent?.progress)
+    ? lastEvent.progress
+    : Number.isFinite(snapshot.progress)
+      ? snapshot.progress
+      : null;
+  const stage = lastEvent?.stage || snapshot.stage || null;
+
+  const result = snapshot.result || {};
+  const outputManifest = result.outputManifest || {};
+  const qaSummary =
+    outputManifest.qa?.summary ||
+    result.preflight?.qaSummary ||
+    outputManifest.preflight?.qaSummary ||
+    null;
+  const accessibilitySummary =
+    outputManifest.qa?.accessibilitySummary ||
+    result.preflight?.accessibilitySummary ||
+    outputManifest.preflight?.accessibilitySummary ||
+    null;
+  const qualityChecklist =
+    outputManifest.preflight?.qualityChecklist ||
+    result.preflight?.qualityChecklist ||
+    null;
+  const qualityChecklistSummary = qualityChecklist?.summary || null;
+
+  return {
+    progress,
+    stage,
+    startedAt,
+    updatedAt,
+    durationMs,
+    timings: snapshot.timings || null,
+    qaSummary,
+    accessibilitySummary,
+    qualityChecklistSummary,
+  };
+}
+
 async function getJobSnapshot(jobId, userId = null) {
   if (jobStoreEnabled) {
     const record = await getJobRecord(jobId);
@@ -503,6 +556,9 @@ async function getJobSnapshot(jobId, userId = null) {
           status: record.status,
           result: record.result || null,
           error: record.error_message ? { message: record.error_message } : null,
+          createdAt: record.created_at || null,
+          updatedAt: record.updated_at || null,
+          attempts: record.attempts || 0,
         },
       };
     }
@@ -516,12 +572,20 @@ async function getJobSnapshot(jobId, userId = null) {
   const state = await job.getState();
   const status = normalizeJobStatus(state);
   const error = state === 'failed' ? { message: job.failedReason || 'Job failed.' } : null;
+  const progress = Number.isFinite(job.progress) ? Math.round(job.progress) : null;
+  const timings = {
+    createdAt: resolveIsoTime(job.timestamp),
+    processedAt: resolveIsoTime(job.processedOn),
+    finishedAt: resolveIsoTime(job.finishedOn),
+  };
 
   return {
     snapshot: {
       status,
       result: job.returnvalue || null,
       error,
+      progress,
+      timings,
     },
   };
 }
@@ -822,6 +886,18 @@ app.post('/api/convert/to-pdf', async (req, res) => {
 
     const jobId = randomUUID();
     req.jobId = jobId;
+
+    logEvent('info', {
+      requestId: req.requestId,
+      jobId,
+      event: 'convert_pdf_requested',
+      userId: auth.userId || null,
+      documentId: documentId || null,
+      templateKey: normalizedSettings.template || normalizedSettings.templateKey || null,
+      layoutProfile: normalizedSettings.layoutProfile,
+      printProfile: normalizedSettings.printProfile,
+      theme: normalizedSettings.theme || null,
+    });
     await jobQueue.add(
       'convert-pdf',
       {
@@ -985,12 +1061,14 @@ app.get('/api/jobs/:id', async (req, res) => {
     }
 
     const events = jobStoreEnabled ? await listJobEvents(jobId, 20) : [];
+    const telemetry = buildJobTelemetry({ snapshot, events });
     return res.json({
       jobId,
       status: snapshot.status,
       result: snapshot.result,
       error: snapshot.error,
       events,
+      telemetry,
       downloadUrl: `/api/jobs/${jobId}/download`,
     });
   } catch (error) {
@@ -1218,6 +1296,11 @@ app.post('/api/ai/analyze', async (req, res) => {
     try {
       output = await callGemini({ prompt, model: GEMINI_MODEL });
     } catch (error) {
+      // Preserve upstream 429 as our own 429 so the client can show a proper rate-limit message.
+      if (Number(error?.status) === 429) {
+        res.setHeader('Retry-After', 60);
+        return sendError(res, 429, 'UPSTREAM_RATE_LIMITED', 'AI sağlayıcısı oran sınırına ulaştı.', error.message, req.requestId);
+      }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
         output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
@@ -1286,6 +1369,11 @@ app.post('/api/ai/ask', async (req, res) => {
     try {
       output = await callGemini({ prompt, model: GEMINI_MODEL });
     } catch (error) {
+      // Preserve upstream 429 as our own 429 so the client can show a proper rate-limit message.
+      if (Number(error?.status) === 429) {
+        res.setHeader('Retry-After', 60);
+        return sendError(res, 429, 'UPSTREAM_RATE_LIMITED', 'AI sağlayıcısı oran sınırına ulaştı.', error.message, req.requestId);
+      }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
         output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
