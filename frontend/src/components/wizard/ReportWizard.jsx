@@ -3,7 +3,7 @@
  * Asks questions to determine report styling and design preferences
  */
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Accordion,
   AccordionItem,
@@ -142,21 +142,21 @@ const WIZARD_QUESTIONS = [
 ];
 
 const layoutProfileOptions = [
-  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
-  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
+  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', label: 'Dashboard (Yoğun)' },
 ];
 
 const printProfileOptions = [
-  { id: 'pagedjs-a4', text: 'Paged.js A4' },
-  { id: 'pagedjs-a3', text: 'Paged.js A3' },
+  { id: 'pagedjs-a4', label: 'Paged.js A4' },
+  { id: 'pagedjs-a3', label: 'Paged.js A3' },
 ];
 
 const themeOptions = [
-  { id: 'white', text: 'White' },
-  { id: 'g10', text: 'G10' },
-  { id: 'g90', text: 'G90' },
-  { id: 'g100', text: 'G100' },
+  { id: 'white', label: 'White' },
+  { id: 'g10', label: 'G10' },
+  { id: 'g90', label: 'G90' },
+  { id: 'g100', label: 'G100' },
 ];
 
 // AI response generator based on answers
@@ -209,10 +209,17 @@ function ReportWizard() {
     setTheme,
   } = useDocument();
 
+  const { isAuthenticated } = useDocument();
+
+  // Wizard içerisinde Carbonac AI Chat (genel header widget ile aynı instance).
+  // Burada sadece görünürlük için kullanıcıyı yönlendiriyoruz.
+  const [showAiHint, setShowAiHint] = useState(false);
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [showValidation, setShowValidation] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
   const [messages, setMessages] = useState([
     {
       type: 'ai',
@@ -321,9 +328,10 @@ function ReportWizard() {
             ...prev,
             {
               type: 'ai',
-              content: 'Harika! Tüm tercihlerinizi aldım. Şimdi dokümanınız için özelleştirilmiş bir Carbon Design planı hazırlayacağım. Editöre geçmek için "Devam" butonuna tıklayın. 🚀',
+              content: 'Harika! Şimdi seçimlerinizi özetliyorum. Özet onayından sonra düzenleme ekranına geçebilirsiniz.',
             },
           ]);
+          setShowSummary(true);
         }, 1000);
       }
     }, 1500);
@@ -357,11 +365,30 @@ function ReportWizard() {
     setStep(WORKFLOW_STEPS.EDITOR);
   }, [setStep]);
 
+  const handleOpenAiAssistant = useCallback(() => {
+    // Header’daki AI butonunu tıklamak için hash sinyali.
+    // App.jsx içinde hash listener ile yakalanacak.
+    try {
+      window.location.hash = '#ai';
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
   const isWizardComplete = currentQuestionIndex >= totalQuestions - 1 && selectedOptions[currentQuestion?.id];
   const canProceed = selectedOptions[currentQuestion?.id] && (
     !Array.isArray(selectedOptions[currentQuestion?.id]) || 
     selectedOptions[currentQuestion?.id].length > 0
   );
+
+  const recommendedTemplate = useMemo(() => {
+    const documentType = selectedOptions.documentType || reportSettings.documentType;
+    if (documentType === 'analytics') return 'carbon-dataviz';
+    if (documentType === 'presentation') return 'carbon-advanced';
+    if (documentType === 'documentation') return 'carbon-components';
+    if (documentType === 'academic') return 'carbon-default';
+    return 'carbon-default';
+  }, [selectedOptions, reportSettings.documentType]);
 
   return (
     <div className="report-wizard">
@@ -379,6 +406,48 @@ function ReportWizard() {
             style={{ width: `${progress}%` }}
           />
         </div>
+      </div>
+
+      <div style={{ marginBottom: '1rem' }}>
+        <Button
+          kind="ghost"
+          size="sm"
+          onClick={() => setShowAiHint((prev) => !prev)}
+        >
+          AI ile yardım al
+        </Button>
+
+        {showAiHint && (
+          <div style={{ marginTop: '0.75rem' }}>
+            {!isAuthenticated ? (
+              <InlineNotification
+                kind="info"
+                title="AI Danışmanı"
+                subtitle="AI için giriş yapmanız gerekiyor. Sağ üstteki hesap ikonundan giriş yapın."
+                lowContrast
+              />
+            ) : (
+              <InlineNotification
+                kind="info"
+                title="AI Danışmanı"
+                subtitle={(
+                  <span>
+                    Sağ üstteki <strong>AI Danışmanı</strong> butonuna basın. İsterseniz buradan da açabilirsiniz.
+                  </span>
+                )}
+                lowContrast
+              />
+            )}
+
+            {isAuthenticated && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <Button kind="secondary" size="sm" onClick={handleOpenAiAssistant}>
+                  AI Danışmanını aç
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Chat Area */}
@@ -415,7 +484,7 @@ function ReportWizard() {
         </div>
 
         {/* Options Area */}
-        {currentQuestion && !isTyping && (
+        {currentQuestion && !isTyping && !showSummary && (
           <div className="report-wizard__options">
             {showValidation && !canProceed && (
               <InlineNotification
@@ -465,6 +534,43 @@ function ReportWizard() {
         )}
       </div>
 
+      {/* Summary */}
+      {showSummary && (
+        <div className="report-wizard__summary-panel">
+          <h3>Özet Onayı</h3>
+          <p>Seçimleriniz aşağıdaki gibi. Dilerseniz geri dönüp güncelleyebilirsiniz.</p>
+          <div className="report-wizard__summary-list">
+            {Object.entries(selectedOptions).map(([key, value]) => {
+              const question = WIZARD_QUESTIONS.find(q => q.id === key);
+              if (!question) return null;
+              const displayValue = Array.isArray(value)
+                ? value.map(v => question.options.find(o => o.value === v)?.label).join(', ')
+                : question.options.find(o => o.value === value)?.label;
+              return (
+                <div key={key} className="report-wizard__summary-item">
+                  <span className="report-wizard__summary-label">
+                    {key === 'documentType' && 'Doküman Tipi'}
+                    {key === 'audience' && 'Hedef Kitle'}
+                    {key === 'tone' && 'Ton'}
+                    {key === 'purpose' && 'Amaç'}
+                    {key === 'emphasis' && 'Vurgular'}
+                    {key === 'colorScheme' && 'Renk Şeması'}
+                    {key === 'layoutStyle' && 'Sayfa Düzeni'}
+                    {key === 'components' && 'Bileşenler'}
+                  </span>
+                  <span className="report-wizard__summary-value">{displayValue}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="report-wizard__summary-recommendation">
+            <Tag type="blue" size="sm">Önerilen template</Tag>
+            <strong>{recommendedTemplate}</strong>
+            <span>İsterseniz önizlemede template galerisine geçip değiştirebilirsiniz.</span>
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <div className="report-wizard__navigation">
         <div className="report-wizard__nav-left">
@@ -500,14 +606,27 @@ function ReportWizard() {
               Devam
             </Button>
           ) : (
-            <Button
-              kind="primary"
-              renderIcon={ArrowRight}
-              onClick={handleContinue}
-              disabled={isTyping}
-            >
-              Editöre Geç
-            </Button>
+            <>
+              <Button
+                kind="secondary"
+                renderIcon={ArrowLeft}
+                onClick={() => {
+                  setShowSummary(false);
+                  setCurrentQuestionIndex(totalQuestions - 1);
+                }}
+                disabled={isTyping}
+              >
+                Seçimleri Düzenle
+              </Button>
+              <Button
+                kind="primary"
+                renderIcon={ArrowRight}
+                onClick={handleContinue}
+                disabled={isTyping || !showSummary}
+              >
+                Editöre Geç
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -522,6 +641,7 @@ function ReportWizard() {
                 items={layoutProfileOptions}
                 selectedItem={resolvedLayoutProfile}
                 label="Seçin"
+                itemToString={(item) => item?.label || item?.text || ''}
                 onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
               />
               <Dropdown
@@ -530,6 +650,7 @@ function ReportWizard() {
                 items={printProfileOptions}
                 selectedItem={resolvedPrintProfile}
                 label="Seçin"
+                itemToString={(item) => item?.label || item?.text || ''}
                 onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
               />
               <Dropdown
@@ -538,6 +659,7 @@ function ReportWizard() {
                 items={themeOptions}
                 selectedItem={resolvedTheme}
                 label="Seçin"
+                itemToString={(item) => item?.label || item?.text || ''}
                 onChange={({ selectedItem }) => setTheme(selectedItem.id)}
               />
             </div>

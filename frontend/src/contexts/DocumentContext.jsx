@@ -31,6 +31,7 @@ async function pollJobStatus(jobId, options = {}) {
   const maxAttempts = options.maxAttempts || 60;
   let intervalMs = options.intervalMs || 1000;
   const token = options.token || '';
+  const onUpdate = typeof options.onUpdate === 'function' ? options.onUpdate : null;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const response = await fetch(buildApiUrl(`/api/jobs/${jobId}`), {
@@ -41,6 +42,9 @@ async function pollJobStatus(jobId, options = {}) {
     }
 
     const payload = await response.json();
+    if (onUpdate) {
+      onUpdate(payload);
+    }
     if (payload.status === 'completed') {
       return payload;
     }
@@ -92,8 +96,12 @@ const initialState = {
   
   // Conversion
   isConverting: false,
+  isGeneratingPdf: false,
   conversionProgress: 0,
   conversionError: null,
+  pdfJobProgress: 0,
+  pdfJobStage: null,
+  pdfJobTelemetry: null,
   
   // Content
   markdownContent: '',
@@ -142,6 +150,8 @@ const ActionTypes = {
   UPDATE_CONVERSION_PROGRESS: 'UPDATE_CONVERSION_PROGRESS',
   CONVERSION_SUCCESS: 'CONVERSION_SUCCESS',
   CONVERSION_ERROR: 'CONVERSION_ERROR',
+  SET_PDF_GENERATION_STATUS: 'SET_PDF_GENERATION_STATUS',
+  SET_PDF_JOB_STATUS: 'SET_PDF_JOB_STATUS',
   SET_MARKDOWN: 'SET_MARKDOWN',
   UPDATE_REPORT_SETTINGS: 'UPDATE_REPORT_SETTINGS',
   ADD_WIZARD_MESSAGE: 'ADD_WIZARD_MESSAGE',
@@ -211,6 +221,20 @@ function documentReducer(state, action) {
         ...state,
         isConverting: false,
         conversionError: action.payload,
+      };
+
+    case ActionTypes.SET_PDF_GENERATION_STATUS:
+      return {
+        ...state,
+        isGeneratingPdf: Boolean(action.payload),
+      };
+
+    case ActionTypes.SET_PDF_JOB_STATUS:
+      return {
+        ...state,
+        pdfJobProgress: action.payload?.progress ?? state.pdfJobProgress,
+        pdfJobStage: action.payload?.stage ?? state.pdfJobStage,
+        pdfJobTelemetry: action.payload?.telemetry ?? state.pdfJobTelemetry,
       };
 
     case ActionTypes.SET_MARKDOWN:
@@ -601,11 +625,35 @@ export function DocumentProvider({ children }) {
     });
 
     try {
-      const response = await fetch(buildApiUrl('/api/templates'));
-      if (!response.ok) {
-        throw new Error('Template listesi yuklenemedi.');
+      const primaryUrl = buildApiUrl('/api/templates');
+      let response;
+      try {
+        response = await fetch(primaryUrl);
+      } catch (networkError) {
+        // If VITE_API_URL is misconfigured (or backend is only reachable via Vite proxy),
+        // try a relative fetch as a fallback.
+        if (primaryUrl !== '/api/templates') {
+          response = await fetch('/api/templates');
+        } else {
+          throw networkError;
+        }
       }
-      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error('Template listesi yüklenemedi.');
+      }
+      const rawPayload = await response.text();
+      let payload;
+      try {
+        payload = rawPayload ? JSON.parse(rawPayload) : {};
+      } catch (parseError) {
+        const sample = rawPayload.trim().slice(0, 120);
+        const contentType = response.headers.get('content-type') || '';
+        const hint =
+          sample.startsWith('<!DOCTYPE') || sample.startsWith('<html') || contentType.includes('text/html')
+            ? 'API JSON yerine HTML döndürdü. VITE_API_URL ayarlı mı, ya da /api proxy çalışıyor mu?'
+            : 'API JSON parse edilemedi.';
+        throw new Error(`${hint} (url: ${response.url || primaryUrl})`);
+      }
       const templates = Array.isArray(payload.templates) ? payload.templates : [];
       dispatch({ type: ActionTypes.SET_TEMPLATES, payload: templates });
 
@@ -643,9 +691,13 @@ export function DocumentProvider({ children }) {
         payload: { loading: false, error: null },
       });
     } catch (error) {
+      const message =
+        error?.message === 'Failed to fetch'
+          ? `Sunucuya bağlanılamadı. Backend çalışıyor mu? (API: ${buildApiUrl('/api/templates')})`
+          : error.message;
       dispatch({
         type: ActionTypes.SET_TEMPLATES_STATUS,
-        payload: { loading: false, error: error.message },
+        payload: { loading: false, error: message },
       });
     }
   }, []);
@@ -678,7 +730,7 @@ export function DocumentProvider({ children }) {
 
   const updateTemplateVersionStatus = useCallback(async (versionId, status) => {
     if (!versionId) {
-      throw new Error('Template version bulunamadi.');
+      throw new Error('Template version bulunamadı.');
     }
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token;
@@ -692,7 +744,7 @@ export function DocumentProvider({ children }) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const message = payload?.error?.message || 'Template guncellemesi basarisiz.';
+      const message = payload?.error?.message || 'Template güncellemesi başarısız.';
       throw new Error(message);
     }
     await loadTemplates();
@@ -711,6 +763,10 @@ export function DocumentProvider({ children }) {
     dispatch({ type: ActionTypes.SET_LAST_JOB, payload: job });
   }, []);
 
+  const setPdfJobStatus = useCallback((status) => {
+    dispatch({ type: ActionTypes.SET_PDF_JOB_STATUS, payload: status });
+  }, []);
+
   const reset = useCallback(() => {
     dispatch({ type: ActionTypes.RESET });
     if (typeof window !== 'undefined') {
@@ -721,6 +777,8 @@ export function DocumentProvider({ children }) {
   // Generate PDF based on settings
   const generatePdf = useCallback(async () => {
     setDownloadError(null);
+    setPdfJobStatus({ progress: 0, stage: 'queued', telemetry: null });
+    dispatch({ type: ActionTypes.SET_PDF_GENERATION_STATUS, payload: true });
     try {
       const resolvedDocType = state.reportSettings.docType || state.reportSettings.documentType;
       const resolvedLocale = state.reportSettings.locale || 'tr-TR';
@@ -760,14 +818,29 @@ export function DocumentProvider({ children }) {
         throw new Error('Job id missing in response');
       }
 
-      const jobStatus = await pollJobStatus(jobId, { token: authToken });
+      const jobStatus = await pollJobStatus(jobId, {
+        token: authToken,
+        onUpdate: (payload) => {
+          setPdfJobStatus({
+            progress: payload?.telemetry?.progress ?? null,
+            stage: payload?.telemetry?.stage ?? null,
+            telemetry: payload?.telemetry ?? null,
+          });
+        },
+      });
       const qaReport = jobStatus.result?.qaReport || jobStatus.result?.outputManifest?.qa?.report || null;
+      setPdfJobStatus({
+        progress: 100,
+        stage: 'complete',
+        telemetry: jobStatus.telemetry || null,
+      });
       setLastJob({
         id: jobId,
         status: jobStatus.status,
         result: jobStatus.result,
         events: jobStatus.events || [],
         qaReport,
+        telemetry: jobStatus.telemetry || null,
       });
       const downloadPath =
         jobStatus.result?.signedUrl ||
@@ -785,7 +858,7 @@ export function DocumentProvider({ children }) {
       }
 
       if (!downloadResponse.ok) {
-        throw new Error('PDF indirilemedi. Lutfen tekrar deneyin.');
+        throw new Error('PDF indirilemedi. Lütfen tekrar deneyin.');
       }
 
       const blob = await downloadResponse.blob();
@@ -794,8 +867,10 @@ export function DocumentProvider({ children }) {
       setOutput(blob, url);
       return url;
     } catch (error) {
-      setDownloadError(error.message || 'PDF indirirken bir hata olustu.');
+      setDownloadError(error.message || 'PDF indirirken bir hata oluştu.');
       return null;
+    } finally {
+      dispatch({ type: ActionTypes.SET_PDF_GENERATION_STATUS, payload: false });
     }
   }, [
     state.markdownContent,
@@ -807,6 +882,7 @@ export function DocumentProvider({ children }) {
     setOutput,
     setDownloadError,
     setLastJob,
+    setPdfJobStatus,
   ]);
 
   const value = {
@@ -836,6 +912,9 @@ export function DocumentProvider({ children }) {
     setDownloadError,
     lintIssues: state.lintIssues,
     lastJob: state.lastJob,
+    pdfJobProgress: state.pdfJobProgress,
+    pdfJobStage: state.pdfJobStage,
+    pdfJobTelemetry: state.pdfJobTelemetry,
     loadTemplates,
     selectTemplate,
     updateTemplateVersionStatus,

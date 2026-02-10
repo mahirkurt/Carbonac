@@ -638,6 +638,19 @@ function AppContent() {
     const onPopStateOrHash = () => {
       const path = window.location.pathname || '';
       const hash = window.location.hash || '';
+      if (hash === '#ai') {
+        // Wizard/other panels can set #ai to request opening the AI assistant.
+        // Keep the current workspace; just open the chat.
+        aiChatPendingOpenRef.current = true;
+        setAiChatMounted(true);
+        // Clear hash to avoid repeated triggers.
+        try {
+          window.history.replaceState({}, '', path || '/');
+        } catch (e) {
+          // ignore
+        }
+        return;
+      }
       if (hash === '#templates' || (path === '/templates' && (!hash || hash === '#templates'))) {
         setActiveWorkspace('templates');
         return;
