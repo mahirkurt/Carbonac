@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import fs from 'fs/promises';
+import path from 'path';
 import { parseMarkdown } from '../utils/markdown-parser.js';
+import { getProjectRoot } from '../utils/file-utils.js';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
@@ -10,11 +13,15 @@ const GEMINI_API_URL =
 const ART_DIRECTOR_PROMPT_VERSION = process.env.ART_DIRECTOR_PROMPT_VERSION || 'v2';
 const ART_DIRECTOR_PROMPT_ROLLBACK =
   process.env.ART_DIRECTOR_PROMPT_ROLLBACK || 'v1';
+const ART_DIRECTOR_USE_REFERENCE_LIBRARY =
+  process.env.ART_DIRECTOR_USE_REFERENCE_LIBRARY !== 'false';
 
 const MAX_CONTENT_CHARS = 12000;
 const LAYOUT_PROFILES = new Set(['symmetric', 'asymmetric', 'dashboard']);
 const PRINT_PROFILES = new Set(['pagedjs-a4', 'pagedjs-a3']);
 const COMPONENT_TYPES = new Set(['carbonchart', 'richtext', 'highlightbox']);
+
+let referenceBriefCache = null;
 
 const layoutPropsSchema = z.object({
   colSpan: z.coerce.number().int().min(1).max(16),
@@ -97,7 +104,7 @@ function normalizePrintProfile(value) {
   return PRINT_PROFILES.has(value) ? value : 'pagedjs-a4';
 }
 
-function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme }) {
+function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme, referenceBrief }) {
   return `You are the art director for a print-ready report system.
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
@@ -106,6 +113,23 @@ Keep all string values short (<= 120 chars). Components are structural placehold
 Limit components to at most 12 total.
 Tone: concise executive summary, no jargon, no emojis. Highlight any outliers or trends when data is present.
 Include sources/methodology notes for survey-style reports when available.
+
+Visual richness targets:
+- Use a balanced mix of components (RichText + HighlightBox + CarbonChart) to avoid monotony.
+- If the content implies data (tables, metrics, survey, numbers), include at least one CarbonChart placeholder.
+- Include at least one HighlightBox to elevate key insights or executive takeaways.
+- Vary layout density: mix full-width blocks with multi-column blocks (e.g., 6/10, 8/8) and occasional offsets.
+- Use styleOverrides.theme on a few components to introduce visual contrast (g10/g90) while keeping readability.
+
+CarbonChart guidance:
+- When you include a CarbonChart component, set chartType and dataHint.
+- Prefer: time-series => line/area, correlation => scatter/bubble, composition => donut/pie, distribution => histogram/boxplot, hierarchy => treemap, flow => alluvial.
+
+Document type guidance:
+- docType: ${metadata.docType || metadata.documentType || 'report'}
+- If docType indicates cv/resume, keep components <= 8, avoid charts unless explicitly requested, and prefer asymmetric layouts with a concise sidebar.
+
+${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -122,6 +146,8 @@ Output schema:
   "components": [
     {
       "type": "CarbonChart|RichText|HighlightBox",
+      "chartType": "bar|line|area|donut|stacked|scatter|bubble|radar|treemap|gauge|heatmap|pie|histogram|boxplot|meter|combo|lollipop|wordcloud|alluvial",
+      "dataHint": "time-series|correlation|composition|distribution|hierarchy|flow|kpi|survey",
       "layoutProps": { "colSpan": 8, "offset": 0 },
       "styleOverrides": { "theme": "white|g10|g90|g100" }
     }
@@ -183,7 +209,7 @@ Output schema:
 }`;
 }
 
-function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan }) {
+function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief }) {
   return `You are the layout planner for a print-ready report system.
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
@@ -192,6 +218,23 @@ Include storytelling (executiveSummary + keyInsights + methodologyNotes + source
 Do NOT include any document body text or excerpts. Do NOT add fields like "content", "html", or "markdown".
 Keep all string values short (<= 120 chars). Components are structural placeholders only.
 Limit components to at most 12 total.
+
+Visual richness targets:
+- Use a balanced mix of components (RichText + HighlightBox + CarbonChart) to avoid monotony.
+- If the documentPlan suggests data-heavy sections, include at least one CarbonChart placeholder.
+- Include at least one HighlightBox to elevate key insights or executive takeaways.
+- Vary layout density: mix full-width blocks with multi-column blocks (e.g., 6/10, 8/8) and occasional offsets.
+- Use styleOverrides.theme on a few components to introduce visual contrast (g10/g90) while keeping readability.
+
+CarbonChart guidance:
+- When you include a CarbonChart component, set chartType and dataHint.
+- Prefer: time-series => line/area, correlation => scatter/bubble, composition => donut/pie, distribution => histogram/boxplot, hierarchy => treemap, flow => alluvial.
+
+Document type guidance:
+- docType: ${metadata.docType || metadata.documentType || 'report'}
+- If docType indicates cv/resume, keep components <= 8, avoid charts unless explicitly requested, and prefer asymmetric layouts with a concise sidebar.
+
+${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -208,13 +251,15 @@ Output schema:
   "gridSystem": "symmetric|asymmetric|dashboard",
   "layoutPlan": {
     "gridSystem": "symmetric|asymmetric|dashboard",
-    "components": [
-      {
-        "type": "CarbonChart|RichText|HighlightBox",
-        "layoutProps": { "colSpan": 8, "offset": 0 },
-        "styleOverrides": { "theme": "white|g10|g90|g100" }
-      }
-    ],
+	    "components": [
+	      {
+	        "type": "CarbonChart|RichText|HighlightBox",
+	        "chartType": "bar|line|area|donut|stacked|scatter|bubble|radar|treemap|gauge|heatmap|pie|histogram|boxplot|meter|combo|lollipop|wordcloud|alluvial",
+	        "dataHint": "time-series|correlation|composition|distribution|hierarchy|flow|kpi|survey",
+	        "layoutProps": { "colSpan": 8, "offset": 0 },
+	        "styleOverrides": { "theme": "white|g10|g90|g100" }
+	      }
+	    ],
     "pageBreaks": [
       {
         "beforeSectionId": "string",
@@ -234,6 +279,65 @@ Output schema:
     "forceBreakSelectors": ["h2"]
   }
 }`;
+}
+
+async function loadReferenceBrief() {
+  if (!ART_DIRECTOR_USE_REFERENCE_LIBRARY) {
+    return '';
+  }
+  if (referenceBriefCache !== null) {
+    return referenceBriefCache;
+  }
+  try {
+    const projectRoot = getProjectRoot();
+    const manifestPath = path.join(projectRoot, 'library', 'manifest.json');
+    const raw = await fs.readFile(manifestPath, 'utf-8');
+    const manifest = JSON.parse(raw);
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const activeItems = items.filter((item) => item && item.status === 'active');
+    const tagMap = new Map();
+    activeItems.forEach((item) => {
+      const title = item.title || item.id || 'IBM Reference';
+      const tags = Array.isArray(item.tags) ? item.tags : [];
+      tags
+        .filter((tag) => typeof tag === 'string' && tag.startsWith('pattern:'))
+        .forEach((tag) => {
+          const key = tag.replace('pattern:', '').trim();
+          if (!key) return;
+          const list = tagMap.get(key) || [];
+          if (!list.includes(title)) {
+            list.push(title);
+          }
+          tagMap.set(key, list);
+        });
+    });
+
+    const preferredTags = [
+      'cover-page-hero',
+      'chapter-opener',
+      'executive-summary',
+      'key-findings-list',
+      'action-box',
+      'hero-stat-with-quote',
+      'survey-chart-page',
+      'figure-with-caption',
+      'case-study-module',
+    ];
+    const lines = preferredTags
+      .filter((tag) => tagMap.has(tag))
+      .slice(0, 6)
+      .map((tag) => {
+        const refs = (tagMap.get(tag) || []).slice(0, 2).join(', ');
+        return `- ${tag}: ${refs}`;
+      });
+
+    referenceBriefCache = lines.length ? lines.join('\n') : '';
+    return referenceBriefCache;
+  } catch (error) {
+    console.warn(`[art-director] Reference library unavailable: ${error.message}`);
+    referenceBriefCache = '';
+    return '';
+  }
 }
 
 function extractJson(text) {
@@ -618,9 +722,9 @@ async function callGemini(model, prompt, content) {
     },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify(body),
   });
 
@@ -717,6 +821,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
 
   const promptVersion = resolvePromptVersion(ART_DIRECTOR_PROMPT_VERSION, 'v2');
   const rollbackVersion = resolveRollbackVersion(ART_DIRECTOR_PROMPT_ROLLBACK);
+  const referenceBrief = await loadReferenceBrief();
 
   const outlineContent = buildOutlineContent({ toc, content });
   const clippedContent = (outlineContent || content || '').slice(0, MAX_CONTENT_CHARS);
@@ -742,6 +847,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
       layoutProfile: resolvedLayoutProfile,
       printProfile: resolvedPrintProfile,
       theme,
+      referenceBrief,
     });
     return await runLegacyPrompt({
       prompt,
@@ -774,6 +880,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
     printProfile: resolvedPrintProfile,
     theme,
     documentPlan,
+    referenceBrief,
   });
 
   try {

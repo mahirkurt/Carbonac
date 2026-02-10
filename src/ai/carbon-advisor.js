@@ -9,8 +9,10 @@ import { getProjectRoot } from '../utils/file-utils.js';
 import path from 'path';
 
 // Gemini API Configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyDQXLlll0KrScz5BIDgD0eMH3CH5onowz8';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// NOTE: Never hardcode API keys in the repository. Use GEMINI_API_KEY/GOOGLE_API_KEY env vars.
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const GEMINI_MODEL = process.env.GEMINI_CARBON_ADVISOR_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
  * Load Carbon Design System reference documentation
@@ -88,6 +90,10 @@ Yanıtlarını Türkçe olarak ver.`;
  * Call Gemini API with the analysis request
  */
 async function callGeminiAPI(prompt, userContent) {
+  if (!GEMINI_API_KEY) {
+    throw new Error('Missing GEMINI_API_KEY.');
+  }
+
   const requestBody = {
     contents: [
       {
@@ -107,10 +113,11 @@ async function callGeminiAPI(prompt, userContent) {
   };
 
   try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_API_URL}/${GEMINI_MODEL}:generateContent`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-goog-api-key': GEMINI_API_KEY,
       },
       body: JSON.stringify(requestBody)
     });

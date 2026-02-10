@@ -53,9 +53,9 @@ Be concise and practical.`;
     },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}/${GEMINI_QA_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}/${GEMINI_QA_MODEL}:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify(body),
   });
 

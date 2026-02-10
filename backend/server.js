@@ -185,6 +185,68 @@ function buildAlertList({ latencyMs, successRate, queueDepth }) {
   return alerts;
 }
 
+function stripTrailingSlash(value) {
+  return String(value || '').replace(/\/+$/, '');
+}
+
+function deriveGeminiApiRoot(apiUrl) {
+  const normalized = stripTrailingSlash(apiUrl);
+  if (normalized.endsWith('/models')) {
+    return normalized.slice(0, -'/models'.length);
+  }
+  return normalized;
+}
+
+function normalizeGeminiModelResource(model) {
+  const value = String(model || '').trim();
+  if (!value) return '';
+
+  if (value.startsWith('models/') || value.startsWith('tunedModels/')) {
+    return value;
+  }
+
+  // Allow full resource names (Vertex / other namespaces) as-is.
+  if (value.includes('/')) {
+    return value;
+  }
+
+  return `models/${value}`;
+}
+
+function stripMarkdownCodeFences(text) {
+  const value = String(text || '').trim();
+  const fenceMatch = value.match(/^```[a-z0-9_-]*\s*\n([\s\S]*?)\n```\s*$/i);
+  if (fenceMatch) {
+    return String(fenceMatch[1] || '').trim();
+  }
+  return value;
+}
+
+function stripOuterHtmlDocument(html) {
+  const value = String(html || '').trim();
+  const bodyMatch = value.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) {
+    return String(bodyMatch[1] || '').trim();
+  }
+  return value;
+}
+
+function sanitizeGeneratedHtml(html) {
+  let value = String(html || '');
+
+  // Remove scripts/styles defensively before the frontend injects into innerHTML.
+  value = value.replace(/<script[\s\S]*?<\/script>/gi, '');
+  value = value.replace(/<style[\s\S]*?<\/style>/gi, '');
+
+  // Strip inline event handlers.
+  value = value.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+
+  // Strip javascript: URLs.
+  value = value.replace(/\s(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, ' $1="#"');
+
+  return value.trim();
+}
+
 const AI_RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const AI_RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
 const AI_PROMPT_VERSION = process.env.AI_PROMPT_VERSION || 'v1';
@@ -194,6 +256,11 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-pro-preview';
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-pro';
 const GEMINI_API_URL =
   process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_API_ROOT = deriveGeminiApiRoot(GEMINI_API_URL) || 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_CARBON_HTML_MODEL =
+  process.env.GEMINI_CARBON_HTML_MODEL || process.env.GEMINI_MARKDOWN_TO_HTML_MODEL || '';
+const GEMINI_CARBON_HTML_FALLBACK_MODEL = process.env.GEMINI_CARBON_HTML_FALLBACK_MODEL || '';
+const GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION = process.env.GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION || '';
 const PUBLISH_REQUIRE_QUALITY_CHECKLIST =
   process.env.PUBLISH_REQUIRE_QUALITY_CHECKLIST === 'true';
 
@@ -270,25 +337,38 @@ function validateConvertInput({ markdown, assets, metadata }) {
   return null;
 }
 
-async function callGemini({ prompt, model }) {
+async function callGemini({ prompt, model, systemInstruction = null, generationConfig = null }) {
   if (!GEMINI_API_KEY) {
     throw new Error('Missing GEMINI_API_KEY.');
   }
+
+  const resolvedModel = normalizeGeminiModelResource(model);
+  if (!resolvedModel) {
+    throw new Error('Missing Gemini model.');
+  }
+
   const requestBody = {
     contents: [
       {
         parts: [{ text: prompt }],
       },
     ],
-    generationConfig: {
+    generationConfig: generationConfig || {
       temperature: 0.4,
       topP: 0.9,
       maxOutputTokens: 2048,
     },
   };
-  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+
+  if (systemInstruction) {
+    requestBody.system_instruction = {
+      parts: [{ text: systemInstruction }],
+    };
+  }
+
+  const response = await fetch(`${stripTrailingSlash(GEMINI_API_ROOT)}/${resolvedModel}:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify(requestBody),
   });
   if (!response.ok) {
@@ -1265,6 +1345,16 @@ function buildAskPrompt({ question, context }) {
     `Question:\n${question}\n`;
 }
 
+function buildMarkdownToCarbonHtmlSystemInstruction() {
+  return (
+    'You convert Markdown into a production-ready pure HTML string using IBM Carbon Design System v11.\n' +
+    'Return HTML only (no Markdown code fences).\n' +
+    'Do NOT include <html>, <head>, <body>, <script>, or <style> tags.\n' +
+    'No inline CSS. Use semantic HTML and Carbon classes/components where appropriate.\n' +
+    'Output must be safe to inject via innerHTML.\n'
+  );
+}
+
 /**
  * AI analyze proxy
  * POST /api/ai/analyze
@@ -1303,7 +1393,22 @@ app.post('/api/ai/analyze', async (req, res) => {
       }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
-        output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+        try {
+          output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+        } catch (fallbackError) {
+          if (Number(fallbackError?.status) === 429) {
+            res.setHeader('Retry-After', 60);
+            return sendError(
+              res,
+              429,
+              'UPSTREAM_RATE_LIMITED',
+              'AI sağlayıcısı oran sınırına ulaştı.',
+              fallbackError.message,
+              req.requestId
+            );
+          }
+          throw fallbackError;
+        }
       } else {
         throw error;
       }
@@ -1376,7 +1481,22 @@ app.post('/api/ai/ask', async (req, res) => {
       }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
-        output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+        try {
+          output = await callGemini({ prompt, model: GEMINI_FALLBACK_MODEL });
+        } catch (fallbackError) {
+          if (Number(fallbackError?.status) === 429) {
+            res.setHeader('Retry-After', 60);
+            return sendError(
+              res,
+              429,
+              'UPSTREAM_RATE_LIMITED',
+              'AI sağlayıcısı oran sınırına ulaştı.',
+              fallbackError.message,
+              req.requestId
+            );
+          }
+          throw fallbackError;
+        }
       } else {
         throw error;
       }
@@ -1407,6 +1527,132 @@ app.post('/api/ai/ask', async (req, res) => {
       error: error.message,
     });
     return sendError(res, 500, 'AI_ASK_FAILED', 'AI ask failed.', error.message, req.requestId);
+  }
+});
+
+/**
+ * AI Markdown -> Carbon HTML proxy (HTML string only)
+ * POST /api/ai/markdown-to-carbon-html
+ */
+app.post('/api/ai/markdown-to-carbon-html', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Invalid authentication token.', null, req.requestId);
+    }
+
+    const { markdown, metadata } = req.body || {};
+    if (typeof markdown !== 'string' || !markdown.trim()) {
+      return sendError(res, 400, 'INVALID_INPUT', 'Markdown content is required.', null, req.requestId);
+    }
+
+    const rateKey = getRateKey(req, auth);
+    const rate = checkAiRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
+      return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);
+    }
+
+    const safeMarkdown = redactPii(markdown);
+    const resolvedModel = GEMINI_CARBON_HTML_MODEL || GEMINI_MODEL;
+    const resolvedFallback = GEMINI_CARBON_HTML_FALLBACK_MODEL || GEMINI_FALLBACK_MODEL || '';
+    const systemInstruction =
+      GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION || buildMarkdownToCarbonHtmlSystemInstruction();
+
+    const generationConfig = {
+      temperature: 0.2,
+      topP: 0.9,
+      topK: 40,
+      maxOutputTokens: 8192,
+      responseMimeType: 'text/plain',
+    };
+
+    let output = '';
+    let usedModel = resolvedModel;
+
+    try {
+      output = await callGemini({
+        prompt: safeMarkdown,
+        model: resolvedModel,
+        systemInstruction,
+        generationConfig,
+      });
+    } catch (error) {
+      if (Number(error?.status) === 429) {
+        res.setHeader('Retry-After', 60);
+        return sendError(
+          res,
+          429,
+          'UPSTREAM_RATE_LIMITED',
+          'AI sağlayıcısı oran sınırına ulaştı.',
+          error.message,
+          req.requestId
+        );
+      }
+
+      if (resolvedFallback && resolvedFallback !== resolvedModel) {
+        usedModel = resolvedFallback;
+        try {
+          output = await callGemini({
+            prompt: safeMarkdown,
+            model: resolvedFallback,
+            systemInstruction,
+            generationConfig,
+          });
+        } catch (fallbackError) {
+          if (Number(fallbackError?.status) === 429) {
+            res.setHeader('Retry-After', 60);
+            return sendError(
+              res,
+              429,
+              'UPSTREAM_RATE_LIMITED',
+              'AI sağlayıcısı oran sınırına ulaştı.',
+              fallbackError.message,
+              req.requestId
+            );
+          }
+          throw fallbackError;
+        }
+      } else {
+        throw error;
+      }
+    }
+
+    const cleaned = sanitizeGeneratedHtml(stripOuterHtmlDocument(stripMarkdownCodeFences(output)));
+
+    if (usageStoreEnabled) {
+      await createUsageEvent({
+        userId: auth.userId,
+        eventType: 'ai.markdown_to_carbon_html',
+        units: Math.ceil(safeMarkdown.length / 1000),
+        source: 'api',
+        metadata: {
+          requestId: req.requestId,
+          promptVersion: AI_PROMPT_VERSION,
+          model: usedModel,
+          hasMetadata: Boolean(metadata && typeof metadata === 'object'),
+        },
+      });
+    }
+
+    return res.json({
+      promptVersion: AI_PROMPT_VERSION,
+      model: usedModel,
+      output: cleaned,
+    });
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(
+      res,
+      500,
+      'AI_MARKDOWN_TO_CARBON_HTML_FAILED',
+      'AI markdown-to-carbon-html failed.',
+      error.message,
+      req.requestId
+    );
   }
 });
 

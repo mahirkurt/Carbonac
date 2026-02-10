@@ -7,6 +7,7 @@ on:
     paths:
       - 'backend/**'
       - 'docker/**'
+      - 'docker-compose.hp.yml'
       - 'docker-compose.raspberry.yml'
       - '.github/workflows/deploy-hp.yml'
   workflow_dispatch:
@@ -32,7 +33,7 @@ on:
         type: boolean
 
 env:
-  COMPOSE_FILE: docker-compose.raspberry.yml
+  COMPOSE_FILE: docker-compose.hp.yml
   DEFAULT_PROFILE: worker
 
 jobs:
@@ -68,6 +69,16 @@ jobs:
           PUPPETEER_SKIP_DOWNLOAD=1
           PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
           NODE_ENV=production
+
+          # AI / Gemini (store values in GitHub Actions secrets)
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_URL=${{ secrets.GEMINI_API_URL }}
+          GEMINI_MODEL=${{ secrets.GEMINI_MODEL }}
+          GEMINI_FALLBACK_MODEL=${{ secrets.GEMINI_FALLBACK_MODEL }}
+          GEMINI_CARBON_HTML_MODEL=${{ secrets.GEMINI_CARBON_HTML_MODEL }}
+          GEMINI_CARBON_HTML_FALLBACK_MODEL=${{ secrets.GEMINI_CARBON_HTML_FALLBACK_MODEL }}
+          GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION=${{ secrets.GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION }}
+          AI_PROMPT_VERSION=${{ secrets.AI_PROMPT_VERSION }}
           EOF
           echo ".env file created"
 
