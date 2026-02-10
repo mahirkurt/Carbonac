@@ -13,6 +13,7 @@ import {
 
 import { useDocument, useTheme } from '../../contexts';
 import { askAi, analyzeAi } from '../../services/aiService';
+import { applyLintFixes } from '../../utils/markdownLintFixes';
 
 function clampText(value, maxChars) {
   const text = String(value || '');
@@ -254,6 +255,48 @@ export default function CarbonacAiChat({
     });
   }, []);
 
+  const applyLintAutofix = useCallback(async () => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+
+    const current = String(doc.markdownContent || '');
+    const lintIssues = Array.isArray(doc.lintIssues) ? doc.lintIssues : [];
+    if (!current.trim()) {
+      await addAssistantText(instance, 'Düzeltmek için önce bir markdown içeriği olmalı.');
+      return;
+    }
+    if (!lintIssues.length) {
+      await addAssistantText(instance, 'Şu an için lint uyarısı yok.');
+      return;
+    }
+
+    const { nextMarkdown, applied, skipped } = applyLintFixes(current, lintIssues);
+    if (nextMarkdown === current) {
+      await addAssistantText(
+        instance,
+        'Bu uyarılar için otomatik ve güvenli bir düzeltme bulamadım. İsterseniz tek tek hangi uyarıya odaklanacağımızı yazın.'
+      );
+      return;
+    }
+
+    doc.setMarkdown(nextMarkdown);
+
+    const appliedText = applied.length
+      ? applied
+          .slice(0, 8)
+          .map((x) => `- ${x.ruleId} (satır ${x.line})`)
+          .join('\n')
+      : '- (uygulanamadı)';
+    const skippedText = skipped.length
+      ? `\n\nAtlananlar: ${skipped.length} (riskli veya bağlam gerektiren).`
+      : '';
+
+    await addAssistantText(
+      instance,
+      `Lint düzeltmeleri uygulandı.\n\nUygulananlar:\n${appliedText}${skippedText}`
+    );
+  }, [addAssistantText, doc]);
+
   const runAnalyze = useCallback(async () => {
     const instance = instanceRef.current;
     if (!instance) return;
@@ -346,6 +389,17 @@ export default function CarbonacAiChat({
       return;
     }
 
+    const normalizedExact = question.trim().toLowerCase();
+    const wantsAutofix =
+      normalizedExact === 'bu uyarıları düzelt' ||
+      normalizedExact === 'lint düzelt' ||
+      normalizedExact === 'lint uyarılarını düzelt' ||
+      normalizedExact === 'uyarıları düzelt';
+    if (wantsAutofix) {
+      await applyLintAutofix();
+      return;
+    }
+
     // Quick lint helper: if user asks about lint, respond with a human-friendly summary.
     const normalizedQ = question.toLowerCase();
     const looksLikeLintQuestion =
@@ -404,6 +458,7 @@ export default function CarbonacAiChat({
     }
   }, [
     addAssistantText,
+    applyLintAutofix,
     buildContext,
     isAuthenticated,
     onRequestLogin,
