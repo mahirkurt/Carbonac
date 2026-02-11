@@ -873,20 +873,22 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       return sendError(res, 400, 'INVALID_INPUT', 'File is required.', null, req.requestId);
     }
 
+    // multer uses originalname (lowercase), downloadRemoteFile uses originalName
+    const originalName = fileInfo.originalname || fileInfo.originalName || '';
     fallbackPath = fileInfo.path;
 
     const inputPath = fileInfo.path;
     outputDir = path.join(__dirname, '../temp/output', req.requestId || randomUUID());
     await fs.mkdir(outputDir, { recursive: true });
 
-    const ext = path.extname(fileInfo.originalName || '').toLowerCase();
+    const ext = path.extname(originalName).toLowerCase();
 
     if (ext === '.md' || ext === '.txt') {
       const content = await fs.readFile(inputPath, 'utf-8');
       return res.json({
         success: true,
         markdown: content,
-        fileName: fileInfo.originalName,
+        fileName: originalName,
       });
     }
 
@@ -899,7 +901,7 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       return res.json({
         success: true,
         markdown: result.value,
-        fileName: fileInfo.originalName,
+        fileName: originalName,
       });
     }
 
@@ -935,7 +937,7 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
     res.json({
       success: true,
       markdown,
-      fileName: fileInfo.originalName,
+      fileName: originalName,
     });
   } catch (error) {
     logEvent('error', {
