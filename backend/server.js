@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
+import mammoth from 'mammoth';
 import { jobQueue } from './queue.js';
 import { authEnabled, getUserIdFromToken } from './auth.js';
 import {
@@ -67,7 +68,30 @@ const PORT = process.env.PORT || 3001;
 const OUTPUT_ROOT = path.resolve(__dirname, '../output/jobs');
 
 // Middleware
-app.use(cors());
+const ALLOWED_ORIGINS = [
+  'https://carbonac.com',
+  'https://www.carbonac.com',
+  /--carbonac\.netlify\.app$/,
+];
+if (process.env.NODE_ENV !== 'production') {
+  ALLOWED_ORIGINS.push(/^http:\/\/localhost(:\d+)?$/);
+}
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Allow requests with no origin (curl, server-to-server)
+      if (!origin) return cb(null, true);
+      const allowed = ALLOWED_ORIGINS.some((o) =>
+        o instanceof RegExp ? o.test(origin) : o === origin,
+      );
+      cb(null, allowed ? origin : false);
+    },
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    credentials: true,
+    maxAge: 86400,
+  }),
+);
 app.use(express.json());
 app.use((req, res, next) => {
   const requestId = req.get('x-request-id') || randomUUID();
@@ -438,6 +462,79 @@ function sendError(res, status, code, message, details, requestId) {
   });
 }
 
+async function pathExists(targetPath) {
+  if (!targetPath) return false;
+  try {
+    await fs.access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function safeUnlink(targetPath) {
+  if (!targetPath) return;
+  try {
+    await fs.unlink(targetPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+async function safeRemoveDir(targetPath) {
+  if (!targetPath) return;
+  try {
+    await fs.rm(targetPath, { recursive: true, force: true });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+async function runPythonConversion(pythonScript, inputPath) {
+  const pythonBins = [process.env.PYTHON_BIN, 'python3', 'python']
+    .filter((value, index, list) => value && list.indexOf(value) === index);
+  const failures = [];
+
+  for (const bin of pythonBins) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const pythonProcess = spawn(bin, [pythonScript, inputPath]);
+
+        let output = '';
+        let errorOutput = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        pythonProcess.on('error', (error) => {
+          reject(error);
+        });
+
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            resolve(output);
+          } else {
+            reject(new Error(errorOutput || `Python conversion failed (exit: ${code})`));
+          }
+        });
+      });
+    } catch (error) {
+      failures.push(`${bin}: ${error.message}`);
+    }
+  }
+
+  throw new Error(failures.join(' | ') || 'Python conversion failed');
+}
+
 async function attachTemplatePreviews(templates = []) {
   if (!templatePreviewEnabled) {
     return templates.map((template) => ({
@@ -751,7 +848,7 @@ const upload = multer({
  */
 app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => {
   let fallbackPath = null;
-  let fallbackName = null;
+  let outputDir = null;
   try {
     const { fileUrl, fileType } = req.body || {};
     let fileInfo = req.file;
@@ -777,17 +874,15 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
     }
 
     fallbackPath = fileInfo.path;
-    fallbackName = fileInfo.originalName;
 
     const inputPath = fileInfo.path;
-    const outputDir = path.join(__dirname, '../temp/output');
+    outputDir = path.join(__dirname, '../temp/output', req.requestId || randomUUID());
     await fs.mkdir(outputDir, { recursive: true });
 
     const ext = path.extname(fileInfo.originalName || '').toLowerCase();
 
     if (ext === '.md' || ext === '.txt') {
       const content = await fs.readFile(inputPath, 'utf-8');
-      await fs.unlink(inputPath);
       return res.json({
         success: true,
         markdown: content,
@@ -795,46 +890,47 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       });
     }
 
-    const outputPath = path.join(outputDir, `${path.basename(inputPath, ext)}.md`);
-
-    const markerProcess = spawn('marker_single', [
-      inputPath,
-      outputDir,
-      '--output_format',
-      'markdown',
-    ]);
-
-    let stderr = '';
-
-    markerProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    await new Promise((resolve, reject) => {
-      markerProcess.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Marker process exited with code ${code}: ${stderr}`));
-        }
+    // DOCX/DOC: use mammoth (Node.js, no external deps)
+    if (ext === '.docx' || ext === '.doc') {
+      const result = await mammoth.convertToMarkdown({ path: inputPath });
+      if (result.messages?.length) {
+        logEvent('warn', { requestId: req.requestId, mammothWarnings: result.messages });
+      }
+      return res.json({
+        success: true,
+        markdown: result.value,
+        fileName: fileInfo.originalName,
       });
-
-      markerProcess.on('error', (err) => {
-        reject(err);
-      });
-    });
-
-    const files = await fs.readdir(outputDir);
-    const mdFile = files.find((f) => f.endsWith('.md'));
-
-    if (!mdFile) {
-      throw new Error('Failed to create markdown output.');
     }
 
-    const markdown = await fs.readFile(path.join(outputDir, mdFile), 'utf-8');
+    // Other formats (PDF, RTF, ODT): try marker_single → Python fallback
+    const errors = [];
+    let markdown = null;
 
-    await fs.unlink(inputPath);
-    await fs.unlink(path.join(outputDir, mdFile));
+    try {
+      markdown = await runMarkerConversion(inputPath, outputDir, ext);
+    } catch (markerErr) {
+      errors.push(`marker: ${markerErr.message}`);
+    }
+
+    if (!markdown) {
+      try {
+        markdown = await convertWithPython(inputPath);
+      } catch (pyErr) {
+        errors.push(`python: ${pyErr.message}`);
+      }
+    }
+
+    if (!markdown) {
+      return sendError(
+        res,
+        500,
+        'CONVERSION_FAILED',
+        'Markdown conversion failed.',
+        errors.join(' | '),
+        req.requestId,
+      );
+    }
 
     res.json({
       success: true,
@@ -847,65 +943,80 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       error: error.message,
     });
 
-    try {
-      if (fallbackPath) {
-        const markdown = await convertWithPython(fallbackPath);
-        return res.json({
-          success: true,
-          markdown,
-          fileName: fallbackName || 'document',
-        });
-      }
-    } catch (fallbackError) {
-      return sendError(
-        res,
-        500,
-        'CONVERSION_FAILED',
-        'Markdown conversion failed.',
-        fallbackError.message,
-        req.requestId
-      );
-    }
-
     return sendError(
       res,
       500,
       'CONVERSION_FAILED',
       'Markdown conversion failed.',
       error.message,
-      req.requestId
+      req.requestId,
     );
+  } finally {
+    if (fallbackPath) {
+      await safeUnlink(fallbackPath).catch((cleanupError) => {
+        logEvent('error', {
+          requestId: req.requestId,
+          event: 'cleanup_failed',
+          target: fallbackPath,
+          error: cleanupError.message,
+        });
+      });
+    }
+    if (outputDir) {
+      await safeRemoveDir(outputDir).catch((cleanupError) => {
+        logEvent('error', {
+          requestId: req.requestId,
+          event: 'cleanup_failed',
+          target: outputDir,
+          error: cleanupError.message,
+        });
+      });
+    }
   }
 });
+
+/**
+ * Run marker_single CLI for non-DOCX formats (PDF, RTF, ODT)
+ */
+async function runMarkerConversion(inputPath, outputDir, ext) {
+  const markerProcess = spawn('marker_single', [
+    inputPath,
+    outputDir,
+    '--output_format',
+    'markdown',
+  ]);
+
+  let stderr = '';
+  markerProcess.stderr.on('data', (data) => {
+    stderr += data.toString();
+  });
+
+  await new Promise((resolve, reject) => {
+    markerProcess.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Marker exited with code ${code}: ${stderr}`));
+    });
+    markerProcess.on('error', (err) => reject(err));
+  });
+
+  const expectedName = `${path.basename(inputPath, ext)}.md`;
+  const expectedPath = path.join(outputDir, expectedName);
+  if (await pathExists(expectedPath)) {
+    return fs.readFile(expectedPath, 'utf-8');
+  }
+
+  const files = await fs.readdir(outputDir);
+  const mdFile = files.find((f) => f.endsWith('.md'));
+  if (!mdFile) throw new Error('Marker produced no markdown output.');
+  return fs.readFile(path.join(outputDir, mdFile), 'utf-8');
+}
 
 /**
  * Fallback Python conversion
  */
 async function convertWithPython(inputPath) {
   const pythonScript = path.join(__dirname, 'converters/document_converter.py');
-
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', [pythonScript, inputPath]);
-
-    let output = '';
-    let errorOutput = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    pythonProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve(output);
-      } else {
-        reject(new Error(errorOutput || 'Python conversion failed'));
-      }
-    });
-  });
+  return runPythonConversion(pythonScript, inputPath);
 }
 
 /**
@@ -2655,12 +2766,25 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Error handler
+// Error handler — multer errors + generic
 app.use((err, req, res, next) => {
   logEvent('error', {
     requestId: req.requestId,
     error: err.message,
   });
+
+  if (err.name === 'MulterError') {
+    const msg =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'File too large (max 50 MB).'
+        : `Upload error: ${err.message}`;
+    return sendError(res, 400, 'UPLOAD_ERROR', msg, null, req.requestId);
+  }
+
+  if (err.message === 'Unsupported file type') {
+    return sendError(res, 400, 'UNSUPPORTED_TYPE', err.message, null, req.requestId);
+  }
+
   sendError(res, 500, 'SERVER_ERROR', 'Internal server error.', err.message, req.requestId);
 });
 
