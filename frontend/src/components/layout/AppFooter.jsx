@@ -22,12 +22,9 @@ import {
   Help,
 } from '@carbon/icons-react';
 
-import { useTheme } from '../../contexts/ThemeContext';
-
 import './AppFooter.scss';
 
-export function AppFooter() {
-  const { isDark } = useTheme();
+export function AppFooter({ withGradient = false }) {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
@@ -65,14 +62,14 @@ export function AppFooter() {
   ];
 
   return (
-    <footer className="app-footer">
+    <footer className={`app-footer${withGradient ? ' app-footer--gradient' : ''}`}>
       <div className="app-footer__main">
         <Grid>
           {/* Company Info */}
           <Column lg={4} md={4} sm={4} className="app-footer__brand">
-            <img 
-              src={isDark ? '/logos/Carbonac-Light-Wide.png' : '/logos/Carbonac-Dark-Wide.png'} 
-              alt="Carbonac" 
+            <img
+              src="/logos/Carbonac-Color-Wide.png"
+              alt="Carbonac"
               className="app-footer__logo"
             />
             <p className="app-footer__description">

@@ -1,0 +1,98 @@
+# LiteLLM Proxy Configuration
+# Tailscale AI-Hub Multi-Backend Ollama Router
+
+model_list:
+  # HP AI Node - Heavy Models (32B, 14B)
+  - model_name: "qwen-32b"
+    litellm_params:
+      model: "ollama/qwen2.5:32b"
+      api_base: "http://100.107.62.43:11434"
+    model_info:
+      description: "Qwen 32B - Deep reasoning, complex analysis"
+      max_tokens: 32768
+
+  - model_name: "qwen-14b"
+    litellm_params:
+      model: "ollama/qwen2.5:14b"
+      api_base: "http://100.107.62.43:11434"
+    model_info:
+      description: "Qwen 14B - Balanced performance/speed"
+      max_tokens: 32768
+
+  # HP AI Node - Coder Model
+  - model_name: "coder"
+    litellm_params:
+      model: "ollama/qwen2.5-coder:7b"
+      api_base: "http://100.107.62.43:11434"
+    model_info:
+      description: "Qwen2.5-Coder 7B - Optimized for coding tasks"
+      max_tokens: 32768
+
+  - model_name: "qwen-coder-7b"
+    litellm_params:
+      model: "ollama/qwen2.5-coder:7b"
+      api_base: "http://100.107.62.43:11434"
+    model_info:
+      description: "Qwen2.5-Coder 7B - Code completion, debugging"
+      max_tokens: 32768
+
+  # AI Pi - Light Models (8B, 7B)
+  - model_name: "llama-8b"
+    litellm_params:
+      model: "ollama/llama3.1:8b"
+      api_base: "http://100.125.78.2:11434"
+    model_info:
+      description: "Llama 3.1 8B - Fast responses, general tasks"
+      max_tokens: 8192
+
+  - model_name: "biomistral"
+    litellm_params:
+      model: "ollama/cniongolo/biomistral:latest"
+      api_base: "http://100.125.78.2:11434"
+    model_info:
+      description: "BioMistral 7B - Medical/biomedical queries"
+      max_tokens: 8192
+
+  - model_name: "embed"
+    litellm_params:
+      model: "ollama/nomic-embed-text:latest"
+      api_base: "http://100.125.78.2:11434"
+    model_info:
+      description: "Nomic Embed - Text embeddings"
+
+  # Router aliases for automatic model selection
+  - model_name: "fast"
+    litellm_params:
+      model: "ollama/llama3.1:8b"
+      api_base: "http://100.125.78.2:11434"
+
+  - model_name: "smart"
+    litellm_params:
+      model: "ollama/qwen2.5:14b"
+      api_base: "http://100.107.62.43:11434"
+
+  - model_name: "genius"
+    litellm_params:
+      model: "ollama/qwen2.5:32b"
+      api_base: "http://100.107.62.43:11434"
+
+  - model_name: "medical"
+    litellm_params:
+      model: "ollama/cniongolo/biomistral:latest"
+      api_base: "http://100.125.78.2:11434"
+
+# Router settings
+router_settings:
+  routing_strategy: "simple-shuffle"  # or "least-busy", "latency-based-routing"
+  num_retries: 2
+  timeout: 120
+  retry_after: 5
+
+# General settings
+general_settings:
+  master_key: "sk-aihub-local"  # Change this for production
+  database_url: null
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false

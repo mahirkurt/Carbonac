@@ -16,7 +16,12 @@ const DIRECTIVE_RULES = {
       'notes',
     ],
     values: {
-      type: ['bar', 'line', 'area', 'donut', 'stacked'],
+      type: [
+        'bar', 'line', 'area', 'donut', 'stacked',
+        'scatter', 'bubble', 'radar', 'treemap', 'gauge',
+        'heatmap', 'pie', 'histogram', 'boxplot', 'meter',
+        'combo', 'lollipop', 'wordcloud', 'alluvial',
+      ],
       variant: ['default', 'survey'],
     },
   },
@@ -121,7 +126,7 @@ function lintDirectives(lines, issues) {
         addIssue(issues, {
           ruleId: 'directive-attribute',
           severity: 'info',
-          message: `Directive '${name}' icin desteklenmeyen attribute: ${key}.`,
+          message: `Directive '${name}' için desteklenmeyen attribute: ${key}.`,
           line: index + 1,
           column: 1,
         });
@@ -132,7 +137,7 @@ function lintDirectives(lines, issues) {
         addIssue(issues, {
           ruleId: 'directive-attribute-value',
           severity: 'info',
-          message: `Directive '${name}' icin gecersiz deger: ${key}=${attrs[key]}.`,
+          message: `Directive '${name}' için geçersiz değer: ${key}=${attrs[key]}.`,
           line: index + 1,
           column: 1,
         });
@@ -165,7 +170,7 @@ export function lintMarkdown(content = '') {
       addIssue(issues, {
         ruleId: 'empty-heading',
         severity: 'warning',
-        message: 'Bos baslik algilandi.',
+        message: 'Boş başlık algılandı.',
         line: index + 1,
         column: 1,
       });
@@ -175,7 +180,7 @@ export function lintMarkdown(content = '') {
       addIssue(issues, {
         ruleId: 'heading-order',
         severity: 'warning',
-        message: 'Baslik hiyerarsisi atlandi (or: H2 -> H4).',
+        message: 'Başlık hiyerarşisi atlandı (ör: H2 -> H4).',
         line: index + 1,
         column: 1,
       });
@@ -187,7 +192,7 @@ export function lintMarkdown(content = '') {
         addIssue(issues, {
           ruleId: 'duplicate-heading',
           severity: 'info',
-          message: 'Ayni baslik tekrari algilandi.',
+          message: 'Aynı başlık tekrarı algılandı.',
           line: index + 1,
           column: 1,
         });
@@ -209,7 +214,7 @@ export function lintMarkdown(content = '') {
       addIssue(issues, {
         ruleId: 'long-paragraph',
         severity: 'info',
-        message: 'Uzun paragraf algilandi (bolmeyi dusunun).',
+        message: 'Uzun paragraf algılandı (bölmeyi düşünün).',
         line: paragraphStart + 1,
         column: 1,
       });

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CvProfilePattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "headline"],
+  "properties": {
+    "name": { "type": "string" },
+    "headline": { "type": "string" },
+    "summary": { "type": "string" },
+    "location": { "type": "string" },
+    "contact": { "type": "string" },
+    "links": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

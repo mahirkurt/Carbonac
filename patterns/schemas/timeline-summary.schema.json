@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TimelineSummaryPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "title": { "type": "string" },
+    "items": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "summary"],
+        "properties": {
+          "label": { "type": "string" },
+          "summary": { "type": "string" },
+          "metric": { "type": "string" }
+        }
+      }
+    }
+  }
+}

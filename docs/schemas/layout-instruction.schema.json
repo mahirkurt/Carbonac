@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LayoutInstruction",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "layoutProfile": {
+      "type": "string",
+      "enum": ["symmetric", "asymmetric", "dashboard"]
+    },
+    "printProfile": {
+      "type": "string",
+      "enum": ["pagedjs-a4", "pagedjs-a3"]
+    },
+    "gridSystem": {
+      "type": "string",
+      "enum": ["symmetric", "asymmetric", "dashboard"]
+    },
+    "documentPlan": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "title": { "type": "string" },
+        "audience": { "type": "string" },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["id", "title"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "purpose": { "type": "string" },
+              "requiredBlocks": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "dataRefs": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "requiredBlocks": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "layoutPlan": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "gridSystem": {
+          "type": "string",
+          "enum": ["symmetric", "asymmetric", "dashboard"]
+        },
+        "components": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/component" }
+        },
+        "pageBreaks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "beforeSectionId": { "type": "string" },
+              "afterSectionId": { "type": "string" },
+              "selector": { "type": "string" },
+              "action": {
+                "type": "string",
+                "enum": ["force-break", "avoid-break"]
+              },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/component" }
+    },
+    "storytelling": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "executiveSummary": { "type": "string" },
+        "keyInsights": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "methodologyNotes": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "styleHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "avoidBreakSelectors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "forceBreakSelectors": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "component": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["CarbonChart", "RichText", "HighlightBox"]
+        },
+        "layoutProps": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "colSpan": { "type": "integer", "minimum": 1, "maximum": 16 },
+            "offset": { "type": "integer", "minimum": 0, "maximum": 15 }
+          }
+        },
+        "styleOverrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "theme": {
+              "type": "string",
+              "enum": ["white", "g10", "g90", "g100"]
+            }
+          }
+        },
+        "className": { "type": "string" },
+        "data": {}
+      }
+    }
+  }
+}

@@ -35,7 +35,7 @@ export function AuthResetPassword() {
         return;
       }
       if (!session) {
-        setError('Sifre sifirlama oturumu bulunamadi. Linki yeniden acin.');
+        setError('Şifre sıfırlama oturumu bulunamadı. Linki yeniden açın.');
         setIsLoading(false);
         return;
       }
@@ -65,27 +65,27 @@ export function AuthResetPassword() {
     setSuccess(null);
 
     if (!password || !confirmPassword) {
-      setError('Tum alanlari doldurun.');
+      setError('Tüm alanları doldurun.');
       return;
     }
     if (password.length < 8) {
-      setError('Sifre en az 8 karakter olmalidir.');
+      setError('Şifre en az 8 karakter olmalıdır.');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Sifreler eslesmiyor.');
+      setError('Şifreler eşleşmiyor.');
       return;
     }
 
     setIsLoading(true);
     const result = await authService.updatePassword(password);
     if (!result.success) {
-      setError(result.error || 'Sifre guncellenemedi.');
+      setError(result.error || 'Şifre güncellenemedi.');
       setIsLoading(false);
       return;
     }
 
-    setSuccess('Sifreniz guncellendi. Giris sayfasina yonlendiriliyorsunuz.');
+    setSuccess('Şifreniz güncellendi. Giriş sayfasına yönlendiriliyorsunuz.');
     setIsLoading(false);
     setTimeout(() => {
       window.location.assign('/');
@@ -95,9 +95,9 @@ export function AuthResetPassword() {
   return (
     <div className="auth-page">
       <Tile className="auth-card">
-        <h1 className="auth-card__title">Sifre Sifirlama</h1>
+        <h1 className="auth-card__title">Şifre Sıfırlama</h1>
         <p className="auth-card__subtitle">
-          Yeni sifrenizi belirleyin ve hesabiniza tekrar giris yapin.
+          Yeni şifrenizi belirleyin ve hesabınıza tekrar giriş yapın.
         </p>
 
         {error && (
@@ -114,7 +114,7 @@ export function AuthResetPassword() {
         {success && (
           <InlineNotification
             kind="success"
-            title="Basarili"
+            title="Başarılı"
             subtitle={success}
             lowContrast
             hideCloseButton
@@ -127,7 +127,7 @@ export function AuthResetPassword() {
         <form onSubmit={handleSubmit} className="auth-card__form">
           <PasswordInput
             id="reset-password"
-            labelText="Yeni sifre"
+            labelText="Yeni şifre"
             placeholder="En az 8 karakter"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -137,8 +137,8 @@ export function AuthResetPassword() {
 
           <PasswordInput
             id="reset-password-confirm"
-            labelText="Yeni sifre (tekrar)"
-            placeholder="Sifreyi yeniden girin"
+            labelText="Yeni şifre (tekrar)"
+            placeholder="Şifreyi yeniden girin"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             required
@@ -147,10 +147,10 @@ export function AuthResetPassword() {
 
           <div className="auth-card__actions">
             <Button type="submit" kind="primary" disabled={!sessionReady || isLoading}>
-              Sifreyi guncelle
+              Şifreyi güncelle
             </Button>
             <Link href="/" className="auth-card__back">
-              Ana sayfaya don
+              Ana sayfaya dön
             </Link>
           </div>
         </form>

@@ -16,7 +16,17 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        // Backend API server defaults to PORT=3001 (see backend/server.js)
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
+  },
+  preview: {
+    proxy: {
+      '/api': {
+        // Keep /api working in `vite preview` too (otherwise SPA fallback returns index.html)
+        target: 'http://localhost:3001',
         changeOrigin: true
       }
     }

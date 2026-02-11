@@ -77,6 +77,7 @@ export function AuthModal({ isOpen, onClose }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     setFormError(null);
+    setSuccessMessage(null);
 
     if (!loginEmail || !loginPassword) {
       setFormError('Lütfen tüm alanları doldurun');
@@ -103,6 +104,7 @@ export function AuthModal({ isOpen, onClose }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     setFormError(null);
+    setSuccessMessage(null);
 
     if (!registerName || !registerEmail || !registerPassword) {
       setFormError('Lütfen tüm alanları doldurun');
@@ -126,10 +128,14 @@ export function AuthModal({ isOpen, onClose }) {
 
     const result = await register(registerName, registerEmail, registerPassword);
     if (result.success) {
+      if (result.needsVerification) {
+        setSuccessMessage(result.message || 'E-posta doğrulama bağlantısı gönderildi.');
+        return;
+      }
       handleClose();
-    } else {
-      setFormError(result.error);
+      return;
     }
+    setFormError(result.error);
   };
 
   // Forgot password handler
@@ -197,7 +203,7 @@ export function AuthModal({ isOpen, onClose }) {
             id="forgot-email"
             type="email"
             labelText="E-posta"
-            placeholder="ornek@email.com"
+            placeholder="örnek@email.com"
             value={forgotEmail}
             onChange={(e) => setForgotEmail(e.target.value)}
           />
@@ -219,6 +225,7 @@ export function AuthModal({ isOpen, onClose }) {
       <Tabs selectedIndex={activeTab} onChange={({ selectedIndex }) => {
         setActiveTab(selectedIndex);
         setFormError(null);
+        setSuccessMessage(null);
       }}>
         <TabList aria-label="Auth tabs" className="auth-modal__tabs">
           <Tab>
@@ -251,7 +258,7 @@ export function AuthModal({ isOpen, onClose }) {
                   id="login-email"
                   type="email"
                   labelText="E-posta"
-                  placeholder="ornek@email.com"
+                  placeholder="örnek@email.com"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   required
@@ -339,7 +346,7 @@ export function AuthModal({ isOpen, onClose }) {
                   id="register-email"
                   type="email"
                   labelText="E-posta"
-                  placeholder="ornek@email.com"
+                  placeholder="örnek@email.com"
                   value={registerEmail}
                   onChange={(e) => setRegisterEmail(e.target.value)}
                   required
@@ -399,6 +406,17 @@ export function AuthModal({ isOpen, onClose }) {
                   Google ile devam et
                 </Button>
               </form>
+
+              {successMessage && (
+                <InlineNotification
+                  kind="success"
+                  title="Başarılı"
+                  subtitle={successMessage}
+                  lowContrast
+                  hideCloseButton
+                  className="auth-modal__notification"
+                />
+              )}
 
               <div className="auth-modal__divider">
                 <span>veya</span>

@@ -1,0 +1,107 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_qa:
+        description: "Run QA harness (Chromium required)"
+        required: false
+        default: "false"
+      run_smoke:
+        description: "Run API smoke test (requires API_BASE_URL + API_AUTH_TOKEN)"
+        required: false
+        default: "false"
+      run_dod:
+        description: "Run DoD checklist presence check"
+        required: false
+        default: "false"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      RUN_QA: ${{ github.event.inputs.run_qa || 'false' }}
+      RUN_SMOKE: ${{ github.event.inputs.run_smoke || 'false' }}
+      RUN_DOD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_dod || 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Set build metadata
+        run: |
+          echo "BUILD_SHA=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "BUILD_VERSION=$(node -p \"require('./package.json').version\")" >> "$GITHUB_ENV"
+
+      - name: SoT consistency check
+        run: node scripts/check-sot.js
+
+      - name: DoD checklist check
+        if: ${{ env.RUN_DOD == 'true' }}
+        run: node scripts/check-dod.js
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit + integration tests
+        run: npm test
+
+      - name: QA baseline check
+        if: ${{ env.RUN_QA == 'true' }}
+        id: qa_baseline
+        run: |
+          if [ -f "output/qa-baselines/ci-sample.png" ]; then
+            echo "has_baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_baseline=false" >> "$GITHUB_OUTPUT"
+            echo "QA baseline missing (output/qa-baselines/ci-sample.png). Skipping QA harness."
+          fi
+
+      - name: Install Chromium (QA)
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium python3-pip
+          python3 -m pip install pillow
+
+      - name: QA harness
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
+          QA_USE_GEMINI: "false"
+          QA_INPUT_PATH: examples/sample.md
+          QA_OUTPUT_PATH: output/qa/ci-qa.pdf
+          QA_SCREENSHOT_PATH: output/qa/ci-qa.png
+          QA_BASELINE_KEY: ci-sample
+          PDF_QA_VISUAL_REGRESSION: "true"
+          PDF_QA_BASELINE_DIR: output/qa-baselines
+          PDF_QA_DIFF_DIR: output/qa-diffs
+        run: npm run test:qa
+
+      - name: Upload QA artifacts
+        if: ${{ env.RUN_QA == 'true' && steps.qa_baseline.outputs.has_baseline == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-artifacts
+          path: |
+            output/qa
+            output/qa-baselines
+            output/qa-diffs
+
+      - name: API smoke test
+        if: ${{ env.RUN_SMOKE == 'true' }}
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+          API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
+        run: npm run test:smoke

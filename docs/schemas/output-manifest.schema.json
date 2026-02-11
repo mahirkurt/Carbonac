@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OutputManifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "generatedAt", "jobId"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "jobId": { "type": "string" },
+    "documentId": { "type": ["string", "null"] },
+    "userId": { "type": ["string", "null"] },
+    "template": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "key": { "type": "string" },
+        "templateId": { "type": "string" },
+        "versionId": { "type": "string" },
+        "layoutProfile": { "type": "string" },
+        "printProfile": { "type": "string" },
+        "theme": { "type": "string" }
+      }
+    },
+    "pressPack": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "string" },
+        "status": { "type": "string" },
+        "hash": { "type": ["string", "null"] },
+        "templateVersionId": { "type": ["string", "null"] }
+      }
+    },
+    "ai": { "type": ["object", "null"], "additionalProperties": true },
+    "metadata": { "type": ["object", "null"], "additionalProperties": true },
+    "qa": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "report": { "type": ["object", "null"], "additionalProperties": true },
+        "summary": { "type": ["object", "null"], "additionalProperties": true },
+        "accessibilitySummary": { "type": ["object", "null"], "additionalProperties": true }
+      }
+    },
+    "preflight": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "properties": {
+        "qualityChecklist": { "type": ["object", "null"], "additionalProperties": true }
+      }
+    },
+    "postprocess": { "type": ["object", "null"], "additionalProperties": true },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "pdf": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "properties": {
+            "bucket": { "type": "string" },
+            "path": { "type": "string" },
+            "signedUrl": { "type": ["string", "null"] },
+            "signedUrlExpiresAt": { "type": ["string", "null"], "format": "date-time" }
+          }
+        }
+      }
+    }
+  }
+}

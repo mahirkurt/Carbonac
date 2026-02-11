@@ -1,0 +1,11 @@
+{
+  "cssVars": {
+    "--report-gap": "22px"
+  },
+  "themes": {
+    "g90": {
+      "--cds-accent": "#da1e28"
+    }
+  }
+}
+

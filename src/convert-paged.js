@@ -15,6 +15,7 @@ import { parseMarkdown, markdownToHtml } from './utils/markdown-parser.js';
 import { postprocessPdf } from './utils/pdf-postprocess.js';
 import { buildTokenCss } from './utils/token-loader.js';
 import { reviewQaIssues } from './ai/qa-reviewer.js';
+import { dataVizCategorical } from '../styles/carbon/colors-extended.js';
 
 const PRINT_PROFILES = {
   'pagedjs-a4': { format: 'A4', css: 'pagedjs-a4.css' },
@@ -606,10 +607,14 @@ async function buildHyphenationScriptTag(typography, projectRoot) {
 }
 
 function buildChartRendererScript() {
+  const palette = Array.isArray(dataVizCategorical) && dataVizCategorical.length
+    ? dataVizCategorical
+    : ['#111111', '#444444', '#777777', '#aaaaaa', '#000000'];
+
   return `
 (function() {
   const svgNs = "http://www.w3.org/2000/svg";
-  const palette = ["#111111", "#444444", "#777777", "#aaaaaa", "#000000"];
+  const palette = ${JSON.stringify(palette)};
   const dashStyles = ["", "4 3", "2 2", "6 2 1 2", "1 2"];
 
   function normalizeType(value) {
@@ -633,6 +638,30 @@ function buildChartRendererScript() {
     }
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function getNumber(value, fallback) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : (fallback || 0);
+  }
+
+  function getX(item, index) {
+    if (item.x !== undefined && item.x !== null) return getNumber(item.x, index);
+    if (item.value !== undefined && item.value !== null) return getNumber(item.value, index);
+    return index;
+  }
+
+  function getY(item) {
+    if (item.y !== undefined && item.y !== null) return getNumber(item.y, 0);
+    if (item.value !== undefined && item.value !== null) return getNumber(item.value, 0);
+    return 0;
+  }
+
+  function getSize(item) {
+    if (item.size !== undefined && item.size !== null) return getNumber(item.size, 0);
+    if (item.r !== undefined && item.r !== null) return getNumber(item.r, 0);
+    if (item.value !== undefined && item.value !== null) return getNumber(item.value, 0);
+    return 0;
   }
 
   function parseChartData(figure) {
@@ -865,6 +894,64 @@ function buildChartRendererScript() {
     });
   }
 
+  function renderScatter(svg, width, height, padding, data, bubble) {
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const points = [];
+    data.forEach((item, index) => {
+      if (!item || typeof item !== "object") return;
+      points.push({
+        group: item.group || item.series || item.key || "Series",
+        x: getX(item, index),
+        y: getY(item),
+        size: getSize(item),
+      });
+    });
+    if (!points.length) return;
+
+    const xValues = points.map((pt) => pt.x);
+    const yValues = points.map((pt) => pt.y);
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+
+    const xRange = xMax - xMin || 1;
+    const yRange = yMax - yMin || 1;
+
+    const groups = new Map();
+    points.forEach((pt) => {
+      if (!groups.has(pt.group)) groups.set(pt.group, []);
+      groups.get(pt.group).push(pt);
+    });
+
+    const sizeValues = points.map((pt) => pt.size).filter((v) => Number.isFinite(v));
+    const sMin = sizeValues.length ? Math.min(...sizeValues) : 0;
+    const sMax = sizeValues.length ? Math.max(...sizeValues) : 1;
+    const sRange = (sMax - sMin) || 1;
+
+    let groupIndex = 0;
+    groups.forEach((pts) => {
+      pts.forEach((pt) => {
+        const cx = padding.left + ((pt.x - xMin) / xRange) * chartWidth;
+        const cy = padding.top + chartHeight - ((pt.y - yMin) / yRange) * chartHeight;
+        const r = bubble
+          ? (4 + ((pt.size - sMin) / sRange) * 10)
+          : 4;
+
+        const circle = document.createElementNS(svgNs, "circle");
+        circle.setAttribute("cx", String(cx));
+        circle.setAttribute("cy", String(cy));
+        circle.setAttribute("r", String(Math.max(2, r)));
+        circle.setAttribute("fill", "url(#pattern-" + (groupIndex % palette.length) + ")");
+        circle.setAttribute("stroke", "#000");
+        circle.setAttribute("stroke-width", "0.5");
+        svg.appendChild(circle);
+      });
+      groupIndex += 1;
+    });
+  }
+
   function polarToCartesian(cx, cy, r, angle) {
     const rad = ((angle - 90) * Math.PI) / 180;
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -882,6 +969,18 @@ function buildChartRendererScript() {
       "A", rOuter, rOuter, 0, largeArc, 0, endOuter.x, endOuter.y,
       "L", startInner.x, startInner.y,
       "A", rInner, rInner, 0, largeArc, 1, endInner.x, endInner.y,
+      "Z",
+    ].join(" ");
+  }
+
+  function describePieSlice(cx, cy, r, startAngle, endAngle) {
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+    return [
+      "M", start.x, start.y,
+      "A", r, r, 0, largeArc, 0, end.x, end.y,
+      "L", cx, cy,
       "Z",
     ].join(" ");
   }
@@ -910,6 +1009,141 @@ function buildChartRendererScript() {
     });
   }
 
+  function renderPie(svg, width, height, series) {
+    const cx = width / 2;
+    const cy = height / 2;
+    const r = Math.min(width, height) * 0.35;
+    const values = series[0]?.[1] || [];
+    const total = values.reduce((sum, item) => sum + item.value, 0) || 1;
+    let current = 0;
+    values.forEach((item, index) => {
+      const start = (current / total) * 360;
+      const end = ((current + item.value) / total) * 360;
+      const path = document.createElementNS(svgNs, "path");
+      path.setAttribute(
+        "d",
+        describePieSlice(cx, cy, r, start, end)
+      );
+      path.setAttribute("fill", "url(#pattern-" + (index % palette.length) + ")");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", "0.5");
+      svg.appendChild(path);
+      current += item.value;
+    });
+  }
+
+  function renderRadar(svg, width, height, padding, data) {
+    const items = data.filter((item) => item && typeof item === "object");
+    const axes = Array.from(new Set(items.map((item) => item.key || item.axis || item.label).filter(Boolean)));
+    if (!axes.length) return;
+
+    const groups = Array.from(new Set(items.map((item) => item.group || item.series || "Series").filter(Boolean)));
+    const maxValue = Math.max(1, ...items.map(getValue));
+
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const cx = padding.left + chartWidth / 2;
+    const cy = padding.top + chartHeight / 2;
+    const rOuter = Math.min(chartWidth, chartHeight) * 0.42;
+    const angleStep = 360 / axes.length;
+
+    // Grid rings
+    const rings = 4;
+    for (let i = 1; i <= rings; i += 1) {
+      const ring = document.createElementNS(svgNs, "circle");
+      ring.setAttribute("cx", String(cx));
+      ring.setAttribute("cy", String(cy));
+      ring.setAttribute("r", String((rOuter / rings) * i));
+      ring.setAttribute("fill", "none");
+      ring.setAttribute("stroke", "#000");
+      ring.setAttribute("stroke-width", "0.5");
+      ring.setAttribute("opacity", "0.25");
+      svg.appendChild(ring);
+    }
+
+    // Axis spokes
+    axes.forEach((label, index) => {
+      const angle = index * angleStep;
+      const pt = polarToCartesian(cx, cy, rOuter, angle);
+      const line = document.createElementNS(svgNs, "line");
+      line.setAttribute("x1", String(cx));
+      line.setAttribute("y1", String(cy));
+      line.setAttribute("x2", String(pt.x));
+      line.setAttribute("y2", String(pt.y));
+      line.setAttribute("stroke", "#000");
+      line.setAttribute("stroke-width", "0.5");
+      line.setAttribute("opacity", "0.6");
+      svg.appendChild(line);
+    });
+
+    groups.forEach((groupName, groupIndex) => {
+      const points = axes.map((axis, axisIndex) => {
+        const item = items.find((entry) => {
+          const g = entry.group || entry.series || "Series";
+          const k = entry.key || entry.axis || entry.label;
+          return g === groupName && k === axis;
+        });
+        const value = item ? getValue(item) : 0;
+        const r = (value / maxValue) * rOuter;
+        return polarToCartesian(cx, cy, r, axisIndex * angleStep);
+      });
+
+      const path = document.createElementNS(svgNs, "path");
+      const d = points.map((pt, idx) => (idx ? "L" : "M") + pt.x + " " + pt.y).join(" ") + " Z";
+      path.setAttribute("d", d);
+      path.setAttribute("fill", palette[groupIndex % palette.length]);
+      path.setAttribute("opacity", "0.12");
+      path.setAttribute("stroke", palette[groupIndex % palette.length]);
+      path.setAttribute("stroke-width", "2");
+      const dash = dashStyles[groupIndex % dashStyles.length];
+      if (dash) {
+        path.setAttribute("stroke-dasharray", dash);
+      }
+      svg.appendChild(path);
+    });
+  }
+
+  function renderTreemap(svg, width, height, padding, series) {
+    const values = series[0]?.[1] || [];
+    if (!values.length) return;
+
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const total = values.reduce((sum, item) => sum + item.value, 0) || 1;
+
+    const n = values.length;
+    const columns = Math.max(1, Math.ceil(Math.sqrt(n)));
+    const rows = Math.max(1, Math.ceil(n / columns));
+
+    let y = padding.top;
+    let cursor = 0;
+    let colorIndex = 0;
+
+    for (let row = 0; row < rows; row += 1) {
+      const rowItems = values.slice(cursor, cursor + columns);
+      cursor += rowItems.length;
+      if (!rowItems.length) break;
+      const rowSum = rowItems.reduce((sum, item) => sum + item.value, 0) || 1;
+      const rowHeight = (rowSum / total) * chartHeight;
+      let x = padding.left;
+      rowItems.forEach((item) => {
+        const w = (item.value / rowSum) * chartWidth;
+        const rect = document.createElementNS(svgNs, "rect");
+        rect.setAttribute("x", String(x));
+        rect.setAttribute("y", String(y));
+        rect.setAttribute("width", String(w));
+        rect.setAttribute("height", String(rowHeight));
+        rect.setAttribute("fill", "url(#pattern-" + (colorIndex % palette.length) + ")");
+        rect.setAttribute("stroke", "#000");
+        rect.setAttribute("stroke-width", "0.5");
+        svg.appendChild(rect);
+        x += w;
+        colorIndex += 1;
+      });
+      y += rowHeight;
+    }
+  }
+
   function renderChart(figure) {
     if (figure.dataset.chartRendered === "true") return;
     const rawType = figure.getAttribute("type") || figure.getAttribute("data-type");
@@ -922,19 +1156,33 @@ function buildChartRendererScript() {
     const padding = { top: 24, right: 24, bottom: 32, left: 40 };
     const svg = createSvg(width, height);
     buildPatterns(svg);
-    drawAxes(svg, width, height, padding);
 
-    const { labels, series } = buildSeries(data);
-    if (type === "line") {
-      renderLine(svg, width, height, padding, labels, series, false);
-    } else if (type === "area") {
-      renderLine(svg, width, height, padding, labels, series, true);
-    } else if (type === "donut") {
-      renderDonut(svg, width, height, series);
-    } else if (type === "stacked") {
-      renderBars(svg, width, height, padding, labels, series, true);
+    const axisChart = type === "bar" || type === "line" || type === "area" || type === "stacked" || type === "scatter" || type === "bubble";
+    if (axisChart) {
+      drawAxes(svg, width, height, padding);
+    }
+
+    if (type === "scatter" || type === "bubble") {
+      renderScatter(svg, width, height, padding, data, type === "bubble");
+    } else if (type === "radar") {
+      renderRadar(svg, width, height, padding, data);
     } else {
-      renderBars(svg, width, height, padding, labels, series, false);
+      const { labels, series } = buildSeries(data);
+      if (type === "line") {
+        renderLine(svg, width, height, padding, labels, series, false);
+      } else if (type === "area") {
+        renderLine(svg, width, height, padding, labels, series, true);
+      } else if (type === "donut") {
+        renderDonut(svg, width, height, series);
+      } else if (type === "pie") {
+        renderPie(svg, width, height, series);
+      } else if (type === "treemap") {
+        renderTreemap(svg, width, height, padding, series);
+      } else if (type === "stacked") {
+        renderBars(svg, width, height, padding, labels, series, true);
+      } else {
+        renderBars(svg, width, height, padding, labels, series, false);
+      }
     }
 
     const wrapper = document.createElement("div");
@@ -1186,7 +1434,7 @@ async function annotateQaTargets(page) {
       }
       counter += 1;
       element.dataset.qaId = `qa-${counter}`;
-      const sourceEl = element.closest('[data-source-line]') || element;
+      const sourceEl = element.closest('[data-source-line]') || element.querySelector?.('[data-source-line]') || element;
       if (sourceEl?.dataset?.sourceLine) {
         element.dataset.sourceLine = sourceEl.dataset.sourceLine;
       }
@@ -1480,6 +1728,37 @@ async function runTypographyScoring(page) {
   });
 }
 
+async function collectVisualRichness(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector('.report-content') || document.body;
+    if (!root) {
+      return null;
+    }
+    const count = (selector) => root.querySelectorAll(selector).length;
+    const layoutComponents = Array.from(root.querySelectorAll('.layout-component'));
+    const layoutTypes = layoutComponents.reduce((acc, element) => {
+      const rawType = element.dataset.componentType || element.getAttribute('data-component-type') || 'unknown';
+      const type = String(rawType || 'unknown');
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    const themedLayoutBlocks = ['white', 'g10', 'g90', 'g100'].reduce((acc, theme) => {
+      acc[theme] = root.querySelectorAll(`.layout-component.theme--${theme}`).length;
+      return acc;
+    }, {});
+    return {
+      layoutComponents: layoutComponents.length,
+      layoutTypes,
+      themedLayoutBlocks,
+      charts: count('figure.directive--chart, figure.component--chart, .component--chart'),
+      highlights: count('.ai-insight'),
+      patterns: count('.pattern, .directive--pattern, .component--pattern'),
+      images: count('img'),
+      tables: count('table'),
+    };
+  });
+}
+
 async function runVisualRegression(options = {}) {
   const { screenshotPath } = options;
   if (!screenshotPath) {
@@ -1589,14 +1868,6 @@ function buildQaReportHtml(report = {}, options = {}) {
   const diffLog = Array.isArray(report.diffLog) ? report.diffLog : [];
   const screenshots = Array.isArray(report.screenshots) ? report.screenshots : [];
 
-  const summaryRows = [
-    ['Issues', issueCount],
-    ['Iterations', iterations],
-    ['Accessibility', accessibilityCount],
-    ['Typography Score', typographyScore ?? 'n/a'],
-    ['Visual Regression', visual.passed === true ? 'pass' : visual.passed === false ? 'fail' : 'n/a'],
-  ];
-
   const listItems = (items) =>
     items.map((item) => `<li>${escapeHtml(String(item))}</li>`).join('');
   const tableRows = (rows) =>
@@ -1607,6 +1878,32 @@ function buildQaReportHtml(report = {}, options = {}) {
     entries
       .map(([label, value]) => `<tr><td>${escapeHtml(String(label))}</td><td>${escapeHtml(String(value))}</td></tr>`)
       .join('');
+
+  const summaryRows = [
+    ['Issues', issueCount],
+    ['Iterations', iterations],
+    ['Accessibility', accessibilityCount],
+    ['Typography Score', typographyScore ?? 'n/a'],
+    ['Visual Regression', visual.passed === true ? 'pass' : visual.passed === false ? 'fail' : 'n/a'],
+  ];
+
+  const visualRichness = report.visualRichness || null;
+  const richnessRows = visualRichness
+    ? [
+        ['Layout components', visualRichness.layoutComponents ?? 0],
+        ['Charts', visualRichness.charts ?? 0],
+        ['Highlights', visualRichness.highlights ?? 0],
+        ['Patterns', visualRichness.patterns ?? 0],
+        ['Images', visualRichness.images ?? 0],
+        ['Tables', visualRichness.tables ?? 0],
+      ]
+    : [];
+  const layoutTypeRows = visualRichness?.layoutTypes
+    ? keyValueRows(Object.entries(visualRichness.layoutTypes))
+    : '';
+  const themeRows = visualRichness?.themedLayoutBlocks
+    ? keyValueRows(Object.entries(visualRichness.themedLayoutBlocks))
+    : '';
 
   const issueRows = keyValueRows(Object.entries(issuesSummary));
   const fixRows = keyValueRows(Object.entries(fixesSummary));
@@ -1660,6 +1957,22 @@ function buildQaReportHtml(report = {}, options = {}) {
         ${issueRows || '<tr><td colspan="2">No issues</td></tr>'}
       </table>
     </section>
+    ${visualRichness ? `
+    <section>
+      <h2>Visual Richness</h2>
+      <table>
+        ${tableRows(richnessRows)}
+      </table>
+      <table>
+        <tr><th>Layout Type</th><th>Count</th></tr>
+        ${layoutTypeRows || '<tr><td colspan="2">No layout components</td></tr>'}
+      </table>
+      <table>
+        <tr><th>Theme</th><th>Layout Blocks</th></tr>
+        ${themeRows || '<tr><td colspan="2">No themed blocks</td></tr>'}
+      </table>
+    </section>
+    ` : ''}
     <section>
       <h2>Applied Fixes</h2>
       <table>
@@ -1715,6 +2028,7 @@ async function runQaHarness(page, options = {}) {
     accessibilityIssues: [],
     accessibilityAudit: null,
     typography: null,
+    visualRichness: null,
     visualRegression: null,
     generatedAt: new Date().toISOString(),
   };
@@ -1725,8 +2039,10 @@ async function runQaHarness(page, options = {}) {
     report.screenshots.push(options.screenshotPath);
   }
 
+  let lastLint = { issues: [], fixes: [] };
   for (let iteration = 0; iteration < QA_MAX_ITERATIONS; iteration += 1) {
     const lint = await runStaticLint(page, options);
+    lastLint = lint;
     const currentIssueKeys = new Set(lint.issues.map((issue) => buildIssueKey(issue)));
     const added = Array.from(currentIssueKeys).filter((key) => !previousIssueKeys.has(key));
     const resolved = Array.from(previousIssueKeys).filter((key) => !currentIssueKeys.has(key));
@@ -1744,7 +2060,6 @@ async function runQaHarness(page, options = {}) {
       break;
     }
 
-    report.issues.push(...lint.issues);
     if (!lint.fixes.length) {
       break;
     }
@@ -1755,9 +2070,13 @@ async function runQaHarness(page, options = {}) {
     await rerunPagedPreview(page);
   }
 
+  const finalLint = await runStaticLint(page, options);
+  report.issues = finalLint?.issues || lastLint.issues || [];
+
   report.accessibilityIssues = await runAccessibilityLint(page);
   report.accessibilityAudit = await runAxeAudit(page, options.axe || {});
   report.typography = await runTypographyScoring(page);
+  report.visualRichness = await collectVisualRichness(page);
   report.fonts = await collectFontReport(page);
   if (options.visual?.enabled ?? QA_VISUAL_ENABLED) {
     report.visualRegression = await runVisualRegression({
@@ -1871,8 +2190,25 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
     await ensureDir(path.dirname(finalOutputPath));
 
     if (verbose) console.log('🖨️  Rendering PDF with Chromium...');
+    const launchCandidates = [
+      process.env.PLAYWRIGHT_EXECUTABLE_PATH,
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      process.env.CHROMIUM_PATH,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+    ].filter(Boolean);
+    let executablePath = null;
+    for (const candidate of launchCandidates) {
+      if (candidate && await fileExists(candidate)) {
+        executablePath = candidate;
+        break;
+      }
+    }
+
     const browser = await chromium.launch({
       headless: true,
+      ...(executablePath ? { executablePath } : {}),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -1917,6 +2253,20 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         visual: qa.visual,
         axe: qa.axe,
       });
+      if (qaReport) {
+        console.log(
+          JSON.stringify({
+            event: 'qa_report_summary',
+            outputPath: finalOutputPath,
+            issues: qaReport.issues?.length || 0,
+            accessibilityIssues: qaReport.accessibilityIssues?.length || 0,
+            iterations: qaReport.iterations || 0,
+            aiSeverity: qaReport.aiReview?.severity || null,
+            typography: qaReport.typography || null,
+            fonts: qaReport.fonts || null,
+          })
+        );
+      }
       if (qaReport) {
         const baseName = path.basename(finalOutputPath, '.pdf');
         const qaReportPath =

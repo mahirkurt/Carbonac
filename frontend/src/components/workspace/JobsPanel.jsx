@@ -27,12 +27,12 @@ const headers = [
 ];
 
 const statusOptions = [
-  { id: 'all', text: 'Tümü' },
-  { id: 'queued', text: 'Kuyrukta' },
-  { id: 'processing', text: 'İşleniyor' },
-  { id: 'completed', text: 'Tamamlandı' },
-  { id: 'failed', text: 'Hata' },
-  { id: 'cancelled', text: 'İptal' },
+  { id: 'all', label: 'Tümü' },
+  { id: 'queued', label: 'Kuyrukta' },
+  { id: 'processing', label: 'İşleniyor' },
+  { id: 'completed', label: 'Tamamlandı' },
+  { id: 'failed', label: 'Hata' },
+  { id: 'cancelled', label: 'İptal' },
 ];
 
 const pageSizes = [5, 10, 20, 50];

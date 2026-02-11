@@ -29,11 +29,11 @@ const headers = [
 ];
 
 const statusOptions = [
-  { id: 'all', text: 'Tümü' },
-  { id: 'draft', text: 'Taslak' },
-  { id: 'processing', text: 'İşleniyor' },
-  { id: 'ready', text: 'Hazır' },
-  { id: 'error', text: 'Hata' },
+  { id: 'all', label: 'Tümü' },
+  { id: 'draft', label: 'Taslak' },
+  { id: 'processing', label: 'İşleniyor' },
+  { id: 'ready', label: 'Hazır' },
+  { id: 'error', label: 'Hata' },
 ];
 
 const pageSizes = [5, 10, 20, 50];

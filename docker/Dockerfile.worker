@@ -40,6 +40,7 @@ COPY backend ./backend
 COPY src ./src
 COPY templates ./templates
 COPY styles ./styles
+COPY tokens ./tokens
 
 ENV NODE_ENV=production
 

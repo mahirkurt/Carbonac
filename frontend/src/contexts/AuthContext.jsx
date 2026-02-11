@@ -101,10 +101,10 @@ export function AuthProvider({ children }) {
     try {
       const result = await authService.signInWithOAuth('google');
       if (!result.success) {
-        throw new Error(result.error || 'Google ile giris basarisiz');
+        throw new Error(result.error || 'Google ile giriş başarısız');
       }
       if (!result.url) {
-        throw new Error('OAuth yonlendirme adresi bulunamadi');
+        throw new Error('OAuth yönlendirme adresi bulunamadı');
       }
       redirected = true;
       window.location.assign(result.url);
@@ -133,9 +133,15 @@ export function AuthProvider({ children }) {
       const session = result.session;
       if (session?.access_token) {
         localStorage.setItem('carbonac_token', session.access_token);
+        setUser(mapSupabaseUser(result.user));
+      } else {
+        setUser(null);
       }
-      setUser(mapSupabaseUser(result.user));
-      return { success: true, message: result.message };
+      return {
+        success: true,
+        message: result.message,
+        needsVerification: !session,
+      };
     } catch (err) {
       setError(err.message);
       return { success: false, error: err.message };

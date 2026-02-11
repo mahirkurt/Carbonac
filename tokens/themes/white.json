@@ -1,0 +1,15 @@
+{
+  "name": "white",
+  "cssVars": {
+    "--cds-text-primary": "#161616",
+    "--cds-text-secondary": "#525252",
+    "--cds-border-subtle": "#e0e0e0",
+    "--cds-accent": "#0f62fe",
+    "--report-surface": "#ffffff",
+    "--report-surface-muted": "#f4f4f4",
+    "--report-callout-bg": "#f8f8f8",
+    "--report-code-bg": "#f4f4f4",
+    "--report-table-zebra": "#f4f4f4",
+    "--report-chart-grid": "#e0e0e0"
+  }
+}

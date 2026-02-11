@@ -20,7 +20,7 @@ import { LAYOUT_PROFILE_OPTIONS, PRINT_PROFILE_OPTIONS } from './AppSidebar';
 
 const THEME_OPTIONS = Object.values(THEMES).map((theme) => ({
   id: theme,
-  text: THEME_LABELS[theme],
+  label: THEME_LABELS[theme],
 }));
 
 function SettingsModal({
@@ -30,8 +30,6 @@ function SettingsModal({
   onLayoutProfileChange,
   selectedPrintProfile,
   onPrintProfileChange,
-  showAdvisor,
-  onToggleAdvisor,
   autoSave = true,
   onAutoSaveChange,
   livePreview = true,
@@ -69,6 +67,7 @@ function SettingsModal({
                 toggled={autoSave}
                 onToggle={(checked) => onAutoSaveChange?.(checked)}
               />
+              <p className="settings-modal__hint">Değişiklikler otomatik olarak yerel taslağa kaydedilir.</p>
               
               <Toggle
                 id="live-preview"
@@ -78,6 +77,7 @@ function SettingsModal({
                 toggled={livePreview}
                 onToggle={(checked) => onLivePreviewChange?.(checked)}
               />
+              <p className="settings-modal__hint">PDF üretimi olmadan hızlı markdown önizlemesini gösterir.</p>
             </div>
           </TabPanel>
           
@@ -104,14 +104,6 @@ function SettingsModal({
                 />
               )}
               
-              <Toggle
-                id="show-advisor"
-                labelText="AI Danışmanı Göster"
-                labelA="Gizle"
-                labelB="Göster"
-                toggled={showAdvisor}
-                onToggle={(checked) => onToggleAdvisor?.(checked)}
-              />
             </div>
           </TabPanel>
           

@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "v1.0",
+  "library": {
+    "name": "Carbonac Reference Library",
+    "owner": "Carbonac",
+    "defaultLicense": "internal-only",
+    "lastUpdated": "2026-01-22",
+    "notes": "Reference entries are tracked here; local PDFs live under library/pdfs when available."
+  },
+  "items": [
+    {
+      "id": "ibm-ix-brand-guidelines",
+      "title": "IBM iX Brand Guidelines",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/event/files/IBM_iX_Brand_Guidelines_101218.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:cover-page-hero",
+        "pattern:chapter-opener",
+        "pattern:executive-summary"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2018,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-ix-brand-guidelines.pdf",
+        "thumbnail": "library/thumbnails/ibm-ix-brand-guidelines.png"
+      },
+      "notes": "Brand system reference for cover and opener layouts."
+    },
+    {
+      "id": "ibm-garage-style-guide",
+      "title": "IBM Garage Style Guide",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/event/files/Garage_Style_Guide_V1_040219.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:cover-page-hero",
+        "pattern:action-box",
+        "pattern:key-findings-list"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2019,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-garage-style-guide.pdf",
+        "thumbnail": "library/thumbnails/ibm-garage-style-guide.png"
+      },
+      "notes": "Workshop-ready layouts and action blocks."
+    },
+    {
+      "id": "ibm-think-summit-guidelines",
+      "title": "Think Brand Guidelines — Think Summit Assets",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/event/files/200903_IBM_ThinkSummit2020_guidelines.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:cover-page-hero",
+        "pattern:figure-with-caption",
+        "pattern:chapter-opener"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2020,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-think-summit-guidelines.pdf",
+        "thumbnail": "library/thumbnails/ibm-think-summit-guidelines.png"
+      },
+      "notes": "Event branding references with strong cover treatments."
+    },
+    {
+      "id": "ibm-event-experience-design-toolkit",
+      "title": "Event Experience Design Toolkit",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/event/files/IBM-Event-Experience-Design-Toolkit.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:case-study-module",
+        "pattern:figure-with-caption",
+        "pattern:appendix-page"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2021,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-event-experience-design-toolkit.pdf",
+        "thumbnail": "library/thumbnails/ibm-event-experience-design-toolkit.png"
+      },
+      "notes": "Experience design toolkit with modular layouts."
+    },
+    {
+      "id": "ibm-digital-event-design-toolkit",
+      "title": "Digital Event Design Toolkit",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/event/files/220204_Digital_Event_Design_Toolkit.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:case-study-module",
+        "pattern:survey-chart-page",
+        "pattern:figure-with-caption"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2022,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-digital-event-design-toolkit.pdf",
+        "thumbnail": "library/thumbnails/ibm-digital-event-design-toolkit.png"
+      },
+      "notes": "Digital-first event experience references."
+    },
+    {
+      "id": "ibm-design-for-sustainability",
+      "title": "IBM Design for Sustainability — Position Paper",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/practices/design-for-sustainability/design-for-sustainability-positionpaper.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:executive-summary",
+        "pattern:hero-stat-with-quote",
+        "pattern:appendix-page"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2023,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-design-for-sustainability.pdf",
+        "thumbnail": "library/thumbnails/ibm-design-for-sustainability.png"
+      },
+      "notes": "Thought leadership reference with narrative structure."
+    },
+    {
+      "id": "ibm-engineering-for-sustainability",
+      "title": "IBM Software Engineering for Sustainability",
+      "status": "active",
+      "source": {
+        "type": "web",
+        "url": "https://www.ibm.com/design/practices/engineering-for-sustainability/IBM-engineering-for-sustainability.pdf"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:executive-summary",
+        "pattern:key-findings-list",
+        "pattern:hero-stat-with-quote"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2023,
+        "region": "global"
+      },
+      "files": {
+        "pdf": "library/pdfs/ibm-engineering-for-sustainability.pdf",
+        "thumbnail": "library/thumbnails/ibm-engineering-for-sustainability.png"
+      },
+      "notes": "Engineering-focused reference for evidence-led narratives."
+    }
+  ],
+  "itemTemplate": {
+    "id": "string",
+    "title": "string",
+    "status": "active|pending|deprecated",
+    "source": {
+      "type": "web|internal|vendor",
+      "url": "https://..."
+    },
+    "license": "internal-only|public|cc-by|cc-by-sa|custom",
+    "tags": ["pattern:cover-page-hero"],
+    "metadata": {
+      "publisher": "string",
+      "year": 2025,
+      "region": "string"
+    },
+    "files": {
+      "pdf": "library/pdfs/<file>.pdf",
+      "thumbnail": "library/thumbnails/<file>.png"
+    },
+    "notes": "string"
+  }
+}

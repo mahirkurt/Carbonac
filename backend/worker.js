@@ -27,6 +27,7 @@ import {
   createTemplatePreviewSignedUrl,
 } from './storage.js';
 import {
+  templateStoreEnabled,
   getTemplateByKey,
   getTemplateById,
   getTemplateVersionById,
@@ -151,6 +152,7 @@ function buildOutputManifest({
   storagePath,
   signedUrl,
   signedUrlExpiresAt,
+  timings,
 }) {
   return {
     schemaVersion: 'v1.0',
@@ -158,6 +160,7 @@ function buildOutputManifest({
     jobId,
     documentId,
     userId,
+    timings: timings || null,
     template: templateMeta
       ? {
           key: templateMeta.key,
@@ -413,10 +416,34 @@ async function handleConvertPdf(job) {
   const { markdown, settings = {} } = job.data || {};
   const userId = job.data?.userId || null;
   const documentId = job.data?.documentId || null;
+  const jobTiming = {
+    startedAt: new Date().toISOString(),
+    renderStartedAt: null,
+    renderCompletedAt: null,
+    qaCompletedAt: null,
+    pdfExportedAt: null,
+    postprocessCompletedAt: null,
+    uploadCompletedAt: null,
+    finishedAt: null,
+  };
   await assertNotCancelled(job);
   if (!markdown) {
     throw new Error('Missing markdown content.');
   }
+
+  console.log(
+    JSON.stringify({
+      event: 'convert_pdf_start',
+      jobId: job.id,
+      documentId,
+      userId,
+      templateKey: settings.template || settings.templateKey || null,
+      layoutProfile: settings.layoutProfile || null,
+      printProfile: settings.printProfile || null,
+      theme: settings.theme || null,
+      storageEnabled,
+    })
+  );
 
   await reportStage(job, 'ingest', 'Markdown ingest started');
 
@@ -429,7 +456,7 @@ async function handleConvertPdf(job) {
   const templateKey = settings.template || null;
   let templateSchema = null;
   let templateMeta = null;
-  if (templateKey) {
+  if (templateKey && templateStoreEnabled) {
     try {
       const templateResult = await getTemplateByKey(templateKey);
       if (templateResult?.version) {
@@ -479,6 +506,16 @@ async function handleConvertPdf(job) {
     printProfile,
     theme,
   });
+
+  console.log(
+    JSON.stringify({
+      event: 'convert_pdf_art_direction',
+      jobId: job.id,
+      source: artDirection?.source || null,
+      promptVersion: artDirection?.promptVersion || null,
+      models: artDirection?.models || null,
+    })
+  );
 
   await reportStage(job, 'plan', 'AI layout plan ready');
   await assertNotCancelled(job);
@@ -545,6 +582,19 @@ async function handleConvertPdf(job) {
       status: metadata.status || null,
     },
     onStage: async (stage) => {
+      if (stage === 'render-html') {
+        jobTiming.renderStartedAt = jobTiming.renderStartedAt || new Date().toISOString();
+        jobTiming.renderCompletedAt = new Date().toISOString();
+      }
+      if (stage === 'paginate') {
+        jobTiming.renderCompletedAt = new Date().toISOString();
+      }
+      if (stage === 'export-pdf') {
+        jobTiming.pdfExportedAt = new Date().toISOString();
+      }
+      if (stage === 'postprocess') {
+        jobTiming.postprocessCompletedAt = new Date().toISOString();
+      }
       const messageMap = {
         'render-html': 'HTML render hazır',
         paginate: 'Paged.js sayfalama tamamlandı',
@@ -558,6 +608,7 @@ async function handleConvertPdf(job) {
 
   const resolvedPath = conversionResult?.outputPath || outputPath;
   const qaReport = conversionResult?.qaReport || null;
+  jobTiming.qaCompletedAt = qaReport ? new Date().toISOString() : jobTiming.qaCompletedAt;
   const postprocess = conversionResult?.postprocess || null;
 
   await fs.unlink(tempMarkdownPath).catch(() => null);
@@ -573,6 +624,7 @@ async function handleConvertPdf(job) {
     const signedUrlResult = await createPdfSignedUrl({ storagePath });
     signedUrl = signedUrlResult?.signedUrl || null;
     signedUrlExpiresAt = signedUrlResult?.expiresAt || null;
+    jobTiming.uploadCompletedAt = new Date().toISOString();
     await reportStage(job, 'upload', 'Output uploaded');
   }
 
@@ -609,6 +661,7 @@ async function handleConvertPdf(job) {
     }).catch(() => null);
   }
 
+  jobTiming.finishedAt = new Date().toISOString();
   const outputManifest = buildOutputManifest({
     jobId: job.id,
     documentId,
@@ -623,9 +676,24 @@ async function handleConvertPdf(job) {
     storagePath,
     signedUrl,
     signedUrlExpiresAt,
+    timings: jobTiming,
   });
 
   await reportStage(job, 'complete', 'Job artifacts ready', 100, { status: 'completed' });
+
+  console.log(
+    JSON.stringify({
+      event: 'convert_pdf_completed',
+      jobId: job.id,
+      outputPath: resolvedPath,
+      preflightStatus: preflight.status || null,
+      qaIssues: qaReport?.issues?.length || 0,
+      qaAccessibilityIssues: qaReport?.accessibilityIssues?.length || 0,
+      qaIterations: qaReport?.iterations || 0,
+      storagePath,
+      signedUrlExpiresAt,
+    })
+  );
 
   if (usageStoreEnabled) {
     await createUsageEvent({

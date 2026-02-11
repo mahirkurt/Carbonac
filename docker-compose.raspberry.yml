@@ -12,6 +12,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
   api:
     build:
       context: .
@@ -24,7 +25,10 @@ services:
       - REDIS_URL=redis://redis:6379
       - JOB_QUEUE_NAME=carbonac-jobs
     ports:
-      - "3001:3001"
+      # Raspberry Pi host port 3001 is already in use (anythingllm runs in host network).
+      # Expose API on host port 3003 -> container port 3001.
+      # Remember to update Cloudflare tunnel ingress to http://localhost:3003.
+      - "3003:3001"
     healthcheck:
       test: ["CMD", "node", "scripts/redis-healthcheck.js"]
       interval: 30s
@@ -35,6 +39,7 @@ services:
       - temp-data:/app/temp
     profiles:
       - api
+
   worker:
     build:
       context: .

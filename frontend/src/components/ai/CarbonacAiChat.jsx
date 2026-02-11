@@ -6,6 +6,7 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   ChatContainer,
+  ChatCustomElement,
   MessageInputType,
   MessageResponseTypes,
   MinimizeButtonIconType,
@@ -173,6 +174,8 @@ function getAiUserFacingErrorText(error) {
 
 export default function CarbonacAiChat({
   enabled = true,
+  embedded = false,
+  embeddedClassName = 'carbonac-ai-chat--embedded',
   isAuthenticated = false,
   onRequestLogin,
   onInstanceReady,
@@ -514,55 +517,67 @@ export default function CarbonacAiChat({
 
   if (!enabled) return null;
 
+  const commonProps = {
+    namespace: 'carbonac',
+    aiEnabled: true,
+    assistantName: 'Carbonac AI',
+    debug: false,
+    shouldSanitizeHTML: true,
+    disclaimer: {
+      isOn: true,
+      disclaimerHTML,
+    },
+    openChatByDefault: Boolean(embedded),
+    launcher: {
+      isOn: false,
+    },
+    header: {
+      title: 'AI Danışmanı',
+      minimizeButtonIconType: MinimizeButtonIconType.CLOSE,
+      hideMinimizeButton: Boolean(embedded),
+      showRestartButton: true,
+      showAiLabel: true,
+      menuOptions,
+    },
+    homescreen: {
+      isOn: true,
+      greeting: isAuthenticated
+        ? 'Merhaba. Bir hedef söyleyin; birlikte düzenleyelim.'
+        : 'AI Danışmanını kullanmak için giriş yapın.',
+      starters: isAuthenticated
+        ? {
+            isOn: true,
+            buttons: [
+              { label: 'Bu metni daha okunabilir yap ve bölümlere ayır.' },
+              { label: 'Tipografi ve boşluklar için öneri ver.' },
+              { label: 'Yazım/düzen uyarılarını açıkla ve düzeltme öner.' },
+              { label: 'Şablon ve yerleşim seçimim için öneride bulun.' },
+            ],
+          }
+        : { isOn: false, buttons: [] },
+    },
+    input: {
+      isDisabled: !isAuthenticated,
+      maxInputCharacters: 8000,
+    },
+    messaging: {
+      skipWelcome: false,
+      messageTimeoutSecs: 90,
+      customSendMessage,
+    },
+    onBeforeRender: handleBeforeRender,
+  };
+
   return (
-    <ChatContainer
-      namespace="carbonac"
-      aiEnabled
-      assistantName="Carbonac AI"
-      debug={false}
-      shouldSanitizeHTML
-      disclaimer={{
-        isOn: true,
-        disclaimerHTML,
-      }}
-      openChatByDefault={false}
-      launcher={{
-        isOn: false,
-      }}
-      header={{
-        title: 'AI Danışmanı',
-        minimizeButtonIconType: MinimizeButtonIconType.CLOSE,
-        showRestartButton: true,
-        showAiLabel: true,
-        menuOptions,
-      }}
-      homescreen={{
-        isOn: true,
-        greeting: isAuthenticated
-          ? 'Merhaba. Bir hedef söyleyin; birlikte düzenleyelim.'
-          : 'AI Danışmanını kullanmak için giriş yapın.',
-        starters: isAuthenticated
-          ? {
-              isOn: true,
-              buttons: [
-                { label: 'Bu metni daha okunabilir yap ve bölümlere ayır.' },
-                { label: 'Tipografi ve boşluklar için öneri ver.' },
-                { label: 'Yazım/düzen uyarılarını açıkla ve düzeltme öner.' },
-                { label: 'Şablon ve yerleşim seçimim için öneride bulun.' },
-              ],
-            }
-          : { isOn: false, buttons: [] },
-      }}
-      input={{
-        isDisabled: !isAuthenticated,
-        maxInputCharacters: 8000,
-      }}
-      messaging={{
-        skipWelcome: false,
-        messageTimeoutSecs: 90,
-        customSendMessage,
-      }}
-      onBeforeRender={handleBeforeRender}
-    />
+    embedded ? (
+      <ChatCustomElement
+        className={embeddedClassName}
+        {...commonProps}
+      />
+    ) : (
+      <ChatContainer
+        {...commonProps}
+      />
+    )
   );
 }

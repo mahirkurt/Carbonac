@@ -1,29 +1,90 @@
 /**
  * AppHeader Styles
+ * Taller, brand-forward header with prominent Carbonac logo
  */
 
 @use '../../styles/abstracts' as *;
 
+// Override Carbon Header height for a more spacious, brand-forward look
+.cds--header {
+  height: 3.5rem; // 56px (up from default 48px)
+  border-bottom: none;
+
+  // Gradient accent strip under header
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-line);
+    opacity: 0.85;
+  }
+}
+
+// Ensure global actions align with taller header
+.cds--header__global {
+  height: 3.5rem;
+}
+
+.cds--header__action {
+  height: 3.5rem;
+  width: 3.5rem;
+}
+
+.cds--header__menu-trigger {
+  height: 3.5rem;
+}
+
+// Navigation items fill header height
+.cds--header__nav {
+  height: 3.5rem;
+
+  &::before {
+    height: 3.5rem;
+  }
+}
+
+.cds--header__menu-bar {
+  height: 3.5rem;
+}
+
+.cds--header__menu-item {
+  height: 3.5rem;
+}
+
 .app-header {
-  // Logo
+  // Logo link - generous click area
   &__logo-link {
     display: flex;
     align-items: center;
+    height: 100%;
+    padding: 0 1.25rem;
     text-decoration: none;
-    margin-right: 1rem;
-  }
-
-  &__logo {
-    height: 24px;
-    width: auto;
+    gap: 0;
   }
 
   // Navigation
   &__nav {
     display: none;
+    align-items: center;
+    gap: var(--cds-spacing-05, 1rem);
+    margin-left: var(--cds-spacing-05, 1rem);
+    height: 100%;
 
     @media (min-width: 66rem) {
       display: flex;
+    }
+
+    .cds--header__menu-item {
+      height: 100%;
+    }
+
+    .cds--header__menu-item > a {
+      height: 100%;
+      display: inline-flex;
+      align-items: center;
     }
   }
 
@@ -31,12 +92,21 @@
   &__credits {
     display: flex;
     align-items: center;
-    padding: 0 0.5rem;
+    padding: 0 var(--cds-spacing-04, 0.75rem);
+    cursor: pointer;
   }
 
   // User Panel
   &__user-panel {
-    padding: 1rem;
+    padding: var(--cds-spacing-05, 1rem);
+    width: 100%;
+    max-width: 20rem;
+  }
+
+  &__user-panel-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--cds-spacing-03, 0.5rem);
   }
 
   &__user-info {
@@ -70,7 +140,63 @@
   }
 }
 
+// Header logo - default (authenticated) size — significantly larger
+.header-logo {
+  height: 32px;
+  width: auto;
+  transition: height $duration-moderate-02 $ease-standard-productive;
+
+  @include lg {
+    height: 36px;
+  }
+
+  @include xlg {
+    height: 38px;
+  }
+}
+
+// Landing mode - enlarged logo for hero impact
+.header-logo--landing {
+  height: 44px;
+
+  @include md {
+    height: 52px;
+  }
+
+  @include lg {
+    height: 56px;
+  }
+}
+
+// Landing mode header - transparent bg, no border
+.cds--header--landing {
+  background: transparent;
+  border-bottom: none;
+  height: 4rem; // Even taller for landing
+
+  &::after {
+    display: none;
+  }
+
+  .cds--header__global {
+    height: 4rem;
+  }
+
+  .cds--header__action {
+    height: 4rem;
+  }
+}
+
 // Fix Carbon Header Panel positioning
 .cds--header-panel {
   z-index: 8001;
+}
+
+// IMPORTANT: Size/visuals must only apply when expanded.
+.cds--header-panel--expanded {
+  inline-size: 20rem;
+  width: 20rem;
+  background: var(--cds-layer-02);
+  border-left: 1px solid var(--cds-border-subtle-01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }

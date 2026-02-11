@@ -41,14 +41,18 @@ function buildRedirectUrl(pathname) {
   return `${baseUrl}${safePath}`;
 }
 
+const authStorage = typeof window !== 'undefined' ? window.localStorage : undefined;
+const authOptions = {
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: true,
+  flowType: 'pkce',
+  ...(authStorage ? { storage: authStorage } : {}),
+};
+
 // Create Supabase client
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    storage: window.localStorage,
-  },
+  auth: authOptions,
   global: {
     headers: {
       'x-application-name': 'carbonac',

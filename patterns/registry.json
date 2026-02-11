@@ -1,0 +1,197 @@
+{
+  "schemaVersion": "v1.0",
+  "patterns": [
+    {
+      "id": "cover-page-hero",
+      "title": "Cover Page Hero",
+      "blockType": "cover",
+      "description": "Kapak sayfasi icin hero baslik + meta blok.",
+      "schema": "patterns/schemas/cover-page-hero.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "executive-summary",
+      "title": "Executive Summary",
+      "blockType": "summary",
+      "description": "Ust seviye ozet ve key insight listesi.",
+      "schema": "patterns/schemas/executive-summary.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "key-findings-list",
+      "title": "Key Findings List",
+      "blockType": "list",
+      "description": "Bullet tabanli bulgu listesi.",
+      "schema": "patterns/schemas/key-findings-list.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "action-box",
+      "title": "What To Do / Action Box",
+      "blockType": "action",
+      "description": "Oneri ve aksiyon maddeleri kutusu.",
+      "schema": "patterns/schemas/action-box.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "hero-stat-with-quote",
+      "title": "Hero Stat With Quote",
+      "blockType": "stat",
+      "description": "Buyuk metrik + alinti blok kombinasyonu.",
+      "schema": "patterns/schemas/hero-stat-with-quote.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "chapter-opener",
+      "title": "Chapter / Part Opener",
+      "blockType": "chapter",
+      "description": "Bolum acilisi icin tam sayfa baslik.",
+      "schema": "patterns/schemas/chapter-opener.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "case-study-module",
+      "title": "Case Study Module",
+      "blockType": "case-study",
+      "description": "Durum, zorluk, cozum, sonuc bloklari.",
+      "schema": "patterns/schemas/case-study-module.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "survey-chart-page",
+      "title": "Survey Chart Page",
+      "blockType": "chart",
+      "description": "Anket sorusu + chart + notlar.",
+      "schema": "patterns/schemas/survey-chart-page.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "persistent-section-nav-footer",
+      "title": "Persistent Section Nav Footer",
+      "blockType": "footer",
+      "description": "Bolum nav footer kalibi.",
+      "schema": "patterns/schemas/persistent-section-nav-footer.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "figure-with-caption",
+      "title": "Figure With Caption & Source",
+      "blockType": "figure",
+      "description": "Gorsel + caption + source kompozisyonu.",
+      "schema": "patterns/schemas/figure-with-caption.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "appendix-page",
+      "title": "Appendix Page",
+      "blockType": "appendix",
+      "description": "Ekler ve referans listesi.",
+      "schema": "patterns/schemas/appendix-page.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "section-divider",
+      "title": "Section Divider",
+      "blockType": "divider",
+      "description": "Bolum gecisleri icin sayfa ayirici blok.",
+      "schema": "patterns/schemas/section-divider.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "kpi-grid",
+      "title": "KPI Grid",
+      "blockType": "kpi",
+      "description": "Grid halinde KPI/metric kartlari.",
+      "schema": "patterns/schemas/kpi-grid.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "timeline-summary",
+      "title": "Timeline Summary",
+      "blockType": "timeline",
+      "description": "Zaman cizelgesi ozet bloklari.",
+      "schema": "patterns/schemas/timeline-summary.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "icon-list",
+      "title": "Icon List",
+      "blockType": "list",
+      "description": "Ikon + baslikli ozet listesi.",
+      "schema": "patterns/schemas/icon-list.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "profile-card",
+      "title": "Profile Card",
+      "blockType": "profile",
+      "description": "Profil ozeti kart bloku.",
+      "schema": "patterns/schemas/profile-card.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-profile",
+      "title": "CV Profile",
+      "blockType": "cv",
+      "description": "CV ust kart (isim, headline, iletisim).",
+      "schema": "patterns/schemas/cv-profile.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-summary",
+      "title": "CV Summary",
+      "blockType": "cv",
+      "description": "CV kisa ozet ve highlight listesi.",
+      "schema": "patterns/schemas/cv-summary.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-experience",
+      "title": "CV Experience",
+      "blockType": "cv",
+      "description": "Is deneyimi listesi.",
+      "schema": "patterns/schemas/cv-experience.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-education",
+      "title": "CV Education",
+      "blockType": "cv",
+      "description": "Egitim listesi.",
+      "schema": "patterns/schemas/cv-education.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-skills",
+      "title": "CV Skills",
+      "blockType": "cv",
+      "description": "Yetenek listesi.",
+      "schema": "patterns/schemas/cv-skills.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-projects",
+      "title": "CV Projects",
+      "blockType": "cv",
+      "description": "Proje listesi.",
+      "schema": "patterns/schemas/cv-projects.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-certifications",
+      "title": "CV Certifications",
+      "blockType": "cv",
+      "description": "Sertifikalar listesi.",
+      "schema": "patterns/schemas/cv-certifications.schema.json",
+      "directive": "pattern"
+    },
+    {
+      "id": "cv-languages",
+      "title": "CV Languages",
+      "blockType": "cv",
+      "description": "Dil bilgisi listesi.",
+      "schema": "patterns/schemas/cv-languages.schema.json",
+      "directive": "pattern"
+    }
+  ]
+}

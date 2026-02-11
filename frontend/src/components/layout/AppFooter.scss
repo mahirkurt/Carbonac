@@ -24,9 +24,9 @@
   }
 
   &__logo {
-    height: 28px;
+    height: 36px;
     width: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
 
   &__description {
@@ -34,7 +34,7 @@
     color: var(--cds-text-secondary);
     line-height: 1.5;
     margin-bottom: 1.5rem;
-    max-width: 280px;
+    max-width: 320px;
   }
 
   &__company {
@@ -135,6 +135,23 @@
     &:hover {
       color: var(--cds-link-primary);
     }
+  }
+}
+
+// Gradient variant (landing page)
+.app-footer--gradient {
+  position: relative;
+  border-top: 3px solid transparent;
+  background-clip: padding-box;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-line);
   }
 }
 

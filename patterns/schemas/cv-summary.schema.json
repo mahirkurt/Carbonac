@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CvSummaryPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary"],
+  "properties": {
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

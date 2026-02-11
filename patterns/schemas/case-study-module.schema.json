@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CaseStudyModulePattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "context", "challenge", "outcome"],
+  "properties": {
+    "title": { "type": "string" },
+    "context": { "type": "string" },
+    "challenge": { "type": "string" },
+    "outcome": { "type": "string" },
+    "metrics": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

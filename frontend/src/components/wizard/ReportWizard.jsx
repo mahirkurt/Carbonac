@@ -11,6 +11,7 @@ import {
   ClickableTile,
   Dropdown,
   InlineNotification,
+  Tag,
 } from '@carbon/react';
 
 import {
@@ -38,6 +39,8 @@ import {
 } from '@carbon/icons-react';
 
 import { useDocument, WORKFLOW_STEPS } from '../../contexts/DocumentContext';
+import { useAuth } from '../../contexts';
+import CarbonacAiChat from '../ai/CarbonacAiChat';
 import './ReportWizard.scss';
 
 // Wizard questions configuration
@@ -189,7 +192,7 @@ const generateAIResponse = (questionId, answer, allAnswers) => {
   return responses[questionId]?.[answer] || 'Tercihlerinizi kaydettim! Bir sonraki soruya geçelim. ✅';
 };
 
-function ReportWizard() {
+function ReportWizard({ onRequestLogin } = {}) {
   const {
     reportSettings,
     updateReportSettings,
@@ -209,11 +212,9 @@ function ReportWizard() {
     setTheme,
   } = useDocument();
 
-  const { isAuthenticated } = useDocument();
+  const { isAuthenticated } = useAuth();
 
-  // Wizard içerisinde Carbonac AI Chat (genel header widget ile aynı instance).
-  // Burada sadece görünürlük için kullanıcıyı yönlendiriyoruz.
-  const [showAiHint, setShowAiHint] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState({});
@@ -227,6 +228,49 @@ function ReportWizard() {
     },
   ]);
   const messagesEndRef = useRef(null);
+
+  const buildWizardAiPrompt = useCallback(() => {
+    const lines = [];
+    lines.push('Rapor sihirbazındayım. Aşağıdaki seçimlere göre öneri istiyorum:');
+    if (selectedOptions.documentType) lines.push(`- Doküman tipi: ${selectedOptions.documentType}`);
+    if (selectedOptions.audience) lines.push(`- Hedef kitle: ${selectedOptions.audience}`);
+    if (selectedOptions.tone) lines.push(`- Ton: ${selectedOptions.tone}`);
+    if (selectedOptions.purpose) lines.push(`- Amaç: ${selectedOptions.purpose}`);
+    if (selectedOptions.colorScheme) lines.push(`- Renk şeması: ${selectedOptions.colorScheme}`);
+    if (selectedOptions.layoutStyle) lines.push(`- Sayfa düzeni: ${selectedOptions.layoutStyle}`);
+    if (Array.isArray(selectedOptions.emphasis) && selectedOptions.emphasis.length) {
+      lines.push(`- Vurgular: ${selectedOptions.emphasis.join(', ')}`);
+    }
+    if (Array.isArray(selectedOptions.components) && selectedOptions.components.length) {
+      lines.push(`- Bileşenler: ${selectedOptions.components.join(', ')}`);
+    }
+    lines.push('');
+    lines.push('Bu tercihlere göre:');
+    lines.push('1) Hangi şablonu önerirsin?');
+    lines.push('2) Yerleşim/tema için 3 kısa öneri ver.');
+    lines.push('3) Metni daha okunur yapmak için 3 somut öneri ver.');
+    return lines.join('\n');
+  }, [selectedOptions]);
+
+  const aiInstanceRef = useRef(null);
+
+  const handleAiInstanceReady = useCallback((instance) => {
+    aiInstanceRef.current = instance;
+  }, []);
+
+  const handleAskAiAboutWizard = useCallback(async () => {
+    const instance = aiInstanceRef.current;
+    if (!instance) return;
+    const prompt = buildWizardAiPrompt();
+
+    try {
+      await instance.changeView('mainWindow');
+      await instance.send(prompt);
+      instance.requestFocus?.();
+    } catch (e) {
+      // ignore
+    }
+  }, [buildWizardAiPrompt]);
 
   const currentQuestion = WIZARD_QUESTIONS[currentQuestionIndex];
   const totalQuestions = WIZARD_QUESTIONS.length;
@@ -365,16 +409,6 @@ function ReportWizard() {
     setStep(WORKFLOW_STEPS.EDITOR);
   }, [setStep]);
 
-  const handleOpenAiAssistant = useCallback(() => {
-    // Header’daki AI butonunu tıklamak için hash sinyali.
-    // App.jsx içinde hash listener ile yakalanacak.
-    try {
-      window.location.hash = '#ai';
-    } catch (e) {
-      // ignore
-    }
-  }, []);
-
   const isWizardComplete = currentQuestionIndex >= totalQuestions - 1 && selectedOptions[currentQuestion?.id];
   const canProceed = selectedOptions[currentQuestion?.id] && (
     !Array.isArray(selectedOptions[currentQuestion?.id]) || 
@@ -408,44 +442,38 @@ function ReportWizard() {
         </div>
       </div>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <Button
-          kind="ghost"
-          size="sm"
-          onClick={() => setShowAiHint((prev) => !prev)}
-        >
-          AI ile yardım al
-        </Button>
+      <div className="report-wizard__ai">
+        <div className="report-wizard__ai-controls">
+          <Button kind="ghost" size="sm" onClick={() => setAiChatOpen((prev) => !prev)}>
+            {aiChatOpen ? 'AI Danışmanını gizle' : 'AI ile yardım al'}
+          </Button>
 
-        {showAiHint && (
-          <div style={{ marginTop: '0.75rem' }}>
-            {!isAuthenticated ? (
-              <InlineNotification
-                kind="info"
-                title="AI Danışmanı"
-                subtitle="AI için giriş yapmanız gerekiyor. Sağ üstteki hesap ikonundan giriş yapın."
-                lowContrast
-              />
-            ) : (
-              <InlineNotification
-                kind="info"
-                title="AI Danışmanı"
-                subtitle={(
-                  <span>
-                    Sağ üstteki <strong>AI Danışmanı</strong> butonuna basın. İsterseniz buradan da açabilirsiniz.
-                  </span>
-                )}
-                lowContrast
-              />
-            )}
+          {aiChatOpen && isAuthenticated && (
+            <Button kind="secondary" size="sm" onClick={handleAskAiAboutWizard}>
+              Seçimlerimi AI'a sor
+            </Button>
+          )}
+        </div>
 
-            {isAuthenticated && (
-              <div style={{ marginTop: '0.5rem' }}>
-                <Button kind="secondary" size="sm" onClick={handleOpenAiAssistant}>
-                  AI Danışmanını aç
-                </Button>
-              </div>
-            )}
+        {aiChatOpen && !isAuthenticated && (
+          <InlineNotification
+            kind="info"
+            title="AI Danışmanı"
+            subtitle="AI için giriş yapmanız gerekiyor. Sağ üstteki hesap ikonundan giriş yapın."
+            lowContrast
+          />
+        )}
+
+        {aiChatOpen && (
+          <div className="report-wizard__ai-chat">
+            <CarbonacAiChat
+              enabled
+              embedded
+              embeddedClassName="carbonac-ai-chat--wizard"
+              isAuthenticated={isAuthenticated}
+              onRequestLogin={onRequestLogin}
+              onInstanceReady={handleAiInstanceReady}
+            />
           </div>
         )}
       </div>
@@ -596,7 +624,7 @@ function ReportWizard() {
             </Button>
           )}
           
-          {!isWizardComplete ? (
+          {!showSummary ? (
             <Button
               kind="primary"
               renderIcon={ArrowRight}

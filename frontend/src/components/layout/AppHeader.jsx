@@ -28,7 +28,7 @@ function AppHeader({
     <Header aria-label="Carbonac">
       <a href="/" className="header-logo-link">
         <img
-          src={isDark ? '/logos/Carbonac-Light-Wide.png' : '/logos/Carbonac-Dark-Wide.png'}
+          src="/logos/Carbonac-Color-Wide.png"
           alt="Carbonac"
           className="header-logo"
         />

@@ -34,7 +34,6 @@ import {
 import {
   Document,
   DocumentPdf,
-  Chat,
   Settings,
   Light,
   Asleep,
@@ -92,7 +91,7 @@ const PricingModal = lazy(() => import('./components/pricing/PricingModal'));
 const DocumentUploader = lazy(() => import('./components/document/DocumentUploader'));
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
 const TemplateGallery = lazy(() => import('./components/templates/TemplateGallery'));
-const CarbonacAiChat = lazy(() => import('./components/ai/CarbonacAiChat'));
+const LandingPage = lazy(() => import('./components/landing/LandingPage'));
 
 const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
 const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === 'true';
@@ -501,13 +500,7 @@ function AppContent() {
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [showSideNav, setShowSideNav] = useState(true);
   const [notification, setNotification] = useState(null);
-  const [aiChatEnabled, setAiChatEnabled] = useLocalStorage('carbonac-ai-chat-enabled', true);
-  const [aiChatMounted, setAiChatMounted] = useState(false);
-  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const userPanelRef = useRef(null);
-  const aiChatInstanceRef = useRef(null);
-  const aiChatPendingOpenRef = useRef(false);
-  const aiChatWiredInstanceRef = useRef(null);
   const [activeWorkspace, setActiveWorkspace] = useState(() => {
     if (typeof window === 'undefined') return 'workflow';
     const path = window.location.pathname || '';
@@ -524,68 +517,6 @@ function AppContent() {
   const isGuestMode = GUEST_MODE;
   const canAccessWorkspace = isAuthenticated || isGuestMode;
 
-  const handleAiChatInstanceReady = useCallback((instance) => {
-    if (!instance) return;
-
-    aiChatInstanceRef.current = instance;
-    const initialOpen = Boolean(instance.getState?.().viewState?.mainWindow);
-    setIsAiChatOpen(initialOpen);
-
-    // Attach a single view-state listener per instance (avoid duplicate listeners).
-    if (aiChatWiredInstanceRef.current !== instance) {
-      aiChatWiredInstanceRef.current = instance;
-      instance.on({
-        type: 'view:change',
-        handler: (event) => {
-          setIsAiChatOpen(Boolean(event?.newViewState?.mainWindow));
-        },
-      });
-    }
-
-    if (aiChatPendingOpenRef.current) {
-      aiChatPendingOpenRef.current = false;
-      void instance.changeView('mainWindow');
-      try {
-        instance.requestFocus?.();
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
-
-  const toggleAiChat = useCallback(() => {
-    const instance = aiChatInstanceRef.current;
-    if (!instance) {
-      aiChatPendingOpenRef.current = true;
-      setAiChatMounted(true);
-      return;
-    }
-
-    const nextOpen = !Boolean(instance.getState?.().viewState?.mainWindow);
-    void instance.changeView(nextOpen ? 'mainWindow' : 'launcher');
-    if (nextOpen) {
-      try {
-        instance.requestFocus?.();
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
-
-  const handleToggleAiChatEnabled = useCallback((checked) => {
-    setAiChatEnabled(Boolean(checked));
-    if (!checked) {
-      const instance = aiChatInstanceRef.current;
-      if (instance) {
-        void instance.changeView('launcher');
-      }
-      aiChatPendingOpenRef.current = false;
-      aiChatInstanceRef.current = null;
-      aiChatWiredInstanceRef.current = null;
-      setAiChatMounted(false);
-      setIsAiChatOpen(false);
-    }
-  }, [setAiChatEnabled]);
 
   // Close user panel on outside click / Escape
   useEffect(() => {
@@ -638,19 +569,6 @@ function AppContent() {
     const onPopStateOrHash = () => {
       const path = window.location.pathname || '';
       const hash = window.location.hash || '';
-      if (hash === '#ai') {
-        // Wizard/other panels can set #ai to request opening the AI assistant.
-        // Keep the current workspace; just open the chat.
-        aiChatPendingOpenRef.current = true;
-        setAiChatMounted(true);
-        // Clear hash to avoid repeated triggers.
-        try {
-          window.history.replaceState({}, '', path || '/');
-        } catch (e) {
-          // ignore
-        }
-        return;
-      }
       if (hash === '#templates' || (path === '/templates' && (!hash || hash === '#templates'))) {
         setActiveWorkspace('templates');
         return;
@@ -740,7 +658,7 @@ function AppContent() {
       case WORKFLOW_STEPS.WIZARD:
         return (
           <Suspense fallback={<Loading withOverlay description="Yükleniyor..." />}>
-            <ReportWizard />
+            <ReportWizard onRequestLogin={() => setShowAuth(true)} />
           </Suspense>
         );
       
@@ -777,7 +695,7 @@ function AppContent() {
     <Theme theme={theme}>
       <div className="app-container">
         {/* Header */}
-        <Header aria-label="Carbonac">
+        <Header aria-label="Carbonac" className={!canAccessWorkspace ? 'cds--header--landing' : ''}>
           {canAccessWorkspace && (
             <HeaderMenuButton
               aria-label={showSideNav ? 'Yan menüyü kapat' : 'Yan menüyü aç'}
@@ -796,44 +714,46 @@ function AppContent() {
               handleWorkspaceChange('workflow');
             }}
           >
-            <img 
-              src={theme === 'white' ? '/logos/Carbonac-Dark-Wide.png' : '/logos/Carbonac-Light-Wide.png'} 
-              alt="Carbonac" 
-              className="header-logo"
+            <img
+              src="/logos/Carbonac-Color-Wide.png"
+              alt="Carbonac"
+              className={`header-logo${!canAccessWorkspace ? ' header-logo--landing' : ''}`}
             />
           </a>
            
-          <HeaderNavigation aria-label="Main navigation" className="app-header__nav">
-            <HeaderMenuItem
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                reset();
-                handleWorkspaceChange('workflow');
-              }}
-            >
-              <Home size={16} style={{ marginRight: '0.5rem' }} />
-              Ana Sayfa
-            </HeaderMenuItem>
-            <HeaderMenuItem
-              href="#templates"
-              onClick={(e) => {
-                e.preventDefault();
-                handleWorkspaceChange('templates');
-              }}
-            >
-              Şablonlar
-            </HeaderMenuItem>
-            <HeaderMenuItem
-              href="#documents"
-              onClick={(e) => {
-                e.preventDefault();
-                handleWorkspaceChange('documents');
-              }}
-            >
-              Dokümanlarım
-            </HeaderMenuItem>
-          </HeaderNavigation>
+          {canAccessWorkspace && (
+            <HeaderNavigation aria-label="Main navigation" className="app-header__nav">
+              <HeaderMenuItem
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  reset();
+                  handleWorkspaceChange('workflow');
+                }}
+              >
+                <Home size={16} style={{ marginRight: '0.5rem' }} />
+                Ana Sayfa
+              </HeaderMenuItem>
+              <HeaderMenuItem
+                href="#templates"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleWorkspaceChange('templates');
+                }}
+              >
+                Şablonlar
+              </HeaderMenuItem>
+              <HeaderMenuItem
+                href="#documents"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleWorkspaceChange('documents');
+                }}
+              >
+                Dokümanlarım
+              </HeaderMenuItem>
+            </HeaderNavigation>
+          )}
 
           <HeaderGlobalBar>
             {/* Credits Display */}
@@ -846,17 +766,6 @@ function AppContent() {
               </div>
             )}
 
-            {aiChatEnabled && canAccessWorkspace && (
-              <HeaderGlobalAction
-                aria-label={isAiChatOpen ? 'AI Danışmanı kapat' : 'AI Danışmanı aç'}
-                onClick={toggleAiChat}
-                tooltipAlignment="end"
-                isActive={isAiChatOpen}
-              >
-                <Chat size={20} />
-              </HeaderGlobalAction>
-            )}
-            
             <HeaderGlobalAction
               aria-label="Tema Değiştir"
               onClick={toggleTheme}
@@ -1044,46 +953,16 @@ function AppContent() {
                   {renderContent()}
                 </>
               ) : (
-                <div className="login-prompt">
-                  <Tile className="login-prompt__card">
-                    <User size={64} className="login-prompt__icon" />
-                    <h2>Carbonac'a Hoş Geldiniz</h2>
-                    <p>Dokümanlarınızı profesyonel PDF'lere dönüştürmek için giriş yapın.</p>
-                    <Button
-                      kind="primary"
-                      size="lg"
-                      renderIcon={Login}
-                      onClick={() => setShowAuth(true)}
-                    >
-                      Giriş Yap / Kayıt Ol
-                    </Button>
-                    <div className="login-prompt__features">
-                      <div className="feature-item">
-                        <Checkmark size={20} />
-                        <span>PDF, Word, Google Docs desteği</span>
-                      </div>
-                      <div className="feature-item">
-                        <Checkmark size={20} />
-                        <span>AI destekli tasarım önerileri</span>
-                      </div>
-                      <div className="feature-item">
-                        <Checkmark size={20} />
-                        <span>Carbon Design System entegrasyonu</span>
-                      </div>
-                      <div className="feature-item">
-                        <Checkmark size={20} />
-                        <span>10 sayfa ücretsiz her ay</span>
-                      </div>
-                    </div>
-                  </Tile>
-                </div>
+                <Suspense fallback={null}>
+                  <LandingPage onLogin={() => setShowAuth(true)} />
+                </Suspense>
               )}
             </div>
           </div>
         </main>
 
         {/* Footer */}
-        <AppFooter />
+        <AppFooter withGradient={!canAccessWorkspace} />
 
         {/* Notifications */}
         {notification && (
@@ -1099,22 +978,20 @@ function AppContent() {
 
         {/* Modals */}
         <Suspense fallback={null}>
-          {showSettings && (
-            <SettingsModal
-              isOpen={showSettings}
-              onClose={() => setShowSettings(false)}
-              selectedLayoutProfile={selectedLayoutProfile}
-              onLayoutProfileChange={setLayoutProfile}
-              selectedPrintProfile={selectedPrintProfile}
-              onPrintProfileChange={setPrintProfile}
-              showAdvisor={aiChatEnabled}
-              onToggleAdvisor={handleToggleAiChatEnabled}
-              autoSave={autoSaveEnabled}
-              onAutoSaveChange={setAutoSaveEnabled}
-              livePreview={livePreviewEnabled}
-              onLivePreviewChange={setLivePreviewEnabled}
-            />
-          )}
+            {showSettings && (
+              <SettingsModal
+                isOpen={showSettings}
+                onClose={() => setShowSettings(false)}
+                selectedLayoutProfile={selectedLayoutProfile}
+                onLayoutProfileChange={setLayoutProfile}
+                selectedPrintProfile={selectedPrintProfile}
+                onPrintProfileChange={setPrintProfile}
+                autoSave={autoSaveEnabled}
+                onAutoSaveChange={setAutoSaveEnabled}
+                livePreview={livePreviewEnabled}
+                onLivePreviewChange={setLivePreviewEnabled}
+              />
+            )}
           {!passwordGateMode && showAuth && (
             <AuthModal
               isOpen={showAuth}
@@ -1129,16 +1006,6 @@ function AppContent() {
           )}
         </Suspense>
 
-        <Suspense fallback={null}>
-          {aiChatEnabled && aiChatMounted && canAccessWorkspace && (
-            <CarbonacAiChat
-              enabled={aiChatEnabled}
-              isAuthenticated={isAuthenticated}
-              onRequestLogin={() => setShowAuth(true)}
-              onInstanceReady={handleAiChatInstanceReady}
-            />
-          )}
-        </Suspense>
       </div>
     </Theme>
   );

@@ -27,3 +27,11 @@ service-client-key.json
 
 # Local Netlify folder
 .netlify
+
+# Temporary files
+.tmp/
+
+# MCP config (contains API keys)
+.mcp.json
+.vscode/mcp.json
+mcp/mcp-shared.json

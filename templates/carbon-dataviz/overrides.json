@@ -1,0 +1,12 @@
+{
+  "cssVars": {
+    "--report-gap": "20px",
+    "--font-size-chart-highlight": "20pt"
+  },
+  "themes": {
+    "white": {
+      "--cds-accent": "#8a3ffc"
+    }
+  }
+}
+

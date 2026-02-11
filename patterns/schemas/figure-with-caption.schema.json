@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FigureWithCaptionPattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["src", "caption"],
+  "properties": {
+    "src": { "type": "string" },
+    "caption": { "type": "string" },
+    "source": { "type": "string" }
+  }
+}

@@ -49,6 +49,42 @@ function remarkHeadingIds({ slugger } = {}) {
   };
 }
 
+function remarkSourcePositions() {
+  return (tree) => {
+    visit(
+      tree,
+      [
+        'heading',
+        'paragraph',
+        'listItem',
+        'blockquote',
+        'table',
+        'code',
+        'inlineCode',
+        'link',
+        'image',
+      ],
+      (node) => {
+        const position = node?.position?.start;
+        if (!position) {
+          return;
+        }
+        node.data ||= {};
+        const hProperties = {
+          ...(node.data.hProperties || {}),
+        };
+        if (!('data-source-line' in hProperties)) {
+          hProperties['data-source-line'] = position.line || 1;
+        }
+        if (!('data-source-column' in hProperties)) {
+          hProperties['data-source-column'] = position.column || 1;
+        }
+        node.data.hProperties = hProperties;
+      }
+    );
+  };
+}
+
 function createMarkdownProcessor({ typography, slugger, includeFrontmatter = false } = {}) {
   const processor = unified()
     .use(remarkParse)
@@ -56,6 +92,8 @@ function createMarkdownProcessor({ typography, slugger, includeFrontmatter = fal
     .use(remarkFrontmatter, ['yaml', 'toml'])
     .use(remarkDirective)
     .use(remarkHeadingIds, { slugger });
+
+  processor.use(remarkSourcePositions);
 
   if (typography?.smartypants) {
     const smartypantsOptions = typeof typography.smartypants === 'object'

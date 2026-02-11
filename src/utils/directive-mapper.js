@@ -32,7 +32,12 @@ const DIRECTIVE_DEFS = {
       'highlight',
       'notes',
     ],
-    typeValues: ['bar', 'line', 'area', 'donut', 'stacked'],
+    typeValues: [
+      'bar', 'line', 'area', 'donut', 'stacked',
+      'scatter', 'bubble', 'radar', 'treemap', 'gauge',
+      'heatmap', 'pie', 'histogram', 'boxplot', 'meter',
+      'combo', 'lollipop', 'wordcloud', 'alluvial',
+    ],
   },
   'code-group': {
     component: 'CodeGroup',

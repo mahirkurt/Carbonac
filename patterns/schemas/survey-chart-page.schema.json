@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SurveyChartPagePattern",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "chartType", "data"],
+  "properties": {
+    "question": { "type": "string" },
+    "chartType": { "type": "string" },
+    "data": { "type": "array" },
+    "sampleSize": { "type": "string" },
+    "notes": { "type": "string" }
+  }
+}

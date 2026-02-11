@@ -1,0 +1,12 @@
+{
+  "cssVars": {
+    "--report-gap": "20px",
+    "--report-max-width-asymmetric": "980px"
+  },
+  "themes": {
+    "g10": {
+      "--cds-accent": "#24a148"
+    }
+  }
+}
+

@@ -1,0 +1,121 @@
+// ============================================================================
+// Carbon Gradient System - Theme-Aware Gradients & Mesh Backgrounds
+// ============================================================================
+
+// -----------------------------------------------------------------------------
+// Theme-Aware Gradient CSS Custom Properties
+// Based on Carbon color palette: blue-60, purple-60, magenta-50, cyan-50
+// -----------------------------------------------------------------------------
+
+:root {
+  // Mesh gradient layers (radial, overlapping for organic feel)
+  --gradient-mesh-1: radial-gradient(ellipse at 0% 0%, rgba(15, 98, 254, 0.10) 0%, transparent 50%);
+  --gradient-mesh-2: radial-gradient(ellipse at 100% 0%, rgba(138, 63, 252, 0.08) 0%, transparent 50%);
+  --gradient-mesh-3: radial-gradient(ellipse at 50% 100%, rgba(238, 83, 150, 0.06) 0%, transparent 50%);
+
+  // Hero-strength mesh (landing page hero)
+  --gradient-hero-1: radial-gradient(ellipse at 20% 20%, rgba(15, 98, 254, 0.18) 0%, transparent 55%);
+  --gradient-hero-2: radial-gradient(ellipse at 80% 10%, rgba(138, 63, 252, 0.14) 0%, transparent 50%);
+  --gradient-hero-3: radial-gradient(ellipse at 60% 90%, rgba(238, 83, 150, 0.10) 0%, transparent 50%);
+  --gradient-hero-4: radial-gradient(ellipse at 0% 80%, rgba(0, 157, 224, 0.08) 0%, transparent 45%);
+
+  // Subtle bg gradient (app-wide)
+  --gradient-bg-subtle: linear-gradient(180deg, var(--cds-background) 0%, var(--cds-layer-01) 100%);
+
+  // Primary gradient (blue axis)
+  --gradient-primary: linear-gradient(135deg, #0f62fe 0%, #6929c4 100%);
+
+  // Accent gradient (purple → magenta)
+  --gradient-accent: linear-gradient(135deg, #8a3ffc 0%, #ee5396 100%);
+
+  // Gradient line (for borders, header accent)
+  --gradient-line: linear-gradient(90deg, #0f62fe 0%, #8a3ffc 50%, #ee5396 100%);
+}
+
+// G10 - slight adjustments
+[data-carbon-theme="g10"] {
+  --gradient-mesh-1: radial-gradient(ellipse at 0% 0%, rgba(15, 98, 254, 0.08) 0%, transparent 50%);
+  --gradient-mesh-2: radial-gradient(ellipse at 100% 0%, rgba(138, 63, 252, 0.06) 0%, transparent 50%);
+  --gradient-mesh-3: radial-gradient(ellipse at 50% 100%, rgba(238, 83, 150, 0.05) 0%, transparent 50%);
+
+  --gradient-hero-1: radial-gradient(ellipse at 20% 20%, rgba(15, 98, 254, 0.14) 0%, transparent 55%);
+  --gradient-hero-2: radial-gradient(ellipse at 80% 10%, rgba(138, 63, 252, 0.10) 0%, transparent 50%);
+  --gradient-hero-3: radial-gradient(ellipse at 60% 90%, rgba(238, 83, 150, 0.08) 0%, transparent 50%);
+  --gradient-hero-4: radial-gradient(ellipse at 0% 80%, rgba(0, 157, 224, 0.06) 0%, transparent 45%);
+}
+
+// G90 - dark mode, brighter gradients
+[data-carbon-theme="g90"] {
+  --gradient-mesh-1: radial-gradient(ellipse at 0% 0%, rgba(15, 98, 254, 0.18) 0%, transparent 50%);
+  --gradient-mesh-2: radial-gradient(ellipse at 100% 0%, rgba(138, 63, 252, 0.14) 0%, transparent 50%);
+  --gradient-mesh-3: radial-gradient(ellipse at 50% 100%, rgba(238, 83, 150, 0.10) 0%, transparent 50%);
+
+  --gradient-hero-1: radial-gradient(ellipse at 20% 20%, rgba(15, 98, 254, 0.28) 0%, transparent 55%);
+  --gradient-hero-2: radial-gradient(ellipse at 80% 10%, rgba(138, 63, 252, 0.22) 0%, transparent 50%);
+  --gradient-hero-3: radial-gradient(ellipse at 60% 90%, rgba(238, 83, 150, 0.16) 0%, transparent 50%);
+  --gradient-hero-4: radial-gradient(ellipse at 0% 80%, rgba(0, 157, 224, 0.12) 0%, transparent 45%);
+
+  --gradient-bg-subtle: linear-gradient(180deg, var(--cds-background) 0%, rgba(0, 0, 0, 0.15) 100%);
+}
+
+// G100 - full dark, maximum gradient intensity
+[data-carbon-theme="g100"] {
+  --gradient-mesh-1: radial-gradient(ellipse at 0% 0%, rgba(15, 98, 254, 0.22) 0%, transparent 50%);
+  --gradient-mesh-2: radial-gradient(ellipse at 100% 0%, rgba(138, 63, 252, 0.16) 0%, transparent 50%);
+  --gradient-mesh-3: radial-gradient(ellipse at 50% 100%, rgba(238, 83, 150, 0.12) 0%, transparent 50%);
+
+  --gradient-hero-1: radial-gradient(ellipse at 20% 20%, rgba(15, 98, 254, 0.32) 0%, transparent 55%);
+  --gradient-hero-2: radial-gradient(ellipse at 80% 10%, rgba(138, 63, 252, 0.26) 0%, transparent 50%);
+  --gradient-hero-3: radial-gradient(ellipse at 60% 90%, rgba(238, 83, 150, 0.18) 0%, transparent 50%);
+  --gradient-hero-4: radial-gradient(ellipse at 0% 80%, rgba(0, 157, 224, 0.14) 0%, transparent 45%);
+
+  --gradient-bg-subtle: linear-gradient(180deg, var(--cds-background) 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+// -----------------------------------------------------------------------------
+// Gradient Mixins
+// -----------------------------------------------------------------------------
+
+@mixin gradient-mesh-background {
+  background:
+    var(--gradient-mesh-1),
+    var(--gradient-mesh-2),
+    var(--gradient-mesh-3),
+    var(--cds-background);
+}
+
+@mixin gradient-hero-background {
+  background:
+    var(--gradient-hero-1),
+    var(--gradient-hero-2),
+    var(--gradient-hero-3),
+    var(--gradient-hero-4),
+    var(--cds-background);
+}
+
+@mixin gradient-text {
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@mixin gradient-border($width: 2px) {
+  border: $width solid transparent;
+  background-clip: padding-box;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -#{$width};
+    border-radius: inherit;
+    background: var(--gradient-line);
+    z-index: -1;
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    padding: $width;
+  }
+}

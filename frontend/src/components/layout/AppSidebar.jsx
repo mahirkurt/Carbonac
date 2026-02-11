@@ -20,15 +20,15 @@ import {
 
 // Layout profile options
 const LAYOUT_PROFILE_OPTIONS = [
-  { id: 'symmetric', text: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', text: 'Asymmetric (Vurgu)' },
-  { id: 'dashboard', text: 'Dashboard (Yoğun)' },
+  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
+  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
+  { id: 'dashboard', label: 'Dashboard (Yoğun)' },
 ];
 
 // Print profile options
 const PRINT_PROFILE_OPTIONS = [
-  { id: 'pagedjs-a4', text: 'Paged.js A4' },
-  { id: 'pagedjs-a3', text: 'Paged.js A3' },
+  { id: 'pagedjs-a4', label: 'Paged.js A4' },
+  { id: 'pagedjs-a3', label: 'Paged.js A3' },
 ];
 
 function AppSidebar({

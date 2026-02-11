@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DirectiveNode",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["type", "name"],
+  "properties": {
+    "type": { "const": "directive" },
+    "name": {
+      "type": "string",
+      "enum": [
+        "callout",
+        "data-table",
+        "chart",
+        "code-group",
+        "figure",
+        "quote",
+        "timeline",
+        "accordion",
+        "marginnote",
+        "pattern"
+      ]
+    },
+    "attributes": { "type": "object", "additionalProperties": true },
+    "children": { "type": "array" }
+  }
+}

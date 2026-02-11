@@ -11,6 +11,19 @@
   VITE_SITE_URL = "https://carbonac.com"
   VITE_SUPABASE_URL = "https://gsdlpsirkdbhekioxley.supabase.co"
   VITE_SUPABASE_ANON_KEY = "sb_publishable_F99l7SNwMPARLORmh066fQ_cqxv6d0N"
+  VITE_PASSWORD_GATE = "false"
+  VITE_GUEST_MODE = "false"
+
+[[redirects]]
+  from = "/api/*"
+  to = "https://api.carbonac.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/__version.json"
+  to = "/__version.json"
+  status = 200
 
 [[redirects]]
   from = "/*"

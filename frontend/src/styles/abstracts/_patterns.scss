@@ -1,0 +1,52 @@
+// ============================================================================
+// Carbon Pattern System - Decorative Geometric Patterns
+// ============================================================================
+
+// -----------------------------------------------------------------------------
+// Pattern Mixins
+// Carbon-inspired geometric patterns using theme tokens
+// -----------------------------------------------------------------------------
+
+// Dot matrix pattern
+@mixin pattern-dots($size: 1px, $spacing: 24px, $color: var(--cds-border-subtle-01)) {
+  background-image: radial-gradient(circle, $color $size, transparent $size);
+  background-size: $spacing $spacing;
+}
+
+// Grid line pattern
+@mixin pattern-grid($thickness: 1px, $spacing: 32px, $color: var(--cds-border-subtle-01)) {
+  background-image:
+    linear-gradient($color $thickness, transparent $thickness),
+    linear-gradient(90deg, $color $thickness, transparent $thickness);
+  background-size: $spacing $spacing;
+}
+
+// Diagonal lines
+@mixin pattern-diagonals($spacing: 10px, $color: rgba(15, 98, 254, 0.04)) {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent $spacing,
+    $color $spacing,
+    $color calc(#{$spacing} + 1px)
+  );
+}
+
+// Cross-hatch pattern (IBM geometric aesthetic)
+@mixin pattern-crosshatch($spacing: 20px, $color: rgba(15, 98, 254, 0.03)) {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent $spacing,
+      $color $spacing,
+      $color calc(#{$spacing} + 1px)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent $spacing,
+      $color $spacing,
+      $color calc(#{$spacing} + 1px)
+    );
+}
