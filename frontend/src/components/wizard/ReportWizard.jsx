@@ -36,11 +36,10 @@ import {
   Grid,
   Template,
   Restart,
+  Renew,
 } from '@carbon/icons-react';
 
 import { useDocument, WORKFLOW_STEPS } from '../../contexts/DocumentContext';
-import { useAuth } from '../../contexts';
-import CarbonacAiChat from '../ai/CarbonacAiChat';
 import './ReportWizard.scss';
 
 // Wizard questions configuration
@@ -192,7 +191,7 @@ const generateAIResponse = (questionId, answer, allAnswers) => {
   return responses[questionId]?.[answer] || 'Tercihlerinizi kaydettim! Bir sonraki soruya geçelim. ✅';
 };
 
-function ReportWizard({ onRequestLogin } = {}) {
+function ReportWizard() {
   const {
     reportSettings,
     updateReportSettings,
@@ -212,10 +211,6 @@ function ReportWizard({ onRequestLogin } = {}) {
     setTheme,
   } = useDocument();
 
-  const { isAuthenticated } = useAuth();
-
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState({});
   const [showValidation, setShowValidation] = useState(false);
@@ -228,49 +223,6 @@ function ReportWizard({ onRequestLogin } = {}) {
     },
   ]);
   const messagesEndRef = useRef(null);
-
-  const buildWizardAiPrompt = useCallback(() => {
-    const lines = [];
-    lines.push('Rapor sihirbazındayım. Aşağıdaki seçimlere göre öneri istiyorum:');
-    if (selectedOptions.documentType) lines.push(`- Doküman tipi: ${selectedOptions.documentType}`);
-    if (selectedOptions.audience) lines.push(`- Hedef kitle: ${selectedOptions.audience}`);
-    if (selectedOptions.tone) lines.push(`- Ton: ${selectedOptions.tone}`);
-    if (selectedOptions.purpose) lines.push(`- Amaç: ${selectedOptions.purpose}`);
-    if (selectedOptions.colorScheme) lines.push(`- Renk şeması: ${selectedOptions.colorScheme}`);
-    if (selectedOptions.layoutStyle) lines.push(`- Sayfa düzeni: ${selectedOptions.layoutStyle}`);
-    if (Array.isArray(selectedOptions.emphasis) && selectedOptions.emphasis.length) {
-      lines.push(`- Vurgular: ${selectedOptions.emphasis.join(', ')}`);
-    }
-    if (Array.isArray(selectedOptions.components) && selectedOptions.components.length) {
-      lines.push(`- Bileşenler: ${selectedOptions.components.join(', ')}`);
-    }
-    lines.push('');
-    lines.push('Bu tercihlere göre:');
-    lines.push('1) Hangi şablonu önerirsin?');
-    lines.push('2) Yerleşim/tema için 3 kısa öneri ver.');
-    lines.push('3) Metni daha okunur yapmak için 3 somut öneri ver.');
-    return lines.join('\n');
-  }, [selectedOptions]);
-
-  const aiInstanceRef = useRef(null);
-
-  const handleAiInstanceReady = useCallback((instance) => {
-    aiInstanceRef.current = instance;
-  }, []);
-
-  const handleAskAiAboutWizard = useCallback(async () => {
-    const instance = aiInstanceRef.current;
-    if (!instance) return;
-    const prompt = buildWizardAiPrompt();
-
-    try {
-      await instance.changeView('mainWindow');
-      await instance.send(prompt);
-      instance.requestFocus?.();
-    } catch (e) {
-      // ignore
-    }
-  }, [buildWizardAiPrompt]);
 
   const currentQuestion = WIZARD_QUESTIONS[currentQuestionIndex];
   const totalQuestions = WIZARD_QUESTIONS.length;
@@ -442,63 +394,49 @@ function ReportWizard({ onRequestLogin } = {}) {
         </div>
       </div>
 
-      <div className="report-wizard__ai">
-        <div className="report-wizard__ai-controls">
-          <Button kind="ghost" size="sm" onClick={() => setAiChatOpen((prev) => !prev)}>
-            {aiChatOpen ? 'AI Danışmanını gizle' : 'AI ile yardım al'}
-          </Button>
-
-          {aiChatOpen && isAuthenticated && (
-            <Button kind="secondary" size="sm" onClick={handleAskAiAboutWizard}>
-              Seçimlerimi AI'a sor
-            </Button>
-          )}
+      {/* Chat Area - Carbon AI Style */}
+      <div className="report-wizard__chat">
+        <div className="report-wizard__chat-header">
+          <div className="report-wizard__chat-header-left">
+            <div className="report-wizard__chat-header-icon">
+              <Bot size={20} />
+            </div>
+            <div className="report-wizard__chat-header-text">
+              <span className="report-wizard__chat-header-title">AI Danışmanı</span>
+              <span className="report-wizard__chat-header-subtitle">Carbonac AI</span>
+            </div>
+          </div>
+          <div className="report-wizard__chat-header-actions">
+            <button
+              className="report-wizard__chat-header-btn"
+              onClick={handleRestart}
+              title="Sıfırla"
+              aria-label="Sohbeti sıfırla"
+            >
+              <Renew size={16} />
+            </button>
+          </div>
         </div>
 
-        {aiChatOpen && !isAuthenticated && (
-          <InlineNotification
-            kind="info"
-            title="AI Danışmanı"
-            subtitle="AI için giriş yapmanız gerekiyor. Sağ üstteki hesap ikonundan giriş yapın."
-            lowContrast
-          />
-        )}
-
-        {aiChatOpen && (
-          <div className="report-wizard__ai-chat">
-            <CarbonacAiChat
-              enabled
-              embedded
-              embeddedClassName="carbonac-ai-chat--wizard"
-              isAuthenticated={isAuthenticated}
-              onRequestLogin={onRequestLogin}
-              onInstanceReady={handleAiInstanceReady}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Chat Area */}
-      <div className="report-wizard__chat">
         <div className="report-wizard__messages">
           {messages.map((msg, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`report-wizard__message report-wizard__message--${msg.type}`}
             >
               <div className={`report-wizard__avatar report-wizard__avatar--${msg.type}`}>
-                {msg.type === 'ai' ? <Bot size={20} /> : <User size={20} />}
+                {msg.type === 'ai' ? <Bot size={18} /> : <User size={18} />}
               </div>
               <div className="report-wizard__message-content">
                 {msg.content}
               </div>
             </div>
           ))}
-          
+
           {isTyping && (
             <div className="report-wizard__message report-wizard__message--ai">
               <div className="report-wizard__avatar report-wizard__avatar--ai">
-                <Bot size={20} />
+                <Bot size={18} />
               </div>
               <div className="report-wizard__message-content report-wizard__typing">
                 <span></span>
@@ -507,7 +445,7 @@ function ReportWizard({ onRequestLogin } = {}) {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -535,7 +473,7 @@ function ReportWizard({ onRequestLogin } = {}) {
                     onClick={() => handleOptionSelect(option.value)}
                   >
                     {option.icon && <option.icon size={24} className="report-wizard__option-icon" />}
-                    
+
                     {option.colors && (
                       <div className="report-wizard__color-preview">
                         {option.colors.map((color, i) => (
@@ -543,14 +481,14 @@ function ReportWizard({ onRequestLogin } = {}) {
                         ))}
                       </div>
                     )}
-                    
+
                     <div className="report-wizard__option-text">
                       <span className="report-wizard__option-label">{option.label}</span>
                       {option.description && (
                         <span className="report-wizard__option-description">{option.description}</span>
                       )}
                     </div>
-                    
+
                     {isSelected && (
                       <Checkmark size={20} className="report-wizard__option-check" />
                     )}
