@@ -1,3 +1,17 @@
+# docker-compose.raspberry.yml
+#
+# Raspberry Pi — Primary node (Redis + API)
+#
+# Pi runs Redis and API server (always-on, low power).
+# HP worker connects to this Redis over Tailscale.
+#
+# Usage:
+#   API + Redis (recommended — HP handles PDF generation):
+#     docker compose -f docker-compose.raspberry.yml --profile api up -d
+#
+#   Full stack (including worker on Pi):
+#     docker compose -f docker-compose.raspberry.yml --profile full up -d
+
 services:
   redis:
     image: redis:7.2-alpine
@@ -6,6 +20,14 @@ services:
     volumes:
       - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis-data:/data
+    ports:
+      # Expose to Tailscale network so HP worker can connect
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: '0.5'
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -25,10 +47,14 @@ services:
       - REDIS_URL=redis://redis:6379
       - JOB_QUEUE_NAME=carbonac-jobs
     ports:
-      # Raspberry Pi host port 3001 is already in use (anythingllm runs in host network).
-      # Expose API on host port 3003 -> container port 3001.
-      # Remember to update Cloudflare tunnel ingress to http://localhost:3003.
+      # Pi host port 3001 is in use (anythingllm). Use 3003.
+      # Cloudflare tunnel ingress: http://localhost:3003
       - "3003:3001"
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+          cpus: '1.0'
     healthcheck:
       test: ["CMD", "node", "scripts/redis-healthcheck.js"]
       interval: 30s
@@ -37,8 +63,12 @@ services:
     volumes:
       - output-data:/app/output
       - temp-data:/app/temp
+    depends_on:
+      redis:
+        condition: service_healthy
     profiles:
       - api
+      - full
 
   worker:
     build:
@@ -55,6 +85,13 @@ services:
       - JOB_QUEUE_NAME=carbonac-jobs
       - PUPPETEER_SKIP_DOWNLOAD=1
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - WORKER_CONCURRENCY=1
+      - PDF_QA_ENABLED=false
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
+          cpus: '2.0'
     healthcheck:
       test: ["CMD", "node", "backend/scripts/redis-healthcheck.js"]
       interval: 30s
@@ -63,8 +100,12 @@ services:
     volumes:
       - output-data:/app/output
       - temp-data:/app/temp
+    depends_on:
+      redis:
+        condition: service_healthy
     profiles:
       - worker
+      - full
 
 volumes:
   output-data:
