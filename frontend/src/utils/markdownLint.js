@@ -146,6 +146,25 @@ function lintDirectives(lines, issues) {
   });
 }
 
+function lintInvisibleCharacters(content, issues) {
+  const lines = String(content || '').split('\n');
+  const INVISIBLE_PATTERN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u00A0\u00AD]/;
+
+  lines.forEach((line, index) => {
+    const match = line.match(INVISIBLE_PATTERN);
+    if (!match) {
+      return;
+    }
+    addIssue(issues, {
+      ruleId: 'invisible-character',
+      severity: 'warning',
+      message: 'Görünmeyen veya yazdırılamayan karakter algılandı.',
+      line: index + 1,
+      column: match.index ? match.index + 1 : 1,
+    });
+  });
+}
+
 export function lintMarkdown(content = '') {
   const issues = [];
   if (!content || !content.trim()) {
@@ -238,6 +257,7 @@ export function lintMarkdown(content = '') {
   flushParagraph();
 
   lintDirectives(lines, issues);
+  lintInvisibleCharacters(content, issues);
 
   return issues;
 }

@@ -75,6 +75,22 @@ function buildCssVarBlock(selector, vars) {
   return `${selector} {\n${lines.join('\n')}\n}`;
 }
 
+async function loadToneVars(projectRoot) {
+  try {
+    const themePath = path.join(projectRoot, 'styles', 'carbon', 'theme.js');
+    const themeModule = await import(themePath);
+    const theme = themeModule.carbonTheme || themeModule.default || {};
+    const c = theme.colors || {};
+    const vars = {};
+    if (c.warning) vars['--cds-tone-warning'] = c.warning;
+    if (c.success) vars['--cds-tone-success'] = c.success;
+    if (c.danger) vars['--cds-tone-danger'] = c.danger;
+    return vars;
+  } catch {
+    return {};
+  }
+}
+
 export async function buildTokenCss({ projectRoot, templateKey, tokenOverrides } = {}) {
   const tokenRoot = process.env.PRINT_TOKEN_DIR
     ? path.resolve(projectRoot, process.env.PRINT_TOKEN_DIR)
@@ -99,10 +115,12 @@ export async function buildTokenCss({ projectRoot, templateKey, tokenOverrides }
 
   const templateOverridesResolved = extractOverrides(templateOverrides);
   const runtimeOverridesResolved = extractOverrides(tokenOverrides);
+  const toneVars = await loadToneVars(projectRoot);
 
   const rootVars = mergeCssVars(
     normalizeCssVars(corePack?.cssVars),
     normalizeCssVars(printPack?.cssVars),
+    normalizeCssVars(toneVars),
     templateOverridesResolved.cssVars,
     runtimeOverridesResolved.cssVars
   );

@@ -25,13 +25,15 @@ export async function reviewQaIssues({ issues = [] } = {}) {
     issues: issues.slice(0, MAX_ISSUES),
   };
 
-  const prompt = `You are a PDF QA reviewer for a print report.
+  const prompt = `You are a PDF QA reviewer for a print report using IBM Carbon Design System.
 Return JSON only with this schema:
 {
   "summary": "Short executive summary.",
   "severity": "low|medium|high",
-  "notes": ["Short note 1", "Short note 2"]
+  "notes": ["Short note 1", "Short note 2"],
+  "layoutSuggestions": ["Use narrower columns for data sections", "Add pattern blocks between sections"]
 }
+layoutSuggestions: actionable layout improvements for the art director (max 3).
 Be concise and practical.`;
 
   const body = {

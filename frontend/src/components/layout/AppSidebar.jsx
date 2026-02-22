@@ -20,15 +20,49 @@ import {
 
 // Layout profile options
 const LAYOUT_PROFILE_OPTIONS = [
-  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
-  { id: 'dashboard', label: 'Dashboard (Yoğun)' },
+  {
+    id: 'symmetric',
+    label: 'Simetrik (Dengeli)',
+    description: 'Kurumsal raporlar için dengeli kolon akışı ve düzenli ritim sağlar.',
+    hint: 'Başlık, metin ve görsellerin daha eşit ağırlıkla ilerlediği düzen.',
+  },
+  {
+    id: 'asymmetric',
+    label: 'Asimetrik (Vurgu)',
+    description: 'Hikâye anlatımı odaklı, vurgu alanları güçlü bir kompozisyon sunar.',
+    hint: 'Kritik bulguları öne çıkaran daha dinamik blok dağılımı.',
+  },
+  {
+    id: 'dashboard',
+    label: 'Dashboard (Yoğun)',
+    description: 'Veri yoğun dokümanlarda tablo, metrik ve grafik bloklarını optimize eder.',
+    hint: 'KPI, kart ve kısa özet bloklarını yoğun kullanan düzen.',
+  },
 ];
 
 // Print profile options
 const PRINT_PROFILE_OPTIONS = [
-  { id: 'pagedjs-a4', label: 'Paged.js A4' },
-  { id: 'pagedjs-a3', label: 'Paged.js A3' },
+  {
+    id: 'pagedjs-a3',
+    label: 'Paged.js A3 (297×420mm)',
+    shortLabel: 'A3',
+    description: 'Geniş alan, tablo ve grafik yoğun içeriklerde ideal.',
+    hint: 'Büyük görseller, karşılaştırmalı tablolar ve pano tipli raporlar için.',
+  },
+  {
+    id: 'pagedjs-a4',
+    label: 'Paged.js A4 (210×297mm)',
+    shortLabel: 'A4',
+    description: 'Standart rapor çıktıları için dengeli ve yaygın profil.',
+    hint: 'Genel kullanım için önerilen varsayılan çıktı boyutu.',
+  },
+  {
+    id: 'pagedjs-a5',
+    label: 'Paged.js A5 (148×210mm)',
+    shortLabel: 'A5',
+    description: 'Kompakt çıktı, özet doküman ve broşürler için optimize.',
+    hint: 'Kısa raporlar, tek bakışta özet ve mobil odaklı baskılar için.',
+  },
 ];
 
 function AppSidebar({

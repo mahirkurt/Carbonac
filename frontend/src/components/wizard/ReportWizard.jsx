@@ -40,6 +40,7 @@ import {
 } from '@carbon/icons-react';
 
 import { useDocument, WORKFLOW_STEPS } from '../../contexts/DocumentContext';
+import { askAi } from '../../services/aiService';
 import './ReportWizard.scss';
 
 // Wizard questions configuration
@@ -144,14 +145,15 @@ const WIZARD_QUESTIONS = [
 ];
 
 const layoutProfileOptions = [
-  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
+  { id: 'symmetric', label: 'Simetrik (Dengeli)' },
+  { id: 'asymmetric', label: 'Asimetrik (Vurgu)' },
   { id: 'dashboard', label: 'Dashboard (Yoğun)' },
 ];
 
 const printProfileOptions = [
-  { id: 'pagedjs-a4', label: 'Paged.js A4' },
-  { id: 'pagedjs-a3', label: 'Paged.js A3' },
+  { id: 'pagedjs-a3', label: 'Paged.js A3 (297×420mm)' },
+  { id: 'pagedjs-a4', label: 'Paged.js A4 (210×297mm)' },
+  { id: 'pagedjs-a5', label: 'Paged.js A5 (148×210mm)' },
 ];
 
 const themeOptions = [
@@ -159,6 +161,11 @@ const themeOptions = [
   { id: 'g10', label: 'G10' },
   { id: 'g90', label: 'G90' },
   { id: 'g100', label: 'G100' },
+];
+
+const pdfColorModeOptions = [
+  { id: 'color', label: 'Renkli' },
+  { id: 'mono', label: 'Monokrom (Gri tonlama)' },
 ];
 
 // AI response generator based on answers
@@ -195,12 +202,7 @@ function ReportWizard() {
   const {
     reportSettings,
     updateReportSettings,
-    wizardMessages,
-    addWizardMessage,
-    wizardCurrentQuestion,
-    wizardAnswers,
     setWizardAnswer,
-    nextWizardQuestion,
     setStep,
     markdownContent,
     selectedLayoutProfile,
@@ -209,6 +211,11 @@ function ReportWizard() {
     setLayoutProfile,
     setPrintProfile,
     setTheme,
+    templates,
+    templatesLoading,
+    templatesError,
+    loadTemplates,
+    selectTemplate,
   } = useDocument();
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -216,6 +223,11 @@ function ReportWizard() {
   const [showValidation, setShowValidation] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [aiTemplateRecommendations, setAiTemplateRecommendations] = useState([]);
+  const [aiTemplateLoading, setAiTemplateLoading] = useState(false);
+  const [aiTemplateError, setAiTemplateError] = useState(null);
+  const [templateSelectionError, setTemplateSelectionError] = useState(false);
+  const [pickedTemplateKey, setPickedTemplateKey] = useState('');
   const [messages, setMessages] = useState([
     {
       type: 'ai',
@@ -236,6 +248,9 @@ function ReportWizard() {
   const resolvedTheme = themeOptions.find(
     (option) => option.id === selectedTheme
   ) || themeOptions[0];
+  const resolvedPdfColorMode = pdfColorModeOptions.find(
+    (option) => option.id === (reportSettings.colorMode || 'color')
+  ) || pdfColorModeOptions[0];
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -258,6 +273,17 @@ function ReportWizard() {
   useEffect(() => {
     setShowValidation(false);
   }, [currentQuestionIndex]);
+
+  useEffect(() => {
+    setTemplateSelectionError(false);
+  }, [pickedTemplateKey, aiTemplateRecommendations]);
+
+  useEffect(() => {
+    if (!pickedTemplateKey) return;
+    if (!aiTemplateRecommendations.some((item) => item.templateKey === pickedTemplateKey)) {
+      setPickedTemplateKey('');
+    }
+  }, [aiTemplateRecommendations, pickedTemplateKey]);
 
   // Handle option selection
   const handleOptionSelect = useCallback((value) => {
@@ -354,27 +380,148 @@ function ReportWizard() {
         content: WIZARD_QUESTIONS[0].question,
       },
     ]);
+    setShowSummary(false);
+    setTemplateSelectionError(false);
+    setAiTemplateRecommendations([]);
+    setAiTemplateError(null);
+    setPickedTemplateKey('');
   }, []);
 
-  // Handle continue to editor
-  const handleContinue = useCallback(() => {
-    setStep(WORKFLOW_STEPS.EDITOR);
-  }, [setStep]);
-
-  const isWizardComplete = currentQuestionIndex >= totalQuestions - 1 && selectedOptions[currentQuestion?.id];
   const canProceed = selectedOptions[currentQuestion?.id] && (
     !Array.isArray(selectedOptions[currentQuestion?.id]) || 
     selectedOptions[currentQuestion?.id].length > 0
   );
 
-  const recommendedTemplate = useMemo(() => {
-    const documentType = selectedOptions.documentType || reportSettings.documentType;
-    if (documentType === 'analytics') return 'carbon-dataviz';
-    if (documentType === 'presentation') return 'carbon-advanced';
-    if (documentType === 'documentation') return 'carbon-components';
-    if (documentType === 'academic') return 'carbon-default';
-    return 'carbon-default';
-  }, [selectedOptions, reportSettings.documentType]);
+  const recommendedTemplateKeys = useMemo(
+    () => aiTemplateRecommendations
+      .map((item) => String(item?.templateKey || '').trim())
+      .filter(Boolean),
+    [aiTemplateRecommendations]
+  );
+
+  const templateRecommendationsReady = !templatesLoading && !aiTemplateLoading && recommendedTemplateKeys.length > 0;
+  const hasTemplateChoice = templateRecommendationsReady && !!pickedTemplateKey && recommendedTemplateKeys.includes(pickedTemplateKey);
+
+  // Handle continue to editor
+  const handleContinue = useCallback(() => {
+    if (!hasTemplateChoice) {
+      setTemplateSelectionError(true);
+      return;
+    }
+    setStep(WORKFLOW_STEPS.EDITOR);
+  }, [hasTemplateChoice, setStep]);
+
+  useEffect(() => {
+    loadTemplates().catch(() => null);
+  }, [loadTemplates]);
+
+  const fetchAiTemplateRecommendations = useCallback(async () => {
+    if (!showSummary || templatesLoading || templates.length === 0 || aiTemplateRecommendations.length > 0) {
+      return;
+    }
+
+    setAiTemplateLoading(true);
+    setAiTemplateError(null);
+    try {
+      const templateBrief = templates
+        .slice(0, 12)
+        .map((template) => {
+          const key = template?.key || '';
+          const name = template?.name || key;
+          const desc = template?.description || '';
+          const tags = Array.isArray(template?.tags) ? template.tags.join(', ') : '';
+          return `- ${key}: ${name}${desc ? ` | ${desc}` : ''}${tags ? ` | tags: ${tags}` : ''}`;
+        })
+        .join('\n');
+
+      const userProfile = {
+        documentType: selectedOptions.documentType || reportSettings.documentType,
+        audience: selectedOptions.audience || reportSettings.audience,
+        tone: selectedOptions.tone || reportSettings.tone,
+        purpose: selectedOptions.purpose || reportSettings.purpose,
+        emphasis: selectedOptions.emphasis || reportSettings.emphasis,
+        colorScheme: selectedOptions.colorScheme || reportSettings.colorScheme,
+        layoutStyle: selectedOptions.layoutStyle || reportSettings.layoutStyle,
+        components: selectedOptions.components || reportSettings.components,
+      };
+
+      const aiPrompt = [
+        'Aşağıdaki template listesinden kullanıcı profiline en uygun 3 template seç.',
+        'Yanıtı sadece JSON olarak ver.',
+        'JSON şeması: {"recommendations":[{"templateKey":"...","reason":"..."}]}',
+        'Her reason kısa ve Türkçe olsun (maks 180 karakter).',
+        '',
+        `Kullanıcı profili: ${JSON.stringify(userProfile)}`,
+        '',
+        'Template listesi:',
+        templateBrief,
+      ].join('\n');
+
+      const aiOutput = await askAi({
+        question: aiPrompt,
+        context: markdownContent.slice(0, 5000),
+      });
+
+      let parsed;
+      try {
+        const fenced = String(aiOutput || '').match(/```json\s*([\s\S]*?)```/i);
+        parsed = JSON.parse(fenced ? fenced[1] : aiOutput);
+      } catch {
+        parsed = null;
+      }
+
+      const recs = Array.isArray(parsed?.recommendations)
+        ? parsed.recommendations
+            .map((item) => ({
+              templateKey: String(item?.templateKey || '').trim(),
+              reason: String(item?.reason || '').trim(),
+            }))
+            .filter((item) => item.templateKey && templates.some((entry) => entry.key === item.templateKey))
+            .slice(0, 3)
+        : [];
+
+      if (!recs.length) {
+        const fallback = templates
+          .filter((item) => item?.key)
+          .slice(0, 3)
+          .map((item, index) => ({
+            templateKey: item.key,
+            reason: index === 0
+              ? 'Genel kullanım için dengeli bir başlangıç şablonu.'
+              : 'Belge türü ve vurgu alanlarıyla uyumlu güçlü bir alternatif.',
+          }));
+        setAiTemplateRecommendations(fallback);
+      } else {
+        setAiTemplateRecommendations(recs);
+      }
+    } catch (error) {
+      setAiTemplateError(error?.message || 'AI template önerisi alınamadı.');
+    } finally {
+      setAiTemplateLoading(false);
+    }
+  }, [
+    showSummary,
+    templatesLoading,
+    templates,
+    aiTemplateRecommendations.length,
+    selectedOptions,
+    reportSettings,
+    markdownContent,
+  ]);
+
+  useEffect(() => {
+    fetchAiTemplateRecommendations().catch(() => null);
+  }, [fetchAiTemplateRecommendations]);
+
+  const handleTemplatePick = useCallback((templateKey) => {
+    if (!templateKey) return;
+    const template = templates.find((item) => item.key === templateKey);
+    if (!template) return;
+    selectTemplate(template);
+    updateReportSettings({ templateKey });
+    setPickedTemplateKey(templateKey);
+    setTemplateSelectionError(false);
+  }, [templates, selectTemplate, updateReportSettings]);
 
   return (
     <div className="report-wizard">
@@ -395,6 +542,7 @@ function ReportWizard() {
       </div>
 
       {/* Chat Area - Carbon AI Style */}
+      {!showSummary ? (
       <div className="report-wizard__chat">
         <div className="report-wizard__chat-header">
           <div className="report-wizard__chat-header-left">
@@ -499,12 +647,13 @@ function ReportWizard() {
           </div>
         )}
       </div>
+      ) : null}
 
       {/* Summary */}
       {showSummary && (
         <div className="report-wizard__summary-panel">
           <h3>Özet Onayı</h3>
-          <p>Seçimleriniz aşağıdaki gibi. Dilerseniz geri dönüp güncelleyebilirsiniz.</p>
+          <p>Seçimleriniz aşağıdaki gibi. Editöre geçmeden önce AI tarafından önerilen 3 şablondan birini seçin.</p>
           <div className="report-wizard__summary-list">
             {Object.entries(selectedOptions).map(([key, value]) => {
               const question = WIZARD_QUESTIONS.find(q => q.id === key);
@@ -530,9 +679,47 @@ function ReportWizard() {
             })}
           </div>
           <div className="report-wizard__summary-recommendation">
-            <Tag type="blue" size="sm">Önerilen template</Tag>
-            <strong>{recommendedTemplate}</strong>
-            <span>İsterseniz önizlemede template galerisine geçip değiştirebilirsiniz.</span>
+            <Tag type="purple" size="sm">AI ile 3 template önerisi</Tag>
+            {templatesLoading || aiTemplateLoading ? (
+              <span>Template önerileri hazırlanıyor...</span>
+            ) : null}
+            {templatesError ? (
+              <span>Template listesi alınamadı: {templatesError}</span>
+            ) : null}
+            {aiTemplateError ? (
+              <span>AI öneri hatası: {aiTemplateError}</span>
+            ) : null}
+            {!templatesLoading && !aiTemplateLoading && !aiTemplateError && aiTemplateRecommendations.length > 0 ? (
+              <div className="report-wizard__summary-list">
+                {aiTemplateRecommendations.map((item) => {
+                  const key = item.templateKey;
+                  const template = templates.find((entry) => entry.key === key);
+                  const name = template?.name || key;
+                  const selected = pickedTemplateKey === key;
+                  return (
+                    <ClickableTile
+                      key={key}
+                      className={`report-wizard__option ${selected ? 'report-wizard__option--selected' : ''}`}
+                      onClick={() => handleTemplatePick(key)}
+                    >
+                      <div className="report-wizard__option-text">
+                        <span className="report-wizard__option-label">{name}</span>
+                        <span className="report-wizard__option-description">{item.reason}</span>
+                      </div>
+                      {selected ? <Checkmark size={20} className="report-wizard__option-check" /> : null}
+                    </ClickableTile>
+                  );
+                })}
+              </div>
+            ) : null}
+            {templateSelectionError ? (
+              <InlineNotification
+                kind="warning"
+                lowContrast
+                title="Şablon seçimi gerekli"
+                subtitle="Editöre geçmek için AI önerdiği 3 şablondan birini seçin."
+              />
+            ) : null}
           </div>
         </div>
       )}
@@ -628,6 +815,64 @@ function ReportWizard() {
                 itemToString={(item) => item?.label || item?.text || ''}
                 onChange={({ selectedItem }) => setTheme(selectedItem.id)}
               />
+              <Dropdown
+                id="wizard-color-mode"
+                titleText="PDF Renk Modu"
+                items={pdfColorModeOptions}
+                selectedItem={resolvedPdfColorMode}
+                label="Seçin"
+                itemToString={(item) => item?.label || item?.text || ''}
+                onChange={({ selectedItem }) => updateReportSettings({
+                  colorMode: selectedItem?.id || 'color',
+                })}
+              />
+            </div>
+
+            <div className="report-wizard__advanced-toggles">
+              <ClickableTile
+                className={`report-wizard__option ${(reportSettings.includeCover ?? true) ? 'report-wizard__option--selected' : ''}`}
+                onClick={() => updateReportSettings({
+                  includeCover: !(reportSettings.includeCover ?? true),
+                })}
+              >
+                <div className="report-wizard__option-text">
+                  <span className="report-wizard__option-label">Kapak Sayfası</span>
+                  <span className="report-wizard__option-description">PDF başlangıcında kapak göster/gizle</span>
+                </div>
+                {(reportSettings.includeCover ?? true) && (
+                  <Checkmark size={20} className="report-wizard__option-check" />
+                )}
+              </ClickableTile>
+
+              <ClickableTile
+                className={`report-wizard__option ${(reportSettings.showPageNumbers ?? true) ? 'report-wizard__option--selected' : ''}`}
+                onClick={() => updateReportSettings({
+                  showPageNumbers: !(reportSettings.showPageNumbers ?? true),
+                })}
+              >
+                <div className="report-wizard__option-text">
+                  <span className="report-wizard__option-label">Sayfa Numaraları</span>
+                  <span className="report-wizard__option-description">Alt bilgi sayfa numaralarını aç/kapat</span>
+                </div>
+                {(reportSettings.showPageNumbers ?? true) && (
+                  <Checkmark size={20} className="report-wizard__option-check" />
+                )}
+              </ClickableTile>
+
+              <ClickableTile
+                className={`report-wizard__option ${(reportSettings.printBackground ?? true) ? 'report-wizard__option--selected' : ''}`}
+                onClick={() => updateReportSettings({
+                  printBackground: !(reportSettings.printBackground ?? true),
+                })}
+              >
+                <div className="report-wizard__option-text">
+                  <span className="report-wizard__option-label">Arka Plan / Dolgu</span>
+                  <span className="report-wizard__option-description">Arka plan renklerini PDF’e dahil et</span>
+                </div>
+                {(reportSettings.printBackground ?? true) && (
+                  <Checkmark size={20} className="report-wizard__option-check" />
+                )}
+              </ClickableTile>
             </div>
           </AccordionItem>
         </Accordion>

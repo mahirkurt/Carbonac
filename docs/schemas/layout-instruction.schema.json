@@ -10,7 +10,7 @@
     },
     "printProfile": {
       "type": "string",
-      "enum": ["pagedjs-a4", "pagedjs-a3"]
+      "enum": ["pagedjs-a4", "pagedjs-a3", "pagedjs-a5"]
     },
     "gridSystem": {
       "type": "string",

@@ -15,16 +15,23 @@ import { parseMarkdown, markdownToHtml } from './utils/markdown-parser.js';
 import { postprocessPdf } from './utils/pdf-postprocess.js';
 import { buildTokenCss } from './utils/token-loader.js';
 import { reviewQaIssues } from './ai/qa-reviewer.js';
+import { storeQaFeedback } from './ai/art-director.js';
+import {
+  resolveDocumentMetadata,
+  sanitizeMarkdownContent,
+} from './utils/markdown-cleanup.js';
 import { dataVizCategorical } from '../styles/carbon/colors-extended.js';
+import { acquireBrowser, releaseBrowser } from './utils/browser-pool.js';
 
 const PRINT_PROFILES = {
   'pagedjs-a4': { format: 'A4', css: 'pagedjs-a4.css' },
   'pagedjs-a3': { format: 'A3', css: 'pagedjs-a3.css' },
+  'pagedjs-a5': { format: 'A5', css: 'pagedjs-a5.css' },
 };
 
 const LAYOUT_PROFILES = new Set(['symmetric', 'asymmetric', 'dashboard']);
 const QA_ENABLED = process.env.PDF_QA_ENABLED !== 'false';
-const QA_MAX_ITERATIONS = Math.max(0, Number(process.env.PDF_QA_MAX_ITERATIONS || 2));
+const QA_MAX_ITERATIONS = Math.max(0, Number(process.env.PDF_QA_MAX_ITERATIONS || 3));
 const QA_BOTTOM_GAP = Number(process.env.PDF_QA_BOTTOM_GAP || 72);
 const QA_TOP_GAP = Number(process.env.PDF_QA_TOP_GAP || 32);
 const QA_VISUAL_ENABLED = process.env.PDF_QA_VISUAL_REGRESSION === 'true';
@@ -42,6 +49,23 @@ const TABLE_SPLIT_MIN_ROWS_PER_PAGE = Math.max(
   Number(process.env.PRINT_TABLE_SPLIT_MIN_ROWS_PER_PAGE || 6)
 );
 const execFileAsync = promisify(execFile);
+
+// Module-level caches for performance (avoid repeated disk I/O)
+const _cssCache = new Map();
+let _cachedPagedScriptPath;
+
+async function getCachedCss(filePath) {
+  if (_cssCache.has(filePath)) return _cssCache.get(filePath);
+  const content = await readFile(filePath);
+  _cssCache.set(filePath, content);
+  return content;
+}
+
+async function getCachedPagedScriptPath(projectRoot) {
+  if (_cachedPagedScriptPath !== undefined) return _cachedPagedScriptPath;
+  _cachedPagedScriptPath = await resolvePagedScriptPath(projectRoot);
+  return _cachedPagedScriptPath;
+}
 const FONT_ASSETS = [
   {
     family: 'IBM Plex Sans',
@@ -170,7 +194,7 @@ function extractPatternTags(components, metadata) {
       continue;
     }
     const rawType =
-      component.props?.type || component.props?.pattern || component.props?.patternType;
+      component.patternType || component.props?.type || component.props?.pattern || component.props?.patternType;
     const normalized = normalizePatternTag(rawType);
     if (normalized) {
       tags.add(normalized);
@@ -398,13 +422,125 @@ function buildStorytellingBlock(storytelling) {
   }
 
   return `
-    <section class="ai-insight avoid-break">
-      <h2 class="ai-insight__title">AI Insight</h2>
+    <section class="ai-insight ai-insight--executive avoid-break">
+      <div class="ai-insight__header">
+        <h2 class="ai-insight__title">Executive Summary</h2>
+      </div>
       ${summary ? `<p class="ai-insight__summary">${summary}</p>` : ''}
-      ${safeInsights ? `<ul class="ai-insight__list">${safeInsights}</ul>` : ''}
+      ${safeInsights ? `
+        <div class="ai-insight__findings">
+          <h3 class="ai-insight__subtitle">Key Insights</h3>
+          <ul class="ai-insight__list">${safeInsights}</ul>
+        </div>` : ''}
       ${metaItems.length ? `<div class="ai-insight__meta">${metaItems.join('')}</div>` : ''}
     </section>
   `;
+}
+
+function buildPatternBlockHtml(body, component) {
+  const patternType = normalizePatternTag(component?.patternType || '');
+  const title = escapeHtml(component?.props?.title || component?.title || '');
+  const subtitle = escapeHtml(component?.props?.subtitle || component?.subtitle || '');
+  const eyebrow = escapeHtml(component?.props?.eyebrow || component?.eyebrow || '');
+  const stat = escapeHtml(component?.props?.stat || component?.stat || '');
+  const quote = escapeHtml(component?.props?.quote || component?.quote || '');
+  const author = escapeHtml(component?.props?.author || component?.author || '');
+
+  switch (patternType) {
+    case 'cover-page-hero':
+      return `<div class="pattern">
+        ${eyebrow ? `<div class="pattern__eyebrow">${eyebrow}</div>` : ''}
+        ${title ? `<h1 class="pattern__title">${title}</h1>` : ''}
+        ${subtitle ? `<p class="pattern__subtitle">${subtitle}</p>` : ''}
+        ${body}
+      </div>`;
+    case 'chapter-opener':
+    case 'part-opener':
+      return `<div class="pattern">
+        ${eyebrow ? `<div class="pattern__eyebrow">${eyebrow}</div>` : ''}
+        ${title ? `<h2 class="pattern__title">${title}</h2>` : ''}
+        ${subtitle ? `<p class="pattern__subtitle">${subtitle}</p>` : ''}
+        ${body}
+      </div>`;
+    case 'kpi-grid':
+      return `<div class="pattern">
+        ${title ? `<div class="pattern__eyebrow">${title}</div>` : ''}
+        ${body}
+      </div>`;
+    case 'hero-stat-with-quote':
+      return `<div class="pattern">
+        ${stat ? `<div class="pattern__stat">${stat}</div>` : ''}
+        ${quote ? `<blockquote class="directive directive--quote"><p>${quote}</p>${author ? `<footer class="quote__attribution">${author}</footer>` : ''}</blockquote>` : ''}
+        ${body}
+      </div>`;
+    case 'executive-summary':
+    case 'key-findings-list':
+    case 'action-box':
+      return `<div class="pattern">
+        ${eyebrow ? `<div class="pattern__eyebrow">${eyebrow}</div>` : ''}
+        ${title ? `<h3 class="pattern__title">${title}</h3>` : ''}
+        ${body}
+      </div>`;
+    case 'case-study-module':
+      return `<div class="pattern">
+        ${eyebrow ? `<div class="pattern__eyebrow">${eyebrow}</div>` : ''}
+        ${title ? `<h3 class="pattern__title">${title}</h3>` : ''}
+        ${body}
+      </div>`;
+    default:
+      if (title || eyebrow) {
+        return `<div class="pattern">
+          ${eyebrow ? `<div class="pattern__eyebrow">${eyebrow}</div>` : ''}
+          ${title ? `<h3 class="pattern__title">${title}</h3>` : ''}
+          ${subtitle ? `<p class="pattern__subtitle">${subtitle}</p>` : ''}
+          ${body}
+        </div>`;
+      }
+      return body;
+  }
+}
+
+function buildComponentBody(type, body, component) {
+  switch (type) {
+    case 'quote': {
+      const author = escapeHtml(component?.props?.author || component?.author || '');
+      const source = escapeHtml(component?.props?.source || component?.source || '');
+      const attribution = [author, source].filter(Boolean).join(', ');
+      return `<blockquote class="directive directive--quote">
+        ${body}
+        ${attribution ? `<footer class="quote__attribution">${attribution}</footer>` : ''}
+      </blockquote>`;
+    }
+    case 'datatable': {
+      const caption = escapeHtml(component?.props?.caption || component?.caption || '');
+      const source = escapeHtml(component?.props?.source || component?.source || '');
+      const meta = source ? `Source: ${source}` : '';
+      return `<figure class="directive directive--data-table"${caption ? ` data-caption="${caption}"` : ''}${meta ? ` data-meta="${meta}"` : ''}>
+        ${body}
+      </figure>`;
+    }
+    case 'figure': {
+      const caption = escapeHtml(component?.props?.caption || component?.caption || '');
+      return `<figure class="directive directive--figure">
+        ${body}
+        ${caption ? `<figcaption>${caption}</figcaption>` : ''}
+      </figure>`;
+    }
+    case 'marginnote': {
+      const align = component?.props?.align || 'right';
+      return `<span class="directive directive--marginnote align-${align}">
+        ${body}
+      </span>`;
+    }
+    case 'timeline':
+      return `<section class="directive directive--timeline">
+        ${body}
+      </section>`;
+    case 'patternblock':
+      return buildPatternBlockHtml(body, component);
+    default:
+      return body;
+  }
 }
 
 function buildLayoutGridHtml({ htmlContent, artDirection, layoutProfile }) {
@@ -436,6 +572,7 @@ function buildLayoutGridHtml({ htmlContent, artDirection, layoutProfile }) {
       if (!body) {
         return '';
       }
+      body = buildComponentBody(type, body, component);
       const { colSpan, offset } = resolveLayoutProps(component?.layoutProps);
       const gridColumn = colSpan === 16 && offset === 0
         ? '1 / -1'
@@ -444,6 +581,9 @@ function buildLayoutGridHtml({ htmlContent, artDirection, layoutProfile }) {
         'layout-component',
         `layout-component--${type}`,
       ];
+      if (type === 'patternblock' && component?.patternType) {
+        classNames.push(`pattern--${normalizePatternTag(component.patternType)}`);
+      }
       if (component?.printOnly) {
         classNames.push('print-only');
       }
@@ -489,6 +629,11 @@ function buildLayoutGridHtml({ htmlContent, artDirection, layoutProfile }) {
 }
 
 function buildCover(metadata) {
+  const includeCover = metadata.includeCover !== false;
+  if (!includeCover) {
+    return '';
+  }
+
   const title = escapeHtml(metadata.title || '');
   const subtitle = escapeHtml(metadata.subtitle || '');
   const author = escapeHtml(metadata.author || '');
@@ -510,6 +655,14 @@ function buildCover(metadata) {
       ` : ''}
     </header>
   `;
+}
+
+function resolveDocumentTitle(metadata = {}, fallback = 'Carbon Report') {
+  const candidate = String(metadata?.title || '').trim();
+  if (!candidate || candidate.toLowerCase() === 'untitled document') {
+    return fallback;
+  }
+  return candidate;
 }
 
 async function writeArtifact(filePath, content) {
@@ -1144,6 +1297,164 @@ function buildChartRendererScript() {
     }
   }
 
+  function renderGauge(svg, width, height, series) {
+    const cx = width / 2;
+    const cy = height * 0.6;
+    const rOuter = Math.min(width, height) * 0.4;
+    const rInner = rOuter * 0.65;
+    const values = series[0]?.[1] || [];
+    const value = values[0]?.value || 0;
+    const max = values[1]?.value || 100;
+    const ratio = Math.min(1, Math.max(0, value / max));
+    // Background arc (full semicircle)
+    const bgPath = document.createElementNS(svgNs, "path");
+    bgPath.setAttribute("d", describeArc(cx, cy, rOuter, rInner, 180, 360));
+    bgPath.setAttribute("fill", "#e0e0e0");
+    bgPath.setAttribute("stroke", "#000");
+    bgPath.setAttribute("stroke-width", "0.5");
+    svg.appendChild(bgPath);
+    // Value arc
+    const endAngle = 180 + ratio * 180;
+    if (ratio > 0) {
+      const valPath = document.createElementNS(svgNs, "path");
+      valPath.setAttribute("d", describeArc(cx, cy, rOuter, rInner, 180, endAngle));
+      valPath.setAttribute("fill", "url(#pattern-0)");
+      valPath.setAttribute("stroke", "#000");
+      valPath.setAttribute("stroke-width", "0.5");
+      svg.appendChild(valPath);
+    }
+    // Center value text
+    const text = document.createElementNS(svgNs, "text");
+    text.setAttribute("x", String(cx));
+    text.setAttribute("y", String(cy - rInner * 0.2));
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("font-size", String(rOuter * 0.35));
+    text.setAttribute("font-weight", "600");
+    text.setAttribute("fill", "#000");
+    text.textContent = String(value);
+    svg.appendChild(text);
+    // Label
+    const label = values[0]?.label || "";
+    if (label) {
+      const labelEl = document.createElementNS(svgNs, "text");
+      labelEl.setAttribute("x", String(cx));
+      labelEl.setAttribute("y", String(cy + rOuter * 0.15));
+      labelEl.setAttribute("text-anchor", "middle");
+      labelEl.setAttribute("font-size", "12");
+      labelEl.setAttribute("fill", "#525252");
+      labelEl.textContent = label;
+      svg.appendChild(labelEl);
+    }
+  }
+
+  function renderHistogram(svg, width, height, padding, labels, series) {
+    // Histogram is bars with no gap between them
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const values = series[0]?.[1] || [];
+    const groups = values.length || 1;
+    const barWidth = chartWidth / groups;
+    const maxValue = Math.max(1, ...values.map(getValue));
+    values.forEach((item, index) => {
+      const h = (item.value / maxValue) * chartHeight;
+      const x = padding.left + index * barWidth;
+      const y = padding.top + chartHeight - h;
+      const rect = document.createElementNS(svgNs, "rect");
+      rect.setAttribute("x", String(x));
+      rect.setAttribute("y", String(y));
+      rect.setAttribute("width", String(barWidth));
+      rect.setAttribute("height", String(h));
+      rect.setAttribute("fill", "url(#pattern-0)");
+      rect.setAttribute("stroke", "#000");
+      rect.setAttribute("stroke-width", "0.5");
+      svg.appendChild(rect);
+    });
+  }
+
+  function renderLollipop(svg, width, height, padding, labels, series) {
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const values = series[0]?.[1] || [];
+    const groups = values.length || 1;
+    const maxValue = Math.max(1, ...values.map(getValue));
+    const rowHeight = chartHeight / groups;
+    values.forEach((item, index) => {
+      const ratio = item.value / maxValue;
+      const barLen = ratio * chartWidth;
+      const cy = padding.top + index * rowHeight + rowHeight / 2;
+      // Line
+      const line = document.createElementNS(svgNs, "line");
+      line.setAttribute("x1", String(padding.left));
+      line.setAttribute("y1", String(cy));
+      line.setAttribute("x2", String(padding.left + barLen));
+      line.setAttribute("y2", String(cy));
+      line.setAttribute("stroke", palette[index % palette.length]);
+      line.setAttribute("stroke-width", "2");
+      svg.appendChild(line);
+      // Circle at end
+      const circle = document.createElementNS(svgNs, "circle");
+      circle.setAttribute("cx", String(padding.left + barLen));
+      circle.setAttribute("cy", String(cy));
+      circle.setAttribute("r", "6");
+      circle.setAttribute("fill", "url(#pattern-" + (index % palette.length) + ")");
+      circle.setAttribute("stroke", "#000");
+      circle.setAttribute("stroke-width", "0.5");
+      svg.appendChild(circle);
+      // Label
+      if (item.label) {
+        const text = document.createElementNS(svgNs, "text");
+        text.setAttribute("x", String(padding.left - 4));
+        text.setAttribute("y", String(cy + 4));
+        text.setAttribute("text-anchor", "end");
+        text.setAttribute("font-size", "10");
+        text.setAttribute("fill", "#000");
+        text.textContent = item.label;
+        svg.appendChild(text);
+      }
+    });
+  }
+
+  function renderHeatmap(svg, width, height, padding, labels, series) {
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    const rows = series.length || 1;
+    const cols = labels.length || 1;
+    const cellW = chartWidth / cols;
+    const cellH = chartHeight / rows;
+    const allValues = series.flatMap(([, values]) => values.map(getValue));
+    const maxVal = Math.max(1, ...allValues);
+    series.forEach(([key, values], rowIdx) => {
+      labels.forEach((label, colIdx) => {
+        const entry = values.find((item) => item.label === label);
+        const value = entry ? entry.value : 0;
+        const intensity = value / maxVal;
+        const x = padding.left + colIdx * cellW;
+        const y = padding.top + rowIdx * cellH;
+        const rect = document.createElementNS(svgNs, "rect");
+        rect.setAttribute("x", String(x));
+        rect.setAttribute("y", String(y));
+        rect.setAttribute("width", String(cellW));
+        rect.setAttribute("height", String(cellH));
+        const opacity = 0.1 + intensity * 0.85;
+        rect.setAttribute("fill", palette[0]);
+        rect.setAttribute("opacity", String(opacity));
+        rect.setAttribute("stroke", "#fff");
+        rect.setAttribute("stroke-width", "1");
+        svg.appendChild(rect);
+      });
+    });
+  }
+
+  function renderCombo(svg, width, height, padding, labels, series) {
+    // First series as bars, second as line
+    if (series.length >= 1) {
+      renderBars(svg, width, height, padding, labels, [series[0]], false);
+    }
+    if (series.length >= 2) {
+      renderLine(svg, width, height, padding, labels, [series[1]], false);
+    }
+  }
+
   function renderChart(figure) {
     if (figure.dataset.chartRendered === "true") return;
     const rawType = figure.getAttribute("type") || figure.getAttribute("data-type");
@@ -1157,7 +1468,7 @@ function buildChartRendererScript() {
     const svg = createSvg(width, height);
     buildPatterns(svg);
 
-    const axisChart = type === "bar" || type === "line" || type === "area" || type === "stacked" || type === "scatter" || type === "bubble";
+    const axisChart = type === "bar" || type === "line" || type === "area" || type === "stacked" || type === "scatter" || type === "bubble" || type === "histogram" || type === "lollipop" || type === "heatmap" || type === "combo";
     if (axisChart) {
       drawAxes(svg, width, height, padding);
     }
@@ -1166,20 +1477,33 @@ function buildChartRendererScript() {
       renderScatter(svg, width, height, padding, data, type === "bubble");
     } else if (type === "radar") {
       renderRadar(svg, width, height, padding, data);
+    } else if (type === "gauge" || type === "meter") {
+      const { labels, series } = buildSeries(data);
+      renderGauge(svg, width, height, series);
     } else {
       const { labels, series } = buildSeries(data);
       if (type === "line") {
         renderLine(svg, width, height, padding, labels, series, false);
-      } else if (type === "area") {
+      } else if (type === "area" || type === "alluvial") {
         renderLine(svg, width, height, padding, labels, series, true);
       } else if (type === "donut") {
         renderDonut(svg, width, height, series);
       } else if (type === "pie") {
         renderPie(svg, width, height, series);
-      } else if (type === "treemap") {
+      } else if (type === "treemap" || type === "wordcloud") {
         renderTreemap(svg, width, height, padding, series);
       } else if (type === "stacked") {
         renderBars(svg, width, height, padding, labels, series, true);
+      } else if (type === "histogram") {
+        renderHistogram(svg, width, height, padding, labels, series);
+      } else if (type === "lollipop") {
+        renderLollipop(svg, width, height, padding, labels, series);
+      } else if (type === "heatmap") {
+        renderHeatmap(svg, width, height, padding, labels, series);
+      } else if (type === "combo") {
+        renderCombo(svg, width, height, padding, labels, series);
+      } else if (type === "boxplot") {
+        renderBars(svg, width, height, padding, labels, series, false);
       } else {
         renderBars(svg, width, height, padding, labels, series, false);
       }
@@ -1237,8 +1561,8 @@ async function buildHtml({
   });
 
   const [baseCss, printCss, fontFaceCss, hyphenationScriptTag] = await Promise.all([
-    readFile(baseCssPath),
-    readFile(printCssPath),
+    getCachedCss(baseCssPath),
+    getCachedCss(printCssPath),
     buildFontFaceCss(projectRoot),
     buildHyphenationScriptTag(typographySettings, projectRoot),
   ]);
@@ -1269,8 +1593,17 @@ async function buildHtml({
     ? ''
     : buildStorytellingBlock(artDirection?.storytelling);
   const mainContent = `${storytellingBlock}${layoutResult.html}`;
-  const title = escapeHtml(metadata.title || 'Carbon Report');
+  const resolvedTitle = resolveDocumentTitle(metadata);
+  const title = escapeHtml(resolvedTitle);
   const lang = escapeHtml(metadata.language || 'tr');
+  const colorMode = metadata.colorMode === 'mono' ? 'mono' : 'color';
+  const pageNumbersEnabled = metadata.showPageNumbers !== false;
+
+  // Footer page label i18n
+  const PAGE_LABELS = { tr: 'Sayfa', en: 'Page', de: 'Seite', fr: 'Page', es: 'Página', pt: 'Página', it: 'Pagina', nl: 'Pagina' };
+  const docLang = (metadata.language || metadata.locale || 'tr').slice(0, 2).toLowerCase();
+  const footerPageLabel = PAGE_LABELS[docLang] || PAGE_LABELS['tr'];
+  const footerLabelCss = `\n:root { --footer-page-label: "${footerPageLabel}"; }`;
   const typographyClasses = [
     typographySettings.hyphenate ? 'typography--hyphenate' : 'typography--no-hyphens',
   ];
@@ -1286,13 +1619,14 @@ async function buildHtml({
     <title>${title}</title>
     <style>
 ${tokenCss}
+${footerLabelCss}
 ${fontFaceCss}
 ${baseCss}
 
 ${printCss}
     </style>
   </head>
-  <body class="layout layout--${layoutProfile} theme--${theme} print--${printProfile} ${typographyClasses.join(' ')}">
+  <body class="layout layout--${layoutProfile} theme--${theme} print--${printProfile} color-mode--${colorMode} ${typographyClasses.join(' ')}" data-page-numbers="${pageNumbersEnabled ? 'on' : 'off'}">
     <div class="report">
       ${cover}
       <main class="report-content">
@@ -1459,7 +1793,7 @@ async function runStaticLint(page, options = {}) {
         const pageRect = page.getBoundingClientRect();
         const pageNumber = Number(page.dataset.pageNumber) || pageIndex + 1;
         const content = page.querySelector('.pagedjs_page_content') || page;
-        const elements = content.querySelectorAll('table,h2,h3,p,li,blockquote,pre');
+        const elements = content.querySelectorAll('table,h2,h3,p,li,blockquote,pre,img');
         elements.forEach((element) => {
           const qaId = element.getAttribute('data-qa-id');
           if (!qaId) return;
@@ -1490,6 +1824,14 @@ async function runStaticLint(page, options = {}) {
           } else if ((tag === 'p' || tag === 'li') && topDistance < topGap && rect.height < 28) {
             type = 'widow';
             recommendation = 'avoid-break';
+          } else if (tag === 'table' && rect.width > pageRect.width + 2) {
+            type = 'table-overflow-x';
+            recommendation = 'shrink-table';
+            severity = 'high';
+          } else if (tag === 'img' && rect.width > pageRect.width + 2) {
+            type = 'image-overflow';
+            recommendation = 'shrink-image';
+            severity = 'medium';
           }
 
           if (!type || !recommendation) {
@@ -1531,7 +1873,17 @@ async function applyQaFixes(page, fixes = []) {
     if (!root) return;
     fixes.forEach((fix) => {
       const target = root.querySelector(`[data-qa-id="${fix.qaId}"]`);
-      if (target) {
+      if (!target) return;
+      if (fix.action === 'shrink-table') {
+        target.style.fontSize = '85%';
+        target.style.overflowX = 'hidden';
+        target.style.maxWidth = '100%';
+        target.style.tableLayout = 'fixed';
+        target.style.wordBreak = 'break-word';
+      } else if (fix.action === 'shrink-image') {
+        target.style.maxWidth = '100%';
+        target.style.height = 'auto';
+      } else {
         target.classList.add(fix.action);
       }
     });
@@ -1583,6 +1935,71 @@ async function runAccessibilityLint(page) {
           qaId: node.dataset.qaId || null,
           sourceLine: node.dataset.sourceLine ? Number(node.dataset.sourceLine) : null,
           sourceColumn: node.dataset.sourceColumn ? Number(node.dataset.sourceColumn) : null,
+        });
+      }
+    });
+
+    // Table semantic validation
+    const tables = root.querySelectorAll('table');
+    tables.forEach((table) => {
+      const qaId = table.dataset.qaId || null;
+      const sourceLine = table.dataset.sourceLine ? Number(table.dataset.sourceLine) : null;
+      const sourceColumn = table.dataset.sourceColumn ? Number(table.dataset.sourceColumn) : null;
+
+      // Check for missing thead
+      if (!table.querySelector('thead')) {
+        issues.push({
+          type: 'table-missing-thead',
+          severity: 'medium',
+          qaId,
+          sourceLine,
+          sourceColumn,
+        });
+      }
+
+      // Check for th elements (header cells)
+      const headerCells = table.querySelectorAll('th');
+      if (headerCells.length === 0) {
+        issues.push({
+          type: 'table-missing-headers',
+          severity: 'medium',
+          qaId,
+          sourceLine,
+          sourceColumn,
+        });
+      }
+
+      // Check for inconsistent column counts
+      const rows = table.querySelectorAll('tr');
+      if (rows.length > 1) {
+        const colCounts = new Set();
+        rows.forEach((row) => {
+          let count = 0;
+          row.querySelectorAll('td,th').forEach((cell) => {
+            count += Number(cell.getAttribute('colspan') || 1);
+          });
+          colCounts.add(count);
+        });
+        if (colCounts.size > 1) {
+          issues.push({
+            type: 'table-inconsistent-columns',
+            severity: 'low',
+            qaId,
+            sourceLine,
+            sourceColumn,
+          });
+        }
+      }
+
+      // Check for empty table
+      const dataCells = table.querySelectorAll('td');
+      if (dataCells.length === 0) {
+        issues.push({
+          type: 'table-empty',
+          severity: 'low',
+          qaId,
+          sourceLine,
+          sourceColumn,
         });
       }
     });
@@ -1655,8 +2072,16 @@ async function collectFontReport(page) {
   });
 }
 
-async function runTypographyScoring(page) {
-  return await page.evaluate(() => {
+// CPL (characters per line) thresholds per print profile
+const CPL_THRESHOLDS = {
+  'pagedjs-a5': { min: 35, max: 75 },
+  'pagedjs-a4': { min: 45, max: 90 },
+  'pagedjs-a3': { min: 55, max: 100 },
+};
+
+async function runTypographyScoring(page, printProfile = 'pagedjs-a4') {
+  const thresholds = CPL_THRESHOLDS[printProfile] || CPL_THRESHOLDS['pagedjs-a4'];
+  return await page.evaluate(({ minCpl, maxCpl }) => {
     const nodes = Array.from(document.querySelectorAll('.report-content p, .report-content li'));
     if (!nodes.length) {
       return null;
@@ -1671,6 +2096,7 @@ async function runTypographyScoring(page) {
       maxCharsPerLine: null,
       tooShort: 0,
       tooLong: 0,
+      cplThresholds: { min: minCpl, max: maxCpl },
       hyphenationDensity: 0,
       lineHeightRatio: 0,
     };
@@ -1701,10 +2127,10 @@ async function runTypographyScoring(page) {
       stats.maxCharsPerLine = stats.maxCharsPerLine === null
         ? charsPerLine
         : Math.max(stats.maxCharsPerLine, charsPerLine);
-      if (charsPerLine < 45) {
+      if (charsPerLine < minCpl) {
         stats.tooShort += 1;
       }
-      if (charsPerLine > 90) {
+      if (charsPerLine > maxCpl) {
         stats.tooLong += 1;
       }
       if (fontSize) {
@@ -1725,7 +2151,7 @@ async function runTypographyScoring(page) {
     stats.hyphenationDensity = totalWords ? softHyphens / totalWords : 0;
 
     return stats;
-  });
+  }, { minCpl: thresholds.min, maxCpl: thresholds.max });
 }
 
 async function collectVisualRichness(page) {
@@ -2075,7 +2501,7 @@ async function runQaHarness(page, options = {}) {
 
   report.accessibilityIssues = await runAccessibilityLint(page);
   report.accessibilityAudit = await runAxeAudit(page, options.axe || {});
-  report.typography = await runTypographyScoring(page);
+  report.typography = await runTypographyScoring(page, options.printProfile);
   report.visualRichness = await collectVisualRichness(page);
   report.fonts = await collectFontReport(page);
   if (options.visual?.enabled ?? QA_VISUAL_ENABLED) {
@@ -2121,6 +2547,10 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
     author,
     date,
     language,
+    colorMode,
+    includeCover,
+    showPageNumbers,
+    printBackground,
     artDirection = null,
     tokens = null,
     qa = {},
@@ -2140,25 +2570,41 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
   try {
     if (verbose) console.log('📄 Reading markdown file...');
     const markdownContent = await readFile(inputPath);
+    const cleanupResult = sanitizeMarkdownContent(markdownContent, {
+      keepSoftHyphen: options.keepSoftHyphen === true,
+    });
+    const sanitizedMarkdownContent = cleanupResult.text;
 
     if (verbose) console.log('🔍 Parsing markdown...');
-    const { metadata, content, components } = parseMarkdown(markdownContent);
+    const { metadata, content, components, toc } = parseMarkdown(sanitizedMarkdownContent);
     const patternTags = extractPatternTags(components, metadata);
     const mergedKeywords = Array.from(new Set([
       ...normalizeKeywordList(metadata.keywords),
       ...buildPatternKeywords(patternTags),
     ]));
 
-    const mergedMetadata = {
+    const mergedMetadataRaw = {
       ...metadata,
       title: title || metadata.title,
       subtitle: subtitle || metadata.subtitle,
       author: author || metadata.author,
       date: date || metadata.date,
       language: language || metadata.language,
+      colorMode: colorMode || metadata.colorMode || 'color',
+      includeCover: includeCover === undefined ? metadata.includeCover : includeCover,
+      showPageNumbers: showPageNumbers === undefined ? metadata.showPageNumbers : showPageNumbers,
+      printBackground: printBackground === undefined ? metadata.printBackground : printBackground,
       keywords: mergedKeywords,
       patternTags,
     };
+    const mergedMetadata = resolveDocumentMetadata({
+      markdown: content,
+      metadata: mergedMetadataRaw,
+      settings: options,
+      fileName: inputPath,
+      fallbackTitle: 'Carbon Report',
+    });
+    mergedMetadata.cleanup = cleanupResult.stats;
 
     const typography = resolveTypographySettings(mergedMetadata, options.typography || {});
 
@@ -2190,34 +2636,14 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
     await ensureDir(path.dirname(finalOutputPath));
 
     if (verbose) console.log('🖨️  Rendering PDF with Chromium...');
-    const launchCandidates = [
-      process.env.PLAYWRIGHT_EXECUTABLE_PATH,
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      process.env.CHROMIUM_PATH,
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/google-chrome',
-    ].filter(Boolean);
-    let executablePath = null;
-    for (const candidate of launchCandidates) {
-      if (candidate && await fileExists(candidate)) {
-        executablePath = candidate;
-        break;
-      }
-    }
-
-    const browser = await chromium.launch({
-      headless: true,
-      ...(executablePath ? { executablePath } : {}),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    const browser = await acquireBrowser();
 
     try {
       const page = await browser.newPage();
-      await page.goto(`file://${tempHtmlPath}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`file://${tempHtmlPath}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       await page.emulateMedia({ media: 'print' });
       await runChartRenderer(page);
-      const pagedScript = await resolvePagedScriptPath(projectRoot);
+      const pagedScript = await getCachedPagedScriptPath(projectRoot);
       await runPagedPolyfill(page, pagedScript, verbose);
       if (typeof onStage === 'function') {
         await onStage('paginate');
@@ -2252,6 +2678,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         baselineKey: qa.baselineKey,
         visual: qa.visual,
         axe: qa.axe,
+        printProfile: resolvedPrintProfile,
       });
       if (qaReport) {
         console.log(
@@ -2266,6 +2693,10 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
             fonts: qaReport.fonts || null,
           })
         );
+        // Store QA feedback for art director learning loop
+        try {
+          storeQaFeedback(markdown || '', qaReport);
+        } catch { /* non-critical */ }
       }
       if (qaReport) {
         const baseName = path.basename(finalOutputPath, '.pdf');
@@ -2288,12 +2719,18 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         }
       }
 
-      await page.pdf({
-        path: finalOutputPath,
-        format: printConfig.format,
-        printBackground: true,
-        preferCSSPageSize: true,
-      });
+      const pdfTimeout = Number(process.env.PDF_EXPORT_TIMEOUT) || 120_000;
+      await Promise.race([
+        page.pdf({
+          path: finalOutputPath,
+          format: printConfig.format,
+          printBackground: mergedMetadata.printBackground !== false,
+          preferCSSPageSize: true,
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('PDF export timed out')), pdfTimeout)
+        ),
+      ]);
       if (typeof onStage === 'function') {
         await onStage('export-pdf');
       }
@@ -2307,6 +2744,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
           options: {
             ...postprocess,
             status: postprocess.status || mergedMetadata.status,
+            headings: toc || [],
           },
         });
       }
@@ -2320,7 +2758,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         return { outputPath: finalOutputPath, qaReport, postprocess: postprocessSummary };
       }
     } finally {
-      await browser.close();
+      releaseBrowser(browser);
     }
 
     if (verbose) console.log(`✅ PDF generated successfully: ${finalOutputPath}`);

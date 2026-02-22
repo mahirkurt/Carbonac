@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs/promises';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
+import dns from 'dns/promises';
 import mammoth from 'mammoth';
 import { jobQueue } from './queue.js';
 import { authEnabled, getUserIdFromToken } from './auth.js';
@@ -59,6 +60,7 @@ import {
 import { evaluatePreflight } from './preflight.js';
 import { usageStoreEnabled, createUsageEvent } from './usage-store.js';
 import { LOCAL_TEMPLATE_FALLBACKS } from './template-fallbacks.js';
+import { sanitizeMarkdownContent } from '../src/utils/markdown-cleanup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,7 +94,7 @@ app.use(
     maxAge: 86400,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use((req, res, next) => {
   const requestId = req.get('x-request-id') || randomUUID();
   req.requestId = requestId;
@@ -287,6 +289,7 @@ const GEMINI_CARBON_HTML_FALLBACK_MODEL = process.env.GEMINI_CARBON_HTML_FALLBAC
 const GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION = process.env.GEMINI_CARBON_HTML_SYSTEM_INSTRUCTION || '';
 const PUBLISH_REQUIRE_QUALITY_CHECKLIST =
   process.env.PUBLISH_REQUIRE_QUALITY_CHECKLIST === 'true';
+const BILLING_FREE_PAGES = Number(process.env.BILLING_FREE_PAGES || 10);
 
 const aiRateState = new Map();
 const API_RATE_LIMIT_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000);
@@ -399,9 +402,21 @@ async function callGemini({ prompt, model, systemInstruction = null, generationC
     const errorText = await response.text();
     const err = new Error(`Gemini API error: ${response.status} - ${errorText}`);
     err.status = response.status;
+    err.code = '';
+    try {
+      const payload = JSON.parse(errorText);
+      const details = Array.isArray(payload?.error?.details) ? payload.error.details : [];
+      const reason = details.find((item) => typeof item?.reason === 'string')?.reason || '';
+      err.code = reason || String(payload?.error?.status || '');
+    } catch {
+      // Keep message-based fallback below.
+    }
+
     // Provide a stable-ish code for clients.
     if (response.status === 429) {
       err.code = 'GEMINI_RATE_LIMITED';
+    } else if (err.code === 'API_KEY_INVALID' || /api key\s*(expired|invalid)/i.test(errorText)) {
+      err.code = 'GEMINI_API_KEY_INVALID';
     }
     throw err;
   }
@@ -778,8 +793,41 @@ async function assertJobOwnership(jobId, userId) {
   return { record };
 }
 
+function isPrivateIp(ip) {
+  // IPv4 private/reserved ranges
+  const parts = ip.split('.').map(Number);
+  if (parts.length === 4) {
+    if (parts[0] === 10) return true;                          // 10.0.0.0/8
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] === 192 && parts[1] === 168) return true;    // 192.168.0.0/16
+    if (parts[0] === 127) return true;                         // 127.0.0.0/8
+    if (parts[0] === 169 && parts[1] === 254) return true;    // 169.254.0.0/16
+    if (parts[0] === 0) return true;                           // 0.0.0.0/8
+  }
+  // IPv6 loopback and private
+  if (ip === '::1' || ip === '::' || ip.startsWith('fe80:') || ip.startsWith('fd')) return true;
+  return false;
+}
+
 async function downloadRemoteFile(fileUrl, fileType) {
-  const response = await fetch(fileUrl);
+  const parsed = new URL(fileUrl);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only HTTP(S) URLs are allowed.');
+  }
+  // DNS resolution check to prevent SSRF via DNS rebinding
+  const { address } = await dns.lookup(parsed.hostname);
+  if (isPrivateIp(address)) {
+    throw new Error('URLs resolving to private/internal addresses are not allowed.');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  let response;
+  try {
+    response = await fetch(fileUrl, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     throw new Error('Failed to download remote file.');
   }
@@ -842,6 +890,31 @@ const upload = multer({
   },
 });
 
+// Magic byte signatures for server-side file type validation
+const MAGIC_BYTES = {
+  pdf: { bytes: [0x25, 0x50, 0x44, 0x46], offset: 0 },       // %PDF
+  docx: { bytes: [0x50, 0x4B, 0x03, 0x04], offset: 0 },      // PK (ZIP)
+  doc: { bytes: [0xD0, 0xCF, 0x11, 0xE0], offset: 0 },       // OLE2
+  rtf: { bytes: [0x7B, 0x5C, 0x72, 0x74, 0x66], offset: 0 }, // {\rtf
+  odt: { bytes: [0x50, 0x4B, 0x03, 0x04], offset: 0 },       // PK (ZIP)
+};
+
+async function validateFileMagicBytes(filePath, ext) {
+  const normalizedExt = ext.replace(/^\./, '').toLowerCase();
+  // Text files don't need magic byte validation
+  if (['md', 'txt'].includes(normalizedExt)) return true;
+  const sig = MAGIC_BYTES[normalizedExt];
+  if (!sig) return true; // unknown extensions pass through
+  const fd = await fs.open(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(sig.bytes.length);
+    await fd.read(buf, 0, sig.bytes.length, sig.offset);
+    return sig.bytes.every((b, i) => buf[i] === b);
+  } finally {
+    await fd.close();
+  }
+}
+
 /**
  * Convert document to Markdown using Marker
  * POST /api/convert/to-markdown
@@ -878,6 +951,11 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
     fallbackPath = fileInfo.path;
 
     const inputPath = fileInfo.path;
+    const inputExt = path.extname(originalName).toLowerCase();
+    const magicValid = await validateFileMagicBytes(inputPath, inputExt).catch(() => false);
+    if (!magicValid) {
+      return sendError(res, 400, 'INVALID_FILE', 'File content does not match its extension.', null, req.requestId);
+    }
     outputDir = path.join(__dirname, '../temp/output', req.requestId || randomUUID());
     await fs.mkdir(outputDir, { recursive: true });
 
@@ -885,9 +963,13 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
 
     if (ext === '.md' || ext === '.txt') {
       const content = await fs.readFile(inputPath, 'utf-8');
+      const cleanupResult = sanitizeMarkdownContent(content, {
+        keepSoftHyphen: req.body?.keepSoftHyphen === true,
+      });
       return res.json({
         success: true,
-        markdown: content,
+        markdown: cleanupResult.text,
+        cleanup: cleanupResult.stats,
         fileName: originalName,
       });
     }
@@ -898,9 +980,13 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       if (result.messages?.length) {
         logEvent('warn', { requestId: req.requestId, mammothWarnings: result.messages });
       }
+      const cleanupResult = sanitizeMarkdownContent(result.value, {
+        keepSoftHyphen: req.body?.keepSoftHyphen === true,
+      });
       return res.json({
         success: true,
-        markdown: result.value,
+        markdown: cleanupResult.text,
+        cleanup: cleanupResult.stats,
         fileName: originalName,
       });
     }
@@ -934,9 +1020,14 @@ app.post('/api/convert/to-markdown', upload.single('file'), async (req, res) => 
       );
     }
 
+    const cleanupResult = sanitizeMarkdownContent(markdown, {
+      keepSoftHyphen: req.body?.keepSoftHyphen === true,
+    });
+
     res.json({
       success: true,
-      markdown,
+      markdown: cleanupResult.text,
+      cleanup: cleanupResult.stats,
       fileName: originalName,
     });
   } catch (error) {
@@ -1458,6 +1549,30 @@ function buildAskPrompt({ question, context }) {
     `Question:\n${question}\n`;
 }
 
+function buildAskFallbackOutput(question = '') {
+  const normalized = String(question || '').toLowerCase();
+  const asksTemplateSuggestions =
+    normalized.includes('şablon') ||
+    normalized.includes('template') ||
+    normalized.includes('report') ||
+    normalized.includes('rapor');
+
+  if (asksTemplateSuggestions) {
+    return [
+      'AI servisi geçici olarak kullanılamıyor (sağlayıcı kimlik doğrulama hatası).',
+      'Bu sırada manuel olarak şu 3 şablonu deneyebilirsin:',
+      '1) carbon-template — genel amaçlı rapor başlangıcı',
+      '2) carbon-dataviz — grafik/ağırlıklı raporlar',
+      '3) carbon-cv — özgeçmiş/CV çıktıları',
+    ].join('\n');
+  }
+
+  return [
+    'AI servisi geçici olarak kullanılamıyor (sağlayıcı kimlik doğrulama hatası).',
+    'Lütfen birkaç dakika sonra tekrar dene veya sistem yöneticisinden API anahtarını yenilemesini iste.',
+  ].join('\n');
+}
+
 function buildMarkdownToCarbonHtmlSystemInstruction() {
   return (
     'You convert Markdown into a production-ready pure HTML string using IBM Carbon Design System v11.\n' +
@@ -1503,6 +1618,16 @@ app.post('/api/ai/analyze', async (req, res) => {
       if (Number(error?.status) === 429) {
         res.setHeader('Retry-After', 60);
         return sendError(res, 429, 'UPSTREAM_RATE_LIMITED', 'AI sağlayıcısı oran sınırına ulaştı.', error.message, req.requestId);
+      }
+      if (error?.code === 'GEMINI_API_KEY_INVALID') {
+        return sendError(
+          res,
+          503,
+          'AI_PROVIDER_AUTH_FAILED',
+          'AI provider authentication failed. API key is invalid or expired.',
+          null,
+          req.requestId
+        );
       }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
@@ -1591,6 +1716,21 @@ app.post('/api/ai/ask', async (req, res) => {
       if (Number(error?.status) === 429) {
         res.setHeader('Retry-After', 60);
         return sendError(res, 429, 'UPSTREAM_RATE_LIMITED', 'AI sağlayıcısı oran sınırına ulaştı.', error.message, req.requestId);
+      }
+      if (error?.code === 'GEMINI_API_KEY_INVALID') {
+        logEvent('warn', {
+          requestId: req.requestId,
+          userId: auth.userId || null,
+          code: 'AI_PROVIDER_AUTH_FAILED',
+          message: 'Gemini API key invalid/expired; serving local fallback answer for ask.',
+        });
+        return res.json({
+          promptVersion: AI_PROMPT_VERSION,
+          model: 'fallback-local',
+          degraded: true,
+          reason: 'provider_auth_failed',
+          output: buildAskFallbackOutput(safeQuestion),
+        });
       }
       if (GEMINI_FALLBACK_MODEL && GEMINI_FALLBACK_MODEL !== GEMINI_MODEL) {
         usedModel = GEMINI_FALLBACK_MODEL;
@@ -1702,6 +1842,16 @@ app.post('/api/ai/markdown-to-carbon-html', async (req, res) => {
           req.requestId
         );
       }
+      if (error?.code === 'GEMINI_API_KEY_INVALID') {
+        return sendError(
+          res,
+          503,
+          'AI_PROVIDER_AUTH_FAILED',
+          'AI provider authentication failed. API key is invalid or expired.',
+          null,
+          req.requestId
+        );
+      }
 
       if (resolvedFallback && resolvedFallback !== resolvedModel) {
         usedModel = resolvedFallback;
@@ -1767,6 +1917,88 @@ app.post('/api/ai/markdown-to-carbon-html', async (req, res) => {
       req.requestId
     );
   }
+});
+
+function buildDefaultBillingStatus() {
+  return {
+    credits: 0,
+    subscription: {
+      tier: 'free',
+      status: 'active',
+      renewsAt: null,
+    },
+    usage: {
+      pagesUsed: 0,
+      pagesRemaining: BILLING_FREE_PAGES,
+    },
+  };
+}
+
+function sendBillingNotConfigured(res, requestId) {
+  return sendError(
+    res,
+    501,
+    'BILLING_NOT_CONFIGURED',
+    'Billing service is not configured in this deployment.',
+    null,
+    requestId
+  );
+}
+
+/**
+ * Billing status
+ * GET /api/billing/status
+ */
+app.get('/api/billing/status', async (req, res) => {
+  try {
+    const auth = await resolveAuthUser(req);
+    if (auth.error || (authEnabled && !auth.userId)) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+    }
+
+    return res.json(buildDefaultBillingStatus());
+  } catch (error) {
+    logEvent('error', {
+      requestId: req.requestId,
+      error: error.message,
+    });
+    return sendError(res, 500, 'BILLING_STATUS_FAILED', 'Failed to read billing status.', error.message, req.requestId);
+  }
+});
+
+/**
+ * Billing operation stubs
+ */
+app.post('/api/billing/use-credits', async (req, res) => {
+  const auth = await resolveAuthUser(req);
+  if (auth.error || (authEnabled && !auth.userId)) {
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+  }
+  return sendBillingNotConfigured(res, req.requestId);
+});
+
+app.post('/api/billing/create-checkout', async (req, res) => {
+  const auth = await resolveAuthUser(req);
+  if (auth.error || (authEnabled && !auth.userId)) {
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+  }
+  return sendBillingNotConfigured(res, req.requestId);
+});
+
+app.post('/api/billing/purchase-credits', async (req, res) => {
+  const auth = await resolveAuthUser(req);
+  if (auth.error || (authEnabled && !auth.userId)) {
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+  }
+  return sendBillingNotConfigured(res, req.requestId);
+});
+
+app.post('/api/billing/cancel-subscription', async (req, res) => {
+  const auth = await resolveAuthUser(req);
+  if (auth.error || (authEnabled && !auth.userId)) {
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication required.', null, req.requestId);
+  }
+  return sendBillingNotConfigured(res, req.requestId);
 });
 
 /**
@@ -2514,6 +2746,18 @@ function generateFrontmatter(settings) {
   if (settings.theme) {
     lines.push(`theme: ${settings.theme}`);
   }
+  if (settings.colorMode) {
+    lines.push(`colorMode: ${settings.colorMode}`);
+  }
+  if (settings.includeCover !== undefined) {
+    lines.push(`includeCover: ${settings.includeCover === true ? 'true' : 'false'}`);
+  }
+  if (settings.showPageNumbers !== undefined) {
+    lines.push(`showPageNumbers: ${settings.showPageNumbers === true ? 'true' : 'false'}`);
+  }
+  if (settings.printBackground !== undefined) {
+    lines.push(`printBackground: ${settings.printBackground === true ? 'true' : 'false'}`);
+  }
   if (settings.templateKey) {
     lines.push(`templateKey: ${settings.templateKey}`);
   }
@@ -2794,6 +3038,27 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Backend API server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error(
+    JSON.stringify({
+      event: 'unhandled_rejection',
+      message: reason?.message || String(reason),
+      stack: reason?.stack || null,
+    })
+  );
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(
+    JSON.stringify({
+      event: 'uncaught_exception',
+      message: error.message,
+      stack: error.stack,
+    })
+  );
+  process.exit(1);
 });
 
 export default app;

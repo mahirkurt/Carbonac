@@ -18,10 +18,83 @@ const ART_DIRECTOR_USE_REFERENCE_LIBRARY =
 
 const MAX_CONTENT_CHARS = 12000;
 const LAYOUT_PROFILES = new Set(['symmetric', 'asymmetric', 'dashboard']);
-const PRINT_PROFILES = new Set(['pagedjs-a4', 'pagedjs-a3']);
-const COMPONENT_TYPES = new Set(['carbonchart', 'richtext', 'highlightbox']);
+const PRINT_PROFILES = new Set(['pagedjs-a4', 'pagedjs-a3', 'pagedjs-a5']);
+const COMPONENT_TYPES = new Set([
+  'carbonchart', 'richtext', 'highlightbox',
+  'quote', 'timeline', 'datatable', 'figure',
+  'patternblock', 'marginnote',
+]);
 
 let referenceBriefCache = null;
+
+// QA feedback cache (keyed by content hash, max 10 entries, 30-min TTL)
+const qaFeedbackCache = new Map();
+const QA_FEEDBACK_TTL = 30 * 60 * 1000;
+const QA_FEEDBACK_MAX = 10;
+
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return String(hash);
+}
+
+export function extractQaFeedback(qaReport) {
+  if (!qaReport || typeof qaReport !== 'object') return null;
+  const feedback = {};
+  const typographyScore = qaReport.typographyScore ?? qaReport.typography?.score;
+  if (typeof typographyScore === 'number' && typographyScore < 70) {
+    feedback.lowTypography = true;
+    feedback.typographyScore = typographyScore;
+  }
+  const chartCount = qaReport.chartCount ?? qaReport.visualRichness?.charts ?? 0;
+  const tableCount = qaReport.tableCount ?? qaReport.visualRichness?.tables ?? 0;
+  if (chartCount === 0 && tableCount > 0) {
+    feedback.missingCharts = true;
+  }
+  const patternCount = qaReport.patternCount ?? qaReport.visualRichness?.patterns ?? 0;
+  if (patternCount === 0) {
+    feedback.missingPatterns = true;
+  }
+  const componentTypes = qaReport.componentTypes ?? qaReport.visualRichness?.componentTypes;
+  if (typeof componentTypes === 'number' && componentTypes <= 2) {
+    feedback.lowVariety = true;
+  }
+  const severity = qaReport.aiReview?.severity || qaReport.severity;
+  if (severity === 'high') {
+    feedback.highSeverity = true;
+    feedback.severitySummary = qaReport.aiReview?.summary || qaReport.summary || '';
+  }
+  const layoutSuggestions = qaReport.aiReview?.layoutSuggestions || qaReport.layoutSuggestions;
+  if (Array.isArray(layoutSuggestions) && layoutSuggestions.length) {
+    feedback.layoutSuggestions = layoutSuggestions.slice(0, 3);
+  }
+  return Object.keys(feedback).length ? feedback : null;
+}
+
+export function storeQaFeedback(contentKey, qaReport) {
+  const feedback = extractQaFeedback(qaReport);
+  if (!feedback) return;
+  const hash = simpleHash(contentKey);
+  qaFeedbackCache.set(hash, { feedback, timestamp: Date.now() });
+  // Evict oldest if over limit
+  if (qaFeedbackCache.size > QA_FEEDBACK_MAX) {
+    const oldest = [...qaFeedbackCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+    if (oldest) qaFeedbackCache.delete(oldest[0]);
+  }
+}
+
+function getQaFeedback(contentKey) {
+  const hash = simpleHash(contentKey);
+  const entry = qaFeedbackCache.get(hash);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > QA_FEEDBACK_TTL) {
+    qaFeedbackCache.delete(hash);
+    return null;
+  }
+  return entry.feedback;
+}
 
 const layoutPropsSchema = z.object({
   colSpan: z.coerce.number().int().min(1).max(16),
@@ -81,7 +154,7 @@ const layoutPlanSchema = z.object({
 
 const layoutJsonSchema = z.object({
   layoutProfile: z.enum(['symmetric', 'asymmetric', 'dashboard']).optional(),
-  printProfile: z.enum(['pagedjs-a4', 'pagedjs-a3']).optional(),
+  printProfile: z.enum(['pagedjs-a4', 'pagedjs-a3', 'pagedjs-a5']).optional(),
   gridSystem: z.enum(['symmetric', 'asymmetric', 'dashboard']).optional(),
   components: z.array(componentSchema).optional(),
   storytelling: z.object({
@@ -114,20 +187,79 @@ Limit components to at most 12 total.
 Tone: concise executive summary, no jargon, no emojis. Highlight any outliers or trends when data is present.
 Include sources/methodology notes for survey-style reports when available.
 
+Component types available:
+- RichText: Body text, paragraphs, lists (default for prose)
+- HighlightBox: Executive takeaways, key insights, warnings (tone: info/warning/success/danger)
+- CarbonChart: Data visualization placeholder (set chartType + dataHint)
+- Quote: Attributed quotations for testimonials or expert opinions
+- Timeline: Chronological event sequences (horizontal or vertical)
+- DataTable: Structured tabular data with semantic markup
+- Figure: Image or diagram with caption
+- PatternBlock: IBM design patterns for structured page compositions. Subtypes:
+  - cover-page-hero: Full-page opening with large title, subtitle, and visual accent
+  - chapter-opener: Section divider with part number, title, and optional subtitle
+  - executive-summary: Structured summary with key metrics, findings list, and methodology note
+  - hero-stat-with-quote: Large statistic paired with an expert quote for impact
+  - case-study-module: Bordered box with challenge/solution/result structure
+  - kpi-grid: 3-4 column grid of key performance indicators
+  - key-findings-list: Numbered or bulleted findings with severity/priority markers
+  - action-box: Call-to-action section with recommendations and next steps
+  - figure-with-caption: Image/diagram container with structured caption and source
+  - appendix-page: Reference section with compact typography and dense layout
+  Set "patternType" field to specify the subtype.
+- MarginNote: Sidebar annotations for supplementary context (align: left/right)
+
 Visual richness targets:
-- Use a balanced mix of components (RichText + HighlightBox + CarbonChart) to avoid monotony.
-- If the content implies data (tables, metrics, survey, numbers), include at least one CarbonChart placeholder.
-- Include at least one HighlightBox to elevate key insights or executive takeaways.
-- Vary layout density: mix full-width blocks with multi-column blocks (e.g., 6/10, 8/8) and occasional offsets.
-- Use styleOverrides.theme on a few components to introduce visual contrast (g10/g90) while keeping readability.
+- Use a varied mix of component types to avoid monotony. Aim for at least 3 different types.
+- If content implies data (tables, metrics, survey), include at least one CarbonChart.
+- Include at least one HighlightBox for key insights or executive takeaways.
+- Use Quote for testimonials, expert opinions, or notable statements.
+- Use PatternBlock for cover pages and section openers where appropriate.
+- For reports with 4+ sections, use PatternBlock(chapter-opener) between major parts.
+- For data-heavy reports, use PatternBlock(kpi-grid) to summarize key metrics upfront.
+- For executive reports, use PatternBlock(executive-summary) near the beginning.
+
+Narrative structure (follow this arc):
+1. Hook: Open with the most impactful finding, statistic, or provocative question
+2. Context: Establish background, scope, and methodology (use MarginNote for methodology details)
+3. Evidence: Present data with CarbonChart and DataTable visualizations
+4. Analysis: Interpret findings using HighlightBox callouts for key takeaways
+5. Conclusion: Summarize with actionable recommendations in a g10-themed closing section
+- Each major narrative shift (hook→context, evidence→analysis, analysis→conclusion) deserves a page break
+- Avoid front-loading all text — interleave narrative with visual elements
+
+Grid composition rubrics (16-column grid):
+- Opening section: full-width (colSpan: 16) for introductory text
+- Data sections: 10/6 or 6/10 split (chart + insight side-by-side)
+- Highlight callouts: colSpan 12 with offset 2 for visual breathing room
+- Multi-metric KPI: 4/4/4/4 grid for dashboards
+- Sidebar pattern: 11/5 split with MarginNote in narrow column
+- Closing: full-width with g10 theme for executive summary
+- NEVER use more than 3 consecutive full-width (colSpan: 16) components
+- At least 40% of components should have colSpan < 16
 
 CarbonChart guidance:
-- When you include a CarbonChart component, set chartType and dataHint.
+- When you include a CarbonChart, set chartType and dataHint.
 - Prefer: time-series => line/area, correlation => scatter/bubble, composition => donut/pie, distribution => histogram/boxplot, hierarchy => treemap, flow => alluvial.
 
 Document type guidance:
 - docType: ${metadata.docType || metadata.documentType || 'report'}
 - If docType indicates cv/resume, keep components <= 8, avoid charts unless explicitly requested, and prefer asymmetric layouts with a concise sidebar.
+  CV/resume-specific PatternBlock subtypes: cv-profile, cv-summary, cv-experience, cv-education, cv-skills, cv-projects, cv-certifications, cv-languages.
+  Start with PatternBlock(cv-profile) for the header, use cv-experience for work history, cv-education for education.
+${printProfile === 'pagedjs-a5' ? `
+A5 grid rules (narrow page — 148mm wide):
+- Prefer full-width (colSpan: 16) for most content
+- Maximum split: 10/6 (chart + caption only, not for body text)
+- KPI grid: 2 columns (8/8), not 4-column
+- Do not use offset patterns — A5 margins already provide breathing room
+- Avoid MarginNote — insufficient column width
+` : ''}
+Print design token reference:
+- Typography: Productive (body, label, compact) vs Expressive (heading, display, editorial)
+- Grid gutters: wide (32px), narrow (16px), condensed (1px)
+- CMYK-safe accents: blue-60, green-60, red-60
+- Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
 ${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
@@ -141,13 +273,14 @@ Requested settings:
 Output schema:
 {
   "layoutProfile": "symmetric|asymmetric|dashboard",
-  "printProfile": "pagedjs-a4|pagedjs-a3",
+  "printProfile": "pagedjs-a4|pagedjs-a3|pagedjs-a5",
   "gridSystem": "symmetric|asymmetric|dashboard",
   "components": [
     {
-      "type": "CarbonChart|RichText|HighlightBox",
+      "type": "CarbonChart|RichText|HighlightBox|Quote|Timeline|DataTable|Figure|PatternBlock|MarginNote",
       "chartType": "bar|line|area|donut|stacked|scatter|bubble|radar|treemap|gauge|heatmap|pie|histogram|boxplot|meter|combo|lollipop|wordcloud|alluvial",
       "dataHint": "time-series|correlation|composition|distribution|hierarchy|flow|kpi|survey",
+      "patternType": "cover-page-hero|chapter-opener|executive-summary|hero-stat-with-quote|case-study-module|kpi-grid|key-findings-list|action-box|figure-with-caption|appendix-page",
       "layoutProps": { "colSpan": 8, "offset": 0 },
       "styleOverrides": { "theme": "white|g10|g90|g100" }
     }
@@ -209,8 +342,12 @@ Output schema:
 }`;
 }
 
-function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief }) {
+function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief, qaFeedback }) {
+  const feedbackBlock = qaFeedback
+    ? `\nPrior QA feedback (avoid repeating these issues):\n${JSON.stringify(qaFeedback)}\n`
+    : '';
   return `You are the layout planner for a print-ready report system.
+${feedbackBlock}
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
 Create a layoutPlan with gridSystem, components, and pageBreaks.
@@ -219,20 +356,65 @@ Do NOT include any document body text or excerpts. Do NOT add fields like "conte
 Keep all string values short (<= 120 chars). Components are structural placeholders only.
 Limit components to at most 12 total.
 
-Visual richness targets:
-- Use a balanced mix of components (RichText + HighlightBox + CarbonChart) to avoid monotony.
-- If the documentPlan suggests data-heavy sections, include at least one CarbonChart placeholder.
-- Include at least one HighlightBox to elevate key insights or executive takeaways.
-- Vary layout density: mix full-width blocks with multi-column blocks (e.g., 6/10, 8/8) and occasional offsets.
-- Use styleOverrides.theme on a few components to introduce visual contrast (g10/g90) while keeping readability.
+Component types available:
+- RichText: Body text, paragraphs, lists (default for prose)
+- HighlightBox: Executive takeaways, key insights, warnings (tone: info/warning/success/danger)
+- CarbonChart: Data visualization placeholder (set chartType + dataHint)
+- Quote: Attributed quotations for testimonials or expert opinions
+- Timeline: Chronological event sequences
+- DataTable: Structured tabular data with semantic markup
+- Figure: Image or diagram with caption
+- PatternBlock: IBM design patterns. Set "patternType" to one of:
+  cover-page-hero, chapter-opener, executive-summary, hero-stat-with-quote,
+  case-study-module, kpi-grid, key-findings-list, action-box,
+  figure-with-caption, appendix-page
+- MarginNote: Sidebar annotations for supplementary context
+
+Grid composition rubrics (16-column grid):
+- Opening section: full-width (colSpan: 16) for introductory text
+- Data sections: 10/6 or 6/10 split (chart + insight side-by-side)
+- Highlight callouts: colSpan 12 with offset 2 for visual breathing room
+- Multi-metric KPI: 4/4/4/4 grid for dashboards
+- Sidebar pattern: 11/5 split with MarginNote in narrow column
+- NEVER use more than 3 consecutive full-width (colSpan: 16) components
+- At least 40% of components should have colSpan < 16
+
+Narrative structure (follow this arc for coherent storytelling):
+1. Hook: Open with the most impactful finding, statistic, or provocative question.
+   Use PatternBlock(cover-page-hero) or a bold HighlightBox.
+2. Context: Establish background, scope, and methodology.
+   Use MarginNote for methodology details to keep the main flow clean.
+3. Evidence: Present data with CarbonChart and DataTable visualizations.
+   Use 10/6 or 6/10 grid splits for chart + insight pairings.
+4. Analysis: Interpret findings using HighlightBox callouts for key takeaways.
+   Use PatternBlock(key-findings-list) for structured findings.
+5. Conclusion: Summarize with actionable recommendations.
+   Use a g10-themed RichText or PatternBlock(action-box) for closing.
+- Each major narrative shift (hook→context, evidence→analysis, analysis→conclusion) deserves a page break.
+- Avoid front-loading all text — interleave narrative with visual elements.
 
 CarbonChart guidance:
-- When you include a CarbonChart component, set chartType and dataHint.
+- When you include a CarbonChart, set chartType and dataHint.
 - Prefer: time-series => line/area, correlation => scatter/bubble, composition => donut/pie, distribution => histogram/boxplot, hierarchy => treemap, flow => alluvial.
 
 Document type guidance:
 - docType: ${metadata.docType || metadata.documentType || 'report'}
-- If docType indicates cv/resume, keep components <= 8, avoid charts unless explicitly requested, and prefer asymmetric layouts with a concise sidebar.
+- If docType indicates cv/resume, keep components <= 8, avoid charts, prefer asymmetric layouts with concise sidebar.
+  CV/resume-specific PatternBlock subtypes: cv-profile, cv-summary, cv-experience, cv-education, cv-skills, cv-projects, cv-certifications, cv-languages.
+  Start with PatternBlock(cv-profile) for the header, use cv-experience for work history, cv-education for education.
+${printProfile === 'pagedjs-a5' ? `
+A5 grid rules (narrow page — 148mm wide):
+- Prefer full-width (colSpan: 16) for most content
+- Maximum split: 10/6 (chart + caption only, not for body text)
+- KPI grid: 2 columns (8/8), not 4-column
+- Do not use offset patterns — A5 margins already provide breathing room
+- Avoid MarginNote — insufficient column width
+` : ''}
+Print design token reference:
+- Typography: Productive (body, label, compact) vs Expressive (heading, display, editorial)
+- Grid gutters: wide (32px), narrow (16px), condensed (1px)
+- CMYK-safe accents: blue-60, green-60, red-60
+- Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
 ${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
@@ -247,19 +429,20 @@ ${JSON.stringify(documentPlan, null, 2)}
 Output schema:
 {
   "layoutProfile": "symmetric|asymmetric|dashboard",
-  "printProfile": "pagedjs-a4|pagedjs-a3",
+  "printProfile": "pagedjs-a4|pagedjs-a3|pagedjs-a5",
   "gridSystem": "symmetric|asymmetric|dashboard",
   "layoutPlan": {
     "gridSystem": "symmetric|asymmetric|dashboard",
-	    "components": [
-	      {
-	        "type": "CarbonChart|RichText|HighlightBox",
-	        "chartType": "bar|line|area|donut|stacked|scatter|bubble|radar|treemap|gauge|heatmap|pie|histogram|boxplot|meter|combo|lollipop|wordcloud|alluvial",
-	        "dataHint": "time-series|correlation|composition|distribution|hierarchy|flow|kpi|survey",
-	        "layoutProps": { "colSpan": 8, "offset": 0 },
-	        "styleOverrides": { "theme": "white|g10|g90|g100" }
-	      }
-	    ],
+    "components": [
+      {
+        "type": "CarbonChart|RichText|HighlightBox|Quote|Timeline|DataTable|Figure|PatternBlock|MarginNote",
+        "chartType": "bar|line|...",
+        "dataHint": "time-series|correlation|...",
+        "patternType": "cover-page-hero|chapter-opener|executive-summary|hero-stat-with-quote|case-study-module|kpi-grid|key-findings-list|action-box|figure-with-caption|appendix-page",
+        "layoutProps": { "colSpan": 8, "offset": 0 },
+        "styleOverrides": { "theme": "white|g10|g90|g100" }
+      }
+    ],
     "pageBreaks": [
       {
         "beforeSectionId": "string",
@@ -416,66 +599,114 @@ function extractMarkdownTables(content) {
   return tables;
 }
 
+function detectTrend(values) {
+  if (values.length < 2) return null;
+  const isIncreasing = values.every((v, i, a) => i === 0 || v >= a[i - 1]);
+  const isDecreasing = values.every((v, i, a) => i === 0 || v <= a[i - 1]);
+  if (isIncreasing) return 'increasing';
+  if (isDecreasing) return 'decreasing';
+  return null;
+}
+
+function detectOutlier(values, labels) {
+  if (values.length < 3) return null;
+  const mean = values.reduce((s, n) => s + n, 0) / values.length;
+  const variance = values.reduce((s, n) => s + (n - mean) ** 2, 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  if (stdDev === 0) return null;
+  let maxIdx = 0;
+  let minIdx = 0;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] > values[maxIdx]) maxIdx = i;
+    if (values[i] < values[minIdx]) minIdx = i;
+  }
+  if (values[maxIdx] > mean + stdDev * 2) {
+    return { type: 'high', label: labels[maxIdx], value: values[maxIdx] };
+  }
+  if (values[minIdx] < mean - stdDev * 2) {
+    return { type: 'low', label: labels[minIdx], value: values[minIdx] };
+  }
+  return null;
+}
+
 function buildFallbackInsights(content) {
   const tables = extractMarkdownTables(content);
   const insights = [];
 
   for (const table of tables) {
     const { header, rows } = table;
-    if (!header.length || rows.length < 2) {
-      continue;
-    }
+    if (!header.length || rows.length < 2) continue;
 
-    const columnValues = header.map(() => []);
-    rows.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        const numeric = parseNumericValue(cell);
-        if (numeric === null) return;
-        const label = row[0] && parseNumericValue(row[0]) === null
-          ? row[0].trim()
-          : `Satir ${rowIndex + 1}`;
-        columnValues[colIndex].push({ value: numeric, label });
-      });
-    });
+    // Determine if first column is text labels (row-oriented data)
+    const firstColIsLabel = rows.every(
+      (row) => row[0] && parseNumericValue(row[0]) === null
+    );
+    const numericColStart = firstColIsLabel ? 1 : 0;
+    const hasMultipleNumericCols =
+      header.slice(numericColStart).filter((_, i) =>
+        rows.some((row) => parseNumericValue(row[i + numericColStart]) !== null)
+      ).length >= 2;
 
-    columnValues.forEach((values, colIndex) => {
-      if (colIndex === 0 || values.length < 2) return;
-      const colName = header[colIndex] || `Kolon ${colIndex + 1}`;
-      const ordered = values.map((entry) => entry.value);
-      const isIncreasing = ordered.every((v, idx, arr) => idx === 0 || v >= arr[idx - 1]);
-      const isDecreasing = ordered.every((v, idx, arr) => idx === 0 || v <= arr[idx - 1]);
-      if (isIncreasing) {
-        insights.push(`${colName} kolonunda belirgin bir artan trend gorunuyor.`);
-      } else if (isDecreasing) {
-        insights.push(`${colName} kolonunda belirgin bir azalan trend gorunuyor.`);
-      }
+    // Row-wise analysis: each row is a data series across columns
+    if (firstColIsLabel && hasMultipleNumericCols) {
+      for (const row of rows) {
+        const label = row[0].trim();
+        const values = row.slice(numericColStart).map(parseNumericValue).filter((v) => v !== null);
+        if (values.length < 2) continue;
 
-      if (values.length >= 3) {
-        const nums = values.map((entry) => entry.value);
-        const mean = nums.reduce((sum, n) => sum + n, 0) / nums.length;
-        const variance = nums.reduce((sum, n) => sum + (n - mean) ** 2, 0) / nums.length;
-        const stdDev = Math.sqrt(variance);
-        const maxEntry = values.reduce((best, entry) => (entry.value > best.value ? entry : best), values[0]);
-        const minEntry = values.reduce((best, entry) => (entry.value < best.value ? entry : best), values[0]);
-
-        if (maxEntry.value > mean + stdDev * 2) {
-          insights.push(`${colName} kolonunda ${maxEntry.label} aykiri derecede yuksek bir deger sergiliyor.`);
-        } else if (minEntry.value < mean - stdDev * 2) {
-          insights.push(`${colName} kolonunda ${minEntry.label} aykiri derecede dusuk bir deger sergiliyor.`);
+        const trend = detectTrend(values);
+        if (trend === 'increasing') {
+          insights.push(`${label} satirinda belirgin bir artan trend gorunuyor.`);
+        } else if (trend === 'decreasing') {
+          insights.push(`${label} satirinda belirgin bir azalan trend gorunuyor.`);
         }
-      }
-    });
 
-    if (insights.length >= 3) {
-      break;
+        const colLabels = header.slice(numericColStart);
+        const outlier = detectOutlier(values, colLabels);
+        if (outlier) {
+          const direction = outlier.type === 'high' ? 'yuksek' : 'dusuk';
+          insights.push(`${label} satirinda ${outlier.label} aykiri derecede ${direction} bir deger sergiliyor.`);
+        }
+        if (insights.length >= 3) break;
+      }
     }
+
+    // Column-wise analysis: compare rows within each column
+    if (insights.length < 3) {
+      for (let colIdx = numericColStart; colIdx < header.length; colIdx++) {
+        const colName = header[colIdx] || `Kolon ${colIdx + 1}`;
+        const values = [];
+        const labels = [];
+        for (const row of rows) {
+          const num = parseNumericValue(row[colIdx]);
+          if (num === null) continue;
+          values.push(num);
+          labels.push(firstColIsLabel ? row[0].trim() : `Satir ${rows.indexOf(row) + 1}`);
+        }
+        if (values.length < 2) continue;
+
+        const outlier = detectOutlier(values, labels);
+        if (outlier) {
+          const direction = outlier.type === 'high' ? 'yuksek' : 'dusuk';
+          insights.push(`${colName} kolonunda ${outlier.label} aykiri derecede ${direction} bir deger sergiliyor.`);
+        }
+        if (insights.length >= 3) break;
+      }
+    }
+
+    if (insights.length >= 3) break;
   }
 
   return Array.from(new Set(insights)).slice(0, 3);
 }
 
 function summarizeContent(content) {
-  const plain = stripMarkdown(content || '');
+  if (!content) return '';
+  // Strip tables (lines with | separators) before extracting summary
+  const withoutTables = content
+    .replace(/^\s*\|.*\|.*$/gm, '')
+    .replace(/^\s*:?-+:?\s*(\|\s*:?-+:?\s*)+$/gm, '');
+  const plain = stripMarkdown(withoutTables);
   if (!plain) return '';
   const sentences = plain.match(/[^.!?]+[.!?]+/g) || [];
   if (sentences.length > 0) {
@@ -541,7 +772,26 @@ function buildFallbackDocumentPlan({ metadata, toc = [], content }) {
   };
 }
 
-function buildFallbackLayoutPlan({ layoutProfile, documentPlan }) {
+function classifySection(section, content) {
+  const title = (section?.title || '').toLowerCase();
+  if (/^(giris|introduction|overview|ozet|summary)/.test(title)) return 'hero';
+  if (/^(sonuc|conclusion|degerlendirme|result|recommendation)/.test(title)) return 'conclusion';
+  if (/^(ek|appendix|kaynakca|references|bibliography)/.test(title)) return 'appendix';
+  if (/^(yontem|method|methodology)/.test(title)) return 'methodology';
+  // Check if the section likely has data (tables/numbers nearby)
+  const sectionId = section?.id || '';
+  if (sectionId && content) {
+    const heading = title || sectionId;
+    const idx = content.toLowerCase().indexOf(heading);
+    if (idx >= 0) {
+      const slice = content.slice(idx, idx + 1000);
+      if (/\|.*\|/.test(slice) || /\d+[\.,]\d+/.test(slice)) return 'data';
+    }
+  }
+  return 'narrative';
+}
+
+function buildFallbackLayoutPlan({ layoutProfile, documentPlan, content, printProfile }) {
   const pageBreaks = Array.isArray(documentPlan?.sections)
     ? documentPlan.sections.slice(1).map((section) => ({
         beforeSectionId: section.id,
@@ -550,9 +800,130 @@ function buildFallbackLayoutPlan({ layoutProfile, documentPlan }) {
       }))
     : [];
 
+  const components = [];
+  const tables = extractMarkdownTables(content || '');
+  const sections = documentPlan?.sections || [];
+  const isAsymmetric = layoutProfile === 'asymmetric';
+  const isA5 = printProfile === 'pagedjs-a5';
+  const minColSpan = isA5 ? 8 : 1;
+
+  // Classify sections for targeted component selection
+  const classified = sections.map((s) => ({
+    ...s,
+    sectionType: classifySection(s, content),
+  }));
+  const title = documentPlan?.title || '';
+
+  // 1. Cover page: PatternBlock(cover-page-hero) if title exists
+  if (title) {
+    components.push({
+      type: 'PatternBlock',
+      patternType: 'cover-page-hero',
+      title,
+      layoutProps: { colSpan: 16, offset: 0 },
+      styleOverrides: { theme: 'white' },
+    });
+  }
+
+  // 2. Opening: full-width intro
+  components.push({
+    type: 'RichText',
+    layoutProps: { colSpan: 16, offset: 0 },
+    styleOverrides: { theme: 'g10' },
+  });
+
+  // 3. HighlightBox for key insights (offset for visual interest)
+  if (sections.length > 1) {
+    components.push({
+      type: 'HighlightBox',
+      layoutProps: { colSpan: 12, offset: 2 },
+      styleOverrides: { theme: 'g10' },
+    });
+  }
+
+  // 4. Chapter openers for multi-section documents (max 3)
+  if (sections.length >= 3) {
+    const chapterSections = classified.filter((s) =>
+      s.sectionType !== 'hero' && s.sectionType !== 'appendix'
+    ).slice(0, 3);
+    for (const section of chapterSections.slice(0, 2)) {
+      components.push({
+        type: 'PatternBlock',
+        patternType: 'chapter-opener',
+        title: section.title || '',
+        layoutProps: { colSpan: 16, offset: 0 },
+        styleOverrides: { theme: 'white' },
+      });
+    }
+  }
+
+  // 5. KPI grid for tables with 3+ columns
+  const wideTable = tables.find((t) => t.header && t.header.length >= 3);
+  if (wideTable) {
+    components.push({
+      type: 'PatternBlock',
+      patternType: 'kpi-grid',
+      layoutProps: { colSpan: 16, offset: 0 },
+      styleOverrides: { theme: 'white' },
+    });
+  }
+
+  // 6. Data sections: chart + data table in split layout
+  if (tables.length > 0) {
+    components.push({
+      type: 'CarbonChart',
+      layoutProps: { colSpan: isA5 ? 16 : (isAsymmetric ? 10 : 10), offset: isA5 ? 0 : (isAsymmetric ? 1 : 3) },
+      data: { chartType: 'bar', dataHint: 'composition' },
+      styleOverrides: { theme: 'white' },
+    });
+
+    if (tables.length > 1) {
+      components.push({
+        type: 'DataTable',
+        layoutProps: { colSpan: isA5 ? 16 : (isAsymmetric ? 10 : 12), offset: isA5 ? 0 : (isAsymmetric ? 3 : 2) },
+        styleOverrides: {},
+      });
+    }
+  }
+
+  // 7. Add narrative-oriented components for richer documents
+  const hasQuoteContent = content && /["\u201C\u201D]|alinti|quote/i.test(content);
+  if (hasQuoteContent || sections.length >= 4) {
+    components.push({
+      type: 'Quote',
+      layoutProps: { colSpan: isA5 ? 16 : (isAsymmetric ? 10 : 12), offset: isA5 ? 0 : (isAsymmetric ? 3 : 2) },
+      styleOverrides: {},
+    });
+  }
+
+  // 8. Conclusion section with different theme for visual closure
+  if (classified.some((s) => s.sectionType === 'conclusion')) {
+    components.push({
+      type: 'RichText',
+      layoutProps: { colSpan: 16, offset: 0 },
+      styleOverrides: { theme: 'g10' },
+    });
+  }
+
+  // 9. MarginNote for asymmetric layouts with methodology/appendix sections (skip for A5)
+  if (!isA5 && isAsymmetric && classified.some((s) => s.sectionType === 'methodology' || s.sectionType === 'appendix')) {
+    components.push({
+      type: 'MarginNote',
+      layoutProps: { colSpan: 5, offset: 11 },
+      styleOverrides: {},
+    });
+  }
+
+  // Enforce max 12 components — prioritize: cover > highlight > chart > chapter-opener > richtext
+  const MAX_FALLBACK_COMPONENTS = 12;
+  if (components.length > MAX_FALLBACK_COMPONENTS) {
+    // Remove excess from the end, but keep the first (cover) and second (opening richtext)
+    components.splice(MAX_FALLBACK_COMPONENTS);
+  }
+
   return {
     gridSystem: layoutProfile,
-    components: [],
+    components,
     pageBreaks,
   };
 }
@@ -587,7 +958,7 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
         sources,
       }
     : null;
-  const layoutPlan = buildFallbackLayoutPlan({ layoutProfile, documentPlan: resolvedDocumentPlan });
+  const layoutPlan = buildFallbackLayoutPlan({ layoutProfile, documentPlan: resolvedDocumentPlan, content, printProfile });
 
   return {
     version: 'v1',
@@ -595,7 +966,7 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
     printProfile,
     gridSystem: layoutProfile,
     theme: theme || 'white',
-    components: [],
+    components: layoutPlan.components,
     documentPlan: resolvedDocumentPlan,
     layoutPlan,
     storytelling,
@@ -611,7 +982,7 @@ function buildFallbackLayoutJson({ content, metadata, layoutProfile, printProfil
 
 function normalizeComponents(components = []) {
   if (!Array.isArray(components)) return [];
-  return components.map((component) => {
+  const normalized = components.map((component) => {
     const next = { ...component };
     const layoutProps = component.layoutProps && typeof component.layoutProps === 'object'
       ? { ...component.layoutProps }
@@ -631,6 +1002,37 @@ function normalizeComponents(components = []) {
     }
     return next;
   });
+
+  // Rule 1: Break consecutive full-width runs (max 3, PatternBlock exempt)
+  let consecutiveFullWidth = 0;
+  for (const comp of normalized) {
+    if (comp.layoutProps.colSpan === 16) {
+      consecutiveFullWidth++;
+      if (consecutiveFullWidth > 3 && comp.type?.toLowerCase() !== 'patternblock') {
+        comp.layoutProps = { ...comp.layoutProps, colSpan: 12, offset: 2 };
+      }
+    } else {
+      consecutiveFullWidth = 0;
+    }
+  }
+
+  // Rule 2: Ensure at least 40% of components have colSpan < 16
+  if (normalized.length >= 3) {
+    const narrowCount = normalized.filter((c) => c.layoutProps.colSpan < 16).length;
+    const targetNarrow = Math.ceil(normalized.length * 0.4);
+    if (narrowCount < targetNarrow) {
+      let deficit = targetNarrow - narrowCount;
+      for (let i = normalized.length - 1; i >= 0 && deficit > 0; i--) {
+        const comp = normalized[i];
+        if (comp.layoutProps.colSpan === 16 && comp.type?.toLowerCase() !== 'patternblock') {
+          comp.layoutProps = { ...comp.layoutProps, colSpan: 12, offset: 2 };
+          deficit--;
+        }
+      }
+    }
+  }
+
+  return normalized;
 }
 
 function validateLayoutJson(input, fallback) {
@@ -714,7 +1116,7 @@ async function callGemini(model, prompt, content) {
       },
     ],
     generationConfig: {
-      temperature: 0.2,
+      temperature: 0.4,
       topP: 0.8,
       topK: 40,
       maxOutputTokens: 4096,
@@ -722,11 +1124,20 @@ async function callGemini(model, prompt, content) {
     },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
-    body: JSON.stringify(body),
-  });
+  const aiTimeout = Number(process.env.GEMINI_TIMEOUT_MS) || 60_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), aiTimeout);
+  let response;
+  try {
+    response = await fetch(`${GEMINI_API_URL}/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -874,6 +1285,15 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
     console.warn('[art-director] DocumentPlan failed, using fallback plan.');
   }
 
+  // Enrich sections with classification so the layout planner can see them
+  if (Array.isArray(documentPlan?.sections)) {
+    documentPlan.sections = documentPlan.sections.map((section) => ({
+      ...section,
+      classification: classifySection(section, clippedContent),
+    }));
+  }
+
+  const priorFeedback = getQaFeedback(clippedContent);
   const layoutPrompt = buildLayoutPlanPrompt({
     metadata,
     layoutProfile: resolvedLayoutProfile,
@@ -881,6 +1301,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
     theme,
     documentPlan,
     referenceBrief,
+    qaFeedback: priorFeedback,
   });
 
   try {

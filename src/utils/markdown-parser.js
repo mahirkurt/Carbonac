@@ -14,6 +14,15 @@ import GithubSlugger from 'github-slugger';
 import { carbonTheme } from '../../styles/carbon/theme.js';
 import { applyDirectiveMappings, extractDirectiveComponents } from './directive-mapper.js';
 
+/**
+ * Normalize directive attribute syntax: ":::name {attrs}" -> ":::name{attrs}"
+ * remark-directive requires attributes to be directly attached to the name.
+ */
+function normalizeDirectiveSyntax(content) {
+  if (!content) return content;
+  return content.replace(/^(:{3,}[\w][\w-]*)\s+(\{[^}]*\})/gm, '$1$2');
+}
+
 function stripFrontmatter() {
   return (tree) => {
     if (!tree || !Array.isArray(tree.children)) {
@@ -115,14 +124,10 @@ function normalizeFrontmatter(frontmatter = {}) {
   const docType = frontmatter.docType || frontmatter.documentType || null;
   const locale = frontmatter.locale || frontmatter.language || 'en-US';
   const defaults = {
-    title: 'Untitled Document',
+    title: '',
     subtitle: '',
-    author: 'Anonymous',
-    date: new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }),
+    author: '',
+    date: '',
     theme: 'white',
     layoutProfile: 'symmetric',
     printProfile: 'pagedjs-a4',
@@ -176,8 +181,50 @@ function buildTocFromTree(tree) {
  * @param {object} options - Parser options
  * @returns {object} Parsed content and metadata
  */
+/**
+ * Validate table structure in the AST.
+ * Checks for missing headers, inconsistent column counts, and empty tables.
+ * @param {object} tree - remark AST
+ * @returns {Array} List of table validation issues
+ */
+export function validateTables(tree) {
+  const issues = [];
+  visit(tree, 'table', (node) => {
+    const position = node?.position?.start;
+    const line = position?.line || null;
+
+    const rows = (node.children || []).filter((c) => c.type === 'tableRow');
+    if (rows.length === 0) {
+      issues.push({ type: 'table-empty', line, severity: 'low' });
+      return;
+    }
+
+    // First row is typically the header in GFM tables
+    const headerRow = rows[0];
+    const headerCells = (headerRow?.children || []).filter((c) => c.type === 'tableCell');
+    if (headerCells.length === 0) {
+      issues.push({ type: 'table-missing-headers', line, severity: 'medium' });
+    }
+
+    // Check for data rows
+    if (rows.length < 2) {
+      issues.push({ type: 'table-no-data-rows', line, severity: 'low' });
+    }
+
+    // Check column count consistency
+    const colCounts = rows.map((row) =>
+      (row.children || []).filter((c) => c.type === 'tableCell').length
+    );
+    const uniqueCounts = new Set(colCounts);
+    if (uniqueCounts.size > 1) {
+      issues.push({ type: 'table-inconsistent-columns', line, severity: 'medium' });
+    }
+  });
+  return issues;
+}
+
 export function parseMarkdown(markdownContent, options = {}) {
-  const safeContent = markdownContent || '';
+  const safeContent = normalizeDirectiveSyntax(markdownContent || '');
   const { data: frontmatter, content } = matter(safeContent);
 
   const slugger = new GithubSlugger();
@@ -189,6 +236,7 @@ export function parseMarkdown(markdownContent, options = {}) {
   const ast = processor.runSync(tree);
   const toc = buildTocFromTree(ast);
   const components = extractDirectiveComponents(ast);
+  const tableIssues = validateTables(ast);
 
   return {
     metadata: normalizeFrontmatter(frontmatter),
@@ -197,6 +245,7 @@ export function parseMarkdown(markdownContent, options = {}) {
     toc,
     ast,
     components,
+    tableIssues,
   };
 }
 
@@ -216,7 +265,7 @@ export function markdownToHtml(content, options = {}) {
     .use(rehypeRaw)
     .use(rehypeStringify);
 
-  const file = processor.processSync(content || '');
+  const file = processor.processSync(normalizeDirectiveSyntax(content || ''));
   return String(file);
 }
 

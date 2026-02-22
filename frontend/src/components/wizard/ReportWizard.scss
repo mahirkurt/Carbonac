@@ -6,10 +6,10 @@
 
 .report-wizard {
   display: grid;
-  grid-template-columns: 1fr 280px;
-  grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: $spacing-05;
-  height: 100%;
+  min-height: 100%;
   padding: $spacing-05;
   background: var(--cds-background);
 
@@ -18,10 +18,11 @@
   }
 
   &__header {
-    grid-column: 1 / -1;
+    grid-column: 1;
     padding: $spacing-05;
     background: var(--cds-layer-01);
     border-radius: 8px;
+    border: 1px solid var(--cds-border-subtle-01);
   }
 
   &__progress-info {
@@ -57,6 +58,7 @@
 
   &__chat {
     grid-column: 1;
+    grid-row: 3;
     display: flex;
     flex-direction: column;
     background: var(--cds-layer-01);
@@ -331,6 +333,7 @@
 
   &__navigation {
     grid-column: 1;
+    grid-row: 4;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -341,9 +344,11 @@
 
   &__advanced {
     grid-column: 1;
+    grid-row: 2;
     background: var(--cds-layer-01);
     border-radius: 8px;
     padding: $spacing-04 $spacing-05;
+    border: 1px solid var(--cds-border-subtle-01);
   }
 
   &__advanced-grid {
@@ -353,6 +358,13 @@
     margin-top: $spacing-03;
   }
 
+  &__advanced-toggles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: $spacing-03;
+    margin-top: $spacing-04;
+  }
+
   &__nav-left,
   &__nav-right {
     display: flex;
@@ -360,12 +372,13 @@
   }
 
   &__summary {
-    grid-row: 2 / 4;
+    grid-row: 1 / 5;
     grid-column: 2;
     padding: $spacing-05;
     background: var(--cds-layer-01);
     border-radius: 8px;
     overflow-y: auto;
+    border: 1px solid var(--cds-border-subtle-01);
 
     @media (max-width: 900px) {
       display: none;
@@ -382,12 +395,14 @@
 
   &__summary-panel {
     grid-column: 1;
+    grid-row: 3;
     background: var(--cds-layer-01);
     border-radius: 8px;
     padding: $spacing-05;
     display: flex;
     flex-direction: column;
     gap: $spacing-04;
+    border: 1px solid var(--cds-border-subtle-01);
 
     h3 {
       @include type-style('heading-02');

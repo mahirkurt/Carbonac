@@ -32,8 +32,6 @@ function SettingsModal({
   onPrintProfileChange,
   autoSave = true,
   onAutoSaveChange,
-  livePreview = true,
-  onLivePreviewChange,
 }) {
   const { theme, setTheme, useSystemPreference, toggleSystemPreference } = useTheme();
 
@@ -68,16 +66,6 @@ function SettingsModal({
                 onToggle={(checked) => onAutoSaveChange?.(checked)}
               />
               <p className="settings-modal__hint">Değişiklikler otomatik olarak yerel taslağa kaydedilir.</p>
-              
-              <Toggle
-                id="live-preview"
-                labelText="Canlı Önizleme"
-                labelA="Kapalı"
-                labelB="Açık"
-                toggled={livePreview}
-                onToggle={(checked) => onLivePreviewChange?.(checked)}
-              />
-              <p className="settings-modal__hint">PDF üretimi olmadan hızlı markdown önizlemesini gösterir.</p>
             </div>
           </TabPanel>
           

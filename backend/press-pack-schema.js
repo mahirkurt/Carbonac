@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const STATUS_VALUES = ['draft', 'review', 'approved', 'published'];
 const LAYOUT_PROFILES = ['symmetric', 'asymmetric', 'dashboard'];
-const PRINT_PROFILES = ['pagedjs-a4', 'pagedjs-a3'];
+const PRINT_PROFILES = ['pagedjs-a4', 'pagedjs-a3', 'pagedjs-a5'];
 const THEMES = ['white', 'g10', 'g90', 'g100'];
 const QA_SCOPES = ['document', 'page', 'block'];
 

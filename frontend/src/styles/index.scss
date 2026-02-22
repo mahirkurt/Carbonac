@@ -21,6 +21,22 @@
   block-size: 100%;
 }
 
+.carbonac-ai-chat--editor-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+
+  .cds--chat-container {
+    block-size: 100%;
+    min-block-size: 520px;
+  }
+
+  .cds--chat-shell,
+  .cds--chat {
+    block-size: 100%;
+  }
+}
+
 // Custom CSS Variables for Carbon Design System
 :root {
   // Font Families
@@ -241,7 +257,21 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 400px;
+  min-width: 0;
+}
+
+.editor-panel .panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.editor-panel__export-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .editor-panel__actions {
@@ -264,6 +294,39 @@ body {
   flex-direction: column;
   gap: 0.75rem;
   padding: 0 1rem 0.75rem;
+}
+
+.editor-panel__ai-status {
+  padding: 0 1rem 0.5rem;
+}
+
+.editor-panel__ai-feedback {
+  margin: 0 1rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--cds-text-secondary);
+}
+
+.editor-panel__preview-mode {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.editor-panel__preview-mode-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--cds-text-secondary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.editor-panel__preview-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .editor-panel__outline {
@@ -448,6 +511,82 @@ body {
       outline-offset: -2px;
     }
   }
+}
+
+.markdown-editor--preview {
+  background: var(--cds-layer-01);
+}
+
+.markdown-editor__rich-preview {
+  min-height: 100%;
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 8px;
+  background: var(--cds-background);
+  padding: 1.25rem;
+  line-height: 1.6;
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    color: var(--cds-text-primary);
+    line-height: 1.35;
+  }
+
+  h1:first-child,
+  h2:first-child,
+  h3:first-child,
+  h4:first-child {
+    margin-top: 0;
+  }
+
+  p,
+  ul,
+  ol,
+  blockquote,
+  pre,
+  table {
+    margin-bottom: 0.85rem;
+  }
+
+  code {
+    font-family: var(--cds-font-family-mono);
+    font-size: 0.82em;
+  }
+
+  pre {
+    border-radius: 6px;
+    padding: 0.75rem;
+    overflow: auto;
+    background: var(--cds-layer-02);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+
+    th,
+    td {
+      border: 1px solid var(--cds-border-subtle-01);
+      padding: 0.45rem 0.5rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--cds-layer-02);
+      font-weight: 600;
+    }
+  }
+}
+
+.markdown-editor__preview-empty {
+  margin: 0;
+  color: var(--cds-text-secondary);
+  font-size: 0.85rem;
 }
 
 // PDF Preview
@@ -658,6 +797,42 @@ body {
     letter-spacing: 0.5px;
     margin-bottom: 1rem;
   }
+
+  &__hint {
+    margin-top: 0.6rem;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    color: var(--cds-text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.35;
+
+    svg {
+      margin-top: 0.08rem;
+      flex: 0 0 auto;
+    }
+  }
+
+  &__status {
+    margin-top: 0.55rem;
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+  }
+}
+
+.quick-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-access-actions--secondary {
+  margin-top: 0.55rem;
+}
+
+.quick-access-button {
+  min-inline-size: 9.5rem;
+  justify-content: flex-start;
 }
 
 // Stat tiles
@@ -768,6 +943,20 @@ body {
 
   .editor-preview-panels {
     flex-direction: column;
+  }
+
+  .editor-canvas-layout {
+    flex-direction: column;
+  }
+
+  .editor-canvas-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    overflow: auto;
+  }
+
+  .editor-canvas-rail {
+    grid-template-rows: minmax(420px, auto) auto;
   }
 
   .template-gallery {
@@ -1000,6 +1189,57 @@ body {
   gap: 1rem;
   padding: 0 1rem 1rem;
   overflow: auto;
+}
+
+// Editor Canvas Layout (preview-less, AI side rail)
+.editor-canvas-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-canvas-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+  gap: 1rem;
+  padding: 1rem;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.editor-canvas-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+
+  .editor-panel {
+    width: 100%;
+  }
+}
+
+.editor-canvas-rail {
+  min-width: 0;
+  min-height: 0;
+  background: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle-01);
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(380px, 1fr) auto;
+}
+
+.editor-canvas-rail-quality {
+  border-top: 1px solid var(--cds-border-subtle-01);
+  padding: 0.75rem;
+  max-height: 280px;
+  overflow: auto;
+
+  .quality-panel--compact {
+    margin: 0;
+  }
 }
 
 // Processing Screen
@@ -1241,6 +1481,14 @@ body {
   padding: 1rem;
   border-top: 1px solid var(--cds-border-subtle-01);
   justify-content: flex-end;
+}
+
+.preview-panel__actions--compact {
+  padding: 0;
+  border-top: none;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 // Workspace panels

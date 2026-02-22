@@ -1,9 +1,10 @@
 function resolveApiBaseUrl() {
   const envBaseUrl = String(import.meta.env.VITE_API_URL || '').trim();
 
-  // Production guard:
-  // If build-time env is accidentally left as localhost, force the known
-  // production API host when the app runs on carbonac domains.
+  // Production routing guard:
+  // On Carbonac/Netlify production hosts, prefer same-origin `/api/*` calls
+  // so Netlify redirects can proxy requests server-side. This avoids browser
+  // CORS preflight failures when upstream API responses are missing CORS headers.
   if (typeof window !== 'undefined') {
     const host = String(window.location?.hostname || '').toLowerCase();
     const isCarbonacHost =
@@ -13,7 +14,7 @@ function resolveApiBaseUrl() {
       host.endsWith('--carbonac.netlify.app');
 
     if (isCarbonacHost) {
-      return 'https://api.carbonac.com';
+      return '';
     }
   }
 

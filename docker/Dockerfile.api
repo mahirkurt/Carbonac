@@ -1,15 +1,22 @@
 FROM node:20-bookworm-slim
 
-WORKDIR /app/backend
+WORKDIR /app
 
-COPY backend/package.json ./
+# Install root dependencies for shared modules imported by backend.
+COPY package.json package-lock.json ./
 RUN npm install --omit=dev
 
-COPY backend ./ 
+# Install backend-specific dependencies.
+COPY backend/package.json backend/package.json
+RUN cd backend && npm install --omit=dev
+
+# Copy backend and shared source used at runtime.
+COPY backend ./backend
+COPY src ./src
 
 ENV NODE_ENV=production
 ENV PORT=3001
 
 EXPOSE 3001
 
-CMD ["node", "server.js"]
+CMD ["node", "backend/server.js"]

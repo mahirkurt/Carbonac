@@ -3,7 +3,7 @@
  * Carbon AI Chat widget wired to Carbonac backend (/api/ai/ask, /api/ai/analyze).
  */
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ChatContainer,
   ChatCustomElement,
@@ -15,6 +15,34 @@ import {
 import { useDocument, useTheme } from '../../contexts';
 import { askAi, analyzeAi } from '../../services/aiService';
 import { applyLintFixes } from '../../utils/markdownLintFixes';
+
+const AI_APPLY_COMMAND_EVENT = 'CARBONAC_AI_APPLY_COMMAND';
+const AI_CHAT_PREFILL_EVENT = 'CARBONAC_AI_PREFILL';
+const AI_COMMAND_RESULT_EVENT = 'CARBONAC_AI_COMMAND_RESULT';
+
+function tryExtractMarkdownFromResponse(text) {
+  const value = String(text || '').trim();
+  if (!value) return null;
+
+  const jsonFence = value.match(/```json\s*([\s\S]*?)```/i);
+  const jsonRaw = jsonFence ? jsonFence[1] : value;
+  try {
+    const parsed = JSON.parse(jsonRaw);
+    const candidate = parsed?.markdown || parsed?.revisedMarkdown || parsed?.content || null;
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate;
+    }
+  } catch {
+    // continue
+  }
+
+  const mdFence = value.match(/```(?:md|markdown)?\s*([\s\S]*?)```/i);
+  if (mdFence?.[1]?.trim()) {
+    return mdFence[1].trim();
+  }
+
+  return null;
+}
 
 function clampText(value, maxChars) {
   const text = String(value || '');
@@ -172,6 +200,22 @@ function getAiUserFacingErrorText(error) {
   return 'AI isteği başarısız oldu.';
 }
 
+function insertSnippetAtSelection({ markdown = '', snippet = '', start = 0, end = 0 }) {
+  const current = String(markdown || '');
+  const normalizedSnippet = String(snippet || '').trim();
+  if (!normalizedSnippet) return current;
+
+  const safeStart = Math.max(0, Math.min(Number(start) || 0, current.length));
+  const safeEnd = Math.max(safeStart, Math.min(Number(end) || safeStart, current.length));
+
+  const before = current.slice(0, safeStart);
+  const after = current.slice(safeEnd);
+  const needsLeadingBreak = before.length > 0 && !before.endsWith('\n');
+  const needsTrailingBreak = after.length > 0 && !after.startsWith('\n');
+
+  return `${before}${needsLeadingBreak ? '\n\n' : ''}${normalizedSnippet}${needsTrailingBreak ? '\n' : ''}${after}`;
+}
+
 export default function CarbonacAiChat({
   enabled = true,
   embedded = false,
@@ -185,6 +229,47 @@ export default function CarbonacAiChat({
 
   const instanceRef = useRef(null);
   const historyRef = useRef([]);
+  const prefillContextRef = useRef([]);
+
+  const pushHistory = useCallback((role, text) => {
+    const normalized = String(text || '').trim();
+    if (!normalized) return;
+    historyRef.current.push({ role, text: clampText(normalized, 3000) });
+    if (historyRef.current.length > 40) {
+      historyRef.current = historyRef.current.slice(-40);
+    }
+  }, []);
+
+  const pushPrefillContext = useCallback((text, label = 'Bağlam') => {
+    const normalizedText = String(text || '').trim();
+    if (!normalizedText) return;
+
+    prefillContextRef.current = [
+      ...prefillContextRef.current,
+      {
+        label: String(label || 'Bağlam').trim() || 'Bağlam',
+        text: clampText(normalizedText, 1400),
+        timestamp: Date.now(),
+      },
+    ].slice(-8);
+  }, []);
+
+  const emitAiCommandResult = useCallback((payload = {}) => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(AI_COMMAND_RESULT_EVENT, {
+      detail: payload,
+    }));
+  }, []);
+
+  const markAuthRequired = useCallback((requestId, kind, message) => {
+    emitAiCommandResult({
+      requestId,
+      kind,
+      ok: false,
+      authRequired: true,
+      message,
+    });
+  }, [emitAiCommandResult]);
 
   const buildContext = useCallback((question) => {
     const markdown = doc.markdownContent || '';
@@ -201,6 +286,13 @@ export default function CarbonacAiChat({
     }));
 
     const recentChat = historyRef.current.slice(-6);
+    const prefillContext = prefillContextRef.current
+      .slice(-5)
+      .map((entry) => ({
+        label: entry.label,
+        text: entry.text,
+      }));
+    const selection = doc.editorSelection || { start: 0, end: 0, text: '' };
 
     // Keep context readable and compact (models handle this well).
     return clampText(
@@ -229,6 +321,14 @@ export default function CarbonacAiChat({
         recentChat.length
           ? `\nrecent_chat:\n${recentChat.map((m) => `${m.role === 'user' ? 'U' : 'A'}: ${m.text}`).join('\n')}`
           : null,
+        prefillContext.length
+          ? `\nexternal_prefill_context: ${JSON.stringify(prefillContext)}`
+          : null,
+        `\neditor_selection: ${JSON.stringify({
+          start: Number(selection.start) || 0,
+          end: Number(selection.end) || 0,
+          text: selection.text || '',
+        })}`,
         question ? `\nquestion:\n${question}` : null,
       ].filter(Boolean).join('\n'),
       12000
@@ -239,6 +339,7 @@ export default function CarbonacAiChat({
     doc.lintIssues,
     doc.markdownContent,
     doc.reportSettings,
+    doc.editorSelection,
     doc.selectedLayoutProfile,
     doc.selectedPrintProfile,
     doc.selectedTemplate,
@@ -299,6 +400,75 @@ export default function CarbonacAiChat({
       `Lint düzeltmeleri uygulandı.\n\nUygulananlar:\n${appliedText}${skippedText}`
     );
   }, [addAssistantText, doc]);
+
+  const applyAiRevision = useCallback(async ({ instruction }) => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+
+    const markdown = String(doc.markdownContent || '');
+    if (!markdown.trim()) {
+      await addAssistantText(instance, 'Revizyon için önce markdown içeriği olmalı.');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      await addAssistantText(instance, 'AI revizyonu için giriş yapmanız gerekiyor.');
+      onRequestLogin?.();
+      return;
+    }
+
+    const prompt = [
+      'Aşağıdaki markdown metnini verilen revizyon talebine göre güncelle.',
+      'IBM Carbon ilkelerine uygun, açık ve tutarlı bir çıktı üret.',
+      'Yanıtı SADECE markdown code block içinde ver.',
+      '',
+      doc.editorSelection?.text
+        ? `Sadece şu seçili parçayı güncelle (geri kalan metni koru):\n"""\n${doc.editorSelection.text}\n"""`
+        : 'Seçili parça yoksa tüm metin üzerinde revizyon uygula.',
+      '',
+      `Revizyon talebi: ${instruction}`,
+    ].join('\n');
+
+    try {
+      const answer = await askAi({
+        question: prompt,
+        context: buildContext(instruction),
+      });
+      const revised = tryExtractMarkdownFromResponse(answer);
+      if (!revised) {
+        await addAssistantText(
+          instance,
+          'AI cevabından uygulanabilir markdown çıkaramadım. Lütfen talebi daha net yazın.'
+        );
+        return;
+      }
+
+      const selectedText = String(doc.editorSelection?.text || '');
+      const hasSelection = selectedText.trim().length > 0;
+      if (hasSelection && revised.trim() && revised.trim() !== String(doc.markdownContent || '').trim()) {
+        const current = String(doc.markdownContent || '');
+        const start = Number(doc.editorSelection?.start) || 0;
+        const end = Number(doc.editorSelection?.end) || 0;
+        if (end > start && start >= 0 && end <= current.length) {
+          const nextMarkdown = `${current.slice(0, start)}${revised}${current.slice(end)}`;
+          doc.setMarkdown(nextMarkdown);
+        } else if (current.includes(selectedText)) {
+          doc.setMarkdown(current.replace(selectedText, revised));
+        } else {
+          doc.setMarkdown(revised);
+        }
+      } else {
+        doc.setMarkdown(revised);
+      }
+      await addAssistantText(instance, 'AI revizyonu uygulandı ve editöre işlendi.');
+    } catch (error) {
+      await instance.messaging.addMessage({
+        output: {
+          generic: [toInlineErrorItem(error, getAiUserFacingErrorText(error))],
+        },
+      });
+    }
+  }, [addAssistantText, buildContext, doc, isAuthenticated, onRequestLogin]);
 
   const runAnalyze = useCallback(async () => {
     const instance = instanceRef.current;
@@ -363,6 +533,294 @@ export default function CarbonacAiChat({
     theme,
   ]);
 
+  const handleAiApplyCommand = useCallback(async (detail = {}) => {
+    const instance = instanceRef.current;
+    const kind = String(detail?.kind || '').trim();
+    const requestId = detail?.requestId;
+
+    if (!kind) {
+      return {
+        ok: false,
+        requestId,
+        message: 'AI komut türü bulunamadı.',
+      };
+    }
+
+    if (kind === 'selection-context') {
+      const selectionText = String(detail?.selectionText || doc.editorSelection?.text || '').trim();
+      if (!selectionText) {
+        return {
+          ok: false,
+          requestId,
+          message: 'Seçili metin bulunamadı.',
+        };
+      }
+
+      pushPrefillContext(selectionText, 'Seçili Metin');
+      if (instance) {
+        await addAssistantText(instance, 'Seçili metin AI bağlamına eklendi.');
+      }
+      return {
+        ok: true,
+        requestId,
+        message: 'Seçili metin AI bağlamına eklendi.',
+      };
+    }
+
+    if (kind === 'quick-action') {
+      if (!isAuthenticated) {
+        if (instance) {
+          await addAssistantText(instance, 'Hızlı AI aksiyonları için giriş yapmanız gerekiyor.');
+        }
+        markAuthRequired(requestId, kind, 'AI aksiyonu için giriş yapın.');
+        onRequestLogin?.();
+        return {
+          ok: false,
+          requestId,
+          message: 'AI aksiyonu için giriş yapın.',
+        };
+      }
+
+      const prompt = String(detail?.prompt || '').trim();
+      if (!prompt) {
+        return {
+          ok: false,
+          requestId,
+          message: 'Hızlı erişim komutu boş.',
+        };
+      }
+
+      const answer = await askAi({
+        question: prompt,
+        context: buildContext(prompt),
+      });
+      const answerText = String(answer || '').trim() || '(boş yanıt)';
+      if (instance) {
+        await addAssistantText(instance, answerText);
+      }
+      pushHistory('user', `[quick-action] ${prompt}`);
+      pushHistory('assistant', answerText);
+      return {
+        ok: true,
+        requestId,
+        message: 'Hızlı erişim AI çıktısı üretildi.',
+      };
+    }
+
+    if (kind === 'insert-directive') {
+      const templateLabel = String(detail?.templateLabel || detail?.templateId || 'Directive').trim();
+      const fallbackSnippet = String(detail?.templateSnippet || '').trim();
+
+      if (!fallbackSnippet) {
+        return {
+          ok: false,
+          requestId,
+          message: 'Directive şablonu bulunamadı.',
+        };
+      }
+
+      if (!isAuthenticated) {
+        if (instance) {
+          await addAssistantText(instance, 'AI ile blok eklemek için giriş yapmanız gerekiyor.');
+        }
+        markAuthRequired(requestId, kind, 'AI blok ekleme için giriş yapın.');
+        onRequestLogin?.();
+        return {
+          ok: false,
+          requestId,
+          message: 'AI blok ekleme için giriş yapın.',
+        };
+      }
+
+      let resolvedSnippet = fallbackSnippet;
+      try {
+        const answer = await askAi({
+          question: [
+            `"${templateLabel}" için markdown bloğu üret.`,
+            'Sadece eklenecek blok içeriğini ver; açıklama yazma.',
+            'Yanıtı markdown code block olarak döndür.',
+            `Referans şablon:\n${fallbackSnippet}`,
+          ].join('\n\n'),
+          context: buildContext(`Directive insertion: ${templateLabel}`),
+        });
+
+        const candidate = tryExtractMarkdownFromResponse(answer) || String(answer || '').trim();
+        if (candidate) {
+          resolvedSnippet = candidate;
+        }
+      } catch (error) {
+        if (instance) {
+          await instance.messaging.addMessage({
+            output: {
+              generic: [toInlineErrorItem(error, `${templateLabel} için AI üretimi başarısız oldu, varsayılan şablon eklenecek.`)],
+            },
+          });
+        }
+      }
+
+      const currentMarkdown = String(doc.markdownContent || '');
+      const selectionStart = Number(doc.editorSelection?.start);
+      const selectionEnd = Number(doc.editorSelection?.end);
+      const safeStart = Number.isFinite(selectionStart) ? selectionStart : currentMarkdown.length;
+      const safeEnd = Number.isFinite(selectionEnd) ? selectionEnd : safeStart;
+
+      const nextMarkdown = insertSnippetAtSelection({
+        markdown: currentMarkdown,
+        snippet: resolvedSnippet,
+        start: safeStart,
+        end: safeEnd,
+      });
+
+      doc.setMarkdown(nextMarkdown);
+      if (instance) {
+        await addAssistantText(instance, `${templateLabel} bloğu editöre eklendi.`);
+      }
+      return {
+        ok: true,
+        requestId,
+        message: `${templateLabel} bloğu AI komutuyla eklendi.`,
+      };
+    }
+
+    if (kind === 'wizard-transform') {
+      const markdown = String(doc.markdownContent || '');
+      if (!markdown.trim()) {
+        return {
+          ok: false,
+          requestId,
+          message: 'Dönüştürülecek markdown bulunamadı.',
+        };
+      }
+
+      if (!isAuthenticated) {
+        if (instance) {
+          await addAssistantText(instance, 'Sihirbaz dönüşümü için giriş yapmanız gerekiyor.');
+        }
+        markAuthRequired(requestId, kind, 'Sihirbaz dönüşümü için giriş yapın.');
+        onRequestLogin?.();
+        return {
+          ok: false,
+          requestId,
+          message: 'Sihirbaz dönüşümü için giriş yapın.',
+        };
+      }
+
+      const wizardSettings = detail?.wizardSettings || doc.reportSettings || {};
+      const layoutProfile = detail?.layoutProfile || doc.selectedLayoutProfile || null;
+      const printProfile = detail?.printProfile || doc.selectedPrintProfile || null;
+
+      const answer = await askAi({
+        question: [
+          'Aşağıdaki markdown metnini rapor ayarlarına göre yeniden düzenle.',
+          'Çıktı SADECE markdown code block olsun.',
+          'Anlamı koru, bölüm yapısını iyileştir, okunabilirliği artır.',
+          `Rapor ayarları: ${JSON.stringify(wizardSettings)}`,
+          `Yerleşim profili: ${layoutProfile || '(belirtilmedi)'}`,
+          `Baskı profili: ${printProfile || '(belirtilmedi)'}`,
+        ].join('\n'),
+        context: buildContext('wizard transform'),
+      });
+
+      const revisedMarkdown = tryExtractMarkdownFromResponse(answer);
+      if (!revisedMarkdown) {
+        return {
+          ok: false,
+          requestId,
+          message: 'AI cevabından uygulanabilir markdown çıkarılamadı.',
+        };
+      }
+
+      doc.setMarkdown(revisedMarkdown);
+      if (instance) {
+        await addAssistantText(instance, 'Sihirbaz tercihleri markdown içeriğine uygulandı.');
+      }
+      return {
+        ok: true,
+        requestId,
+        message: 'Sihirbaz dönüşümü tamamlandı.',
+      };
+    }
+
+    return {
+      ok: false,
+      requestId,
+      message: `Desteklenmeyen AI komutu: ${kind}`,
+    };
+  }, [
+    addAssistantText,
+    buildContext,
+    doc,
+    isAuthenticated,
+    markAuthRequired,
+    onRequestLogin,
+    pushHistory,
+    pushPrefillContext,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const onPrefill = (event) => {
+      const detail = event?.detail || {};
+      const selectionText = String(detail?.selectionText || detail?.text || '').trim();
+      const prompt = String(detail?.prompt || '').trim();
+
+      if (selectionText) {
+        pushPrefillContext(selectionText, 'Prefill Selection');
+      }
+      if (prompt) {
+        pushPrefillContext(prompt, 'Prefill Prompt');
+      }
+    };
+
+    window.addEventListener(AI_CHAT_PREFILL_EVENT, onPrefill);
+    return () => {
+      window.removeEventListener(AI_CHAT_PREFILL_EVENT, onPrefill);
+    };
+  }, [pushPrefillContext]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const onApplyCommand = (event) => {
+      const detail = event?.detail || {};
+      const requestId = detail?.requestId;
+
+      void (async () => {
+        try {
+          const result = await handleAiApplyCommand(detail);
+          emitAiCommandResult({
+            requestId,
+            kind: detail?.kind,
+            ok: result?.ok !== false,
+            message: result?.message || (result?.ok === false ? 'AI komutu tamamlanamadı.' : 'AI komutu tamamlandı.'),
+          });
+        } catch (error) {
+          const instance = instanceRef.current;
+          if (instance) {
+            await instance.messaging.addMessage({
+              output: {
+                generic: [toInlineErrorItem(error, getAiUserFacingErrorText(error))],
+              },
+            });
+          }
+
+          emitAiCommandResult({
+            requestId,
+            kind: detail?.kind,
+            ok: false,
+            message: getAiUserFacingErrorText(error),
+          });
+        }
+      })();
+    };
+
+    window.addEventListener(AI_APPLY_COMMAND_EVENT, onApplyCommand);
+    return () => {
+      window.removeEventListener(AI_APPLY_COMMAND_EVENT, onApplyCommand);
+    };
+  }, [emitAiCommandResult, handleAiApplyCommand]);
+
   const customSendMessage = useCallback(async (request, requestOptions, instance) => {
     const signal = requestOptions?.signal;
 
@@ -393,6 +851,7 @@ export default function CarbonacAiChat({
     }
 
     const normalizedExact = question.trim().toLowerCase();
+    const normalizedQ = normalizedExact;
     const wantsAutofix =
       normalizedExact === 'bu uyarıları düzelt' ||
       normalizedExact === 'lint düzelt' ||
@@ -403,8 +862,20 @@ export default function CarbonacAiChat({
       return;
     }
 
+    const wantsRevision =
+      normalizedQ.includes('revize et') ||
+      normalizedQ.includes('yeniden yaz') ||
+      normalizedQ.includes('metni düzenle') ||
+      normalizedQ.includes('bu metni düzelt') ||
+      normalizedQ.includes('seçili metni') ||
+      normalizedQ.includes('selected text') ||
+      normalizedQ.startsWith('/revize');
+    if (wantsRevision) {
+      await applyAiRevision({ instruction: question });
+      return;
+    }
+
     // Quick lint helper: if user asks about lint, respond with a human-friendly summary.
-    const normalizedQ = question.toLowerCase();
     const looksLikeLintQuestion =
       normalizedQ.includes('lint') ||
       normalizedQ.includes('uyarı') ||
@@ -431,11 +902,8 @@ export default function CarbonacAiChat({
 
     try {
       const answer = await askAi({ question, context, signal });
-      historyRef.current.push({ role: 'user', text: question });
-      historyRef.current.push({ role: 'assistant', text: String(answer || '') });
-      if (historyRef.current.length > 40) {
-        historyRef.current = historyRef.current.slice(-40);
-      }
+      pushHistory('user', question);
+      pushHistory('assistant', String(answer || ''));
       await addAssistantText(instance, String(answer || '').trim() || '(bos yanit)');
     } catch (error) {
       // If the request was aborted by the widget, keep the UI clean.
@@ -462,9 +930,11 @@ export default function CarbonacAiChat({
   }, [
     addAssistantText,
     applyLintAutofix,
+    applyAiRevision,
     buildContext,
     isAuthenticated,
     onRequestLogin,
+    pushHistory,
     runAnalyze,
   ]);
 

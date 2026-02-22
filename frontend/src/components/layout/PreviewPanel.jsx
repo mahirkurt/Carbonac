@@ -11,6 +11,61 @@ import { useThrottle } from '../../hooks';
 import { useDocument } from '../../contexts/DocumentContext';
 import CarbonChartWrapper from '../charts/CarbonChartWrapper';
 
+export function PdfActions({ compact = false }) {
+  const {
+    markdownContent,
+    isConverting,
+    isGeneratingPdf,
+    outputPath,
+    downloadError,
+    setDownloadError,
+    generatePdf,
+    pdfJobProgress,
+    pdfJobTelemetry,
+  } = useDocument();
+
+  const handleDownload = useCallback(() => {
+    if (!outputPath) return;
+    const link = document.createElement('a');
+    link.href = outputPath;
+    link.download = 'document.pdf';
+    link.click();
+  }, [outputPath]);
+
+  return (
+    <div className={compact ? 'preview-panel__actions preview-panel__actions--compact' : 'preview-panel__actions'}>
+      {downloadError && (
+        <InlineNotification
+          kind="error"
+          title="PDF indirilemedi"
+          subtitle={downloadError}
+          onCloseButtonClick={() => setDownloadError(null)}
+        />
+      )}
+      <Button
+        kind="primary"
+        renderIcon={Play}
+        onClick={generatePdf}
+        size={compact ? 'sm' : undefined}
+        disabled={isConverting || isGeneratingPdf || !markdownContent}
+      >
+        {isGeneratingPdf
+          ? `Oluşturuluyor (%${Math.round(pdfJobTelemetry?.progress ?? pdfJobProgress ?? 0)})`
+          : 'PDF Oluştur'}
+      </Button>
+      <Button
+        kind="secondary"
+        renderIcon={Download}
+        onClick={handleDownload}
+        size={compact ? 'sm' : undefined}
+        disabled={!outputPath}
+      >
+        PDF İndir
+      </Button>
+    </div>
+  );
+}
+
 function stripFrontmatter(markdown) {
   return String(markdown || '').replace(/^---[\s\S]*?---/m, '').trim();
 }
@@ -143,7 +198,6 @@ function PreviewPanel() {
     pdfJobTelemetry,
     generatePdf,
     isConverting,
-    setDownloadError,
     livePreviewEnabled,
     selectedTheme,
   } = useDocument();
@@ -155,14 +209,6 @@ function PreviewPanel() {
     () => splitPreviewBlocks(effectiveMarkdown),
     [effectiveMarkdown]
   );
-
-  const handleDownload = useCallback(() => {
-    if (!outputPath) return;
-    const link = document.createElement('a');
-    link.href = outputPath;
-    link.download = 'document.pdf';
-    link.click();
-  }, [outputPath]);
 
   return (
     <div className="preview-panel panel">
@@ -257,32 +303,7 @@ function PreviewPanel() {
           </div>
         </div>
       </div>
-      <div className="preview-panel__actions">
-        {downloadError && (
-          <InlineNotification
-            kind="error"
-            title="PDF indirilemedi"
-            subtitle={downloadError}
-            onCloseButtonClick={() => setDownloadError(null)}
-          />
-        )}
-        <Button
-          kind="primary"
-          renderIcon={Play}
-          onClick={generatePdf}
-          disabled={isConverting || isGeneratingPdf || !markdownContent}
-        >
-          {isGeneratingPdf ? 'Oluşturuluyor...' : 'PDF Oluştur'}
-        </Button>
-        <Button
-          kind="secondary"
-          renderIcon={Download}
-          onClick={handleDownload}
-          disabled={!outputPath}
-        >
-          PDF İndir
-        </Button>
-      </div>
+      <PdfActions />
     </div>
   );
 }

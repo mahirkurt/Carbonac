@@ -66,6 +66,7 @@ function DocumentUploader() {
     fileSize,
     setFile,
     convertDocument,
+    clearConversionError,
     setStep,
     markdownContent,
   } = useDocument();
@@ -417,7 +418,7 @@ function DocumentUploader() {
           kind="error"
           title="Dönüştürme Hatası"
           subtitle={conversionError}
-          onCloseButtonClick={() => {}}
+          onCloseButtonClick={clearConversionError}
         />
       )}
 

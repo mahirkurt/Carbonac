@@ -16,6 +16,10 @@ import { ensureDir, getProjectRoot, writeFile } from '../src/utils/file-utils.js
 import { getArtDirection } from '../src/ai/art-director.js';
 import { parseMarkdown } from '../src/utils/markdown-parser.js';
 import {
+  resolveDocumentMetadata,
+  sanitizeMarkdownContent,
+} from '../src/utils/markdown-cleanup.js';
+import {
   storageEnabled,
   pdfBucket,
   buildPdfStoragePath,
@@ -266,37 +270,65 @@ async function reportStage(job, stage, message, progress = null, options = {}) {
   });
 }
 
+async function runPythonConversion(pythonScript, inputPath) {
+  const pythonBins = [process.env.PYTHON_BIN, 'python3', 'python']
+    .filter((value, index, list) => value && list.indexOf(value) === index);
+  const failures = [];
+
+  for (const bin of pythonBins) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const pythonProcess = spawn(bin, [pythonScript, inputPath]);
+
+        let output = '';
+        let errorOutput = '';
+
+        pythonProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        pythonProcess.on('error', (error) => {
+          reject(error);
+        });
+
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            resolve(output);
+          } else {
+            reject(new Error(errorOutput || `Python conversion failed (exit: ${code})`));
+          }
+        });
+      });
+    } catch (error) {
+      failures.push(`${bin}: ${error.message}`);
+    }
+  }
+
+  throw new Error(failures.join(' | ') || 'Python conversion failed');
+}
+
 async function convertWithPython(inputPath) {
   const pythonScript = path.join(__dirname, 'converters', 'document_converter.py');
-
-  return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python', [pythonScript, inputPath]);
-
-    let output = '';
-    let errorOutput = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-    });
-
-    pythonProcess.on('close', (code) => {
-      if (code === 0) {
-        resolve(output);
-      } else {
-        reject(new Error(errorOutput || 'Python conversion failed'));
-      }
-    });
-  });
+  return runPythonConversion(pythonScript, inputPath);
 }
 
 async function handleConvertMarkdown(job) {
   const { filePath, fileName, markdown } = job.data || {};
   await assertNotCancelled(job);
   await reportStage(job, 'ingest', 'Markdown ingest started');
+
+  const cleanupOptions = {
+    keepSoftHyphen: job.data?.keepSoftHyphen === true,
+  };
+
+  const normalizeMarkdownOutput = (value) => {
+    const cleanup = sanitizeMarkdownContent(value, cleanupOptions);
+    return cleanup.text;
+  };
 
   if (markdown && typeof markdown === 'string') {
     await assertNotCancelled(job);
@@ -314,7 +346,7 @@ async function handleConvertMarkdown(job) {
         },
       }).catch(() => null);
     }
-    return { markdown, fileName: fileName || 'document.md' };
+    return { markdown: normalizeMarkdownOutput(markdown), fileName: fileName || 'document.md' };
   }
 
   if (!filePath) {
@@ -340,7 +372,10 @@ async function handleConvertMarkdown(job) {
         },
       }).catch(() => null);
     }
-    return { markdown: content, fileName: fileName || path.basename(filePath) };
+    return {
+      markdown: normalizeMarkdownOutput(content),
+      fileName: fileName || path.basename(filePath),
+    };
   }
 
   const jobTempDir = path.join(tempRoot, job.id, 'convert-md');
@@ -392,7 +427,10 @@ async function handleConvertMarkdown(job) {
         },
       }).catch(() => null);
     }
-    return { markdown: content, fileName: fileName || mdFile };
+    return {
+      markdown: normalizeMarkdownOutput(content),
+      fileName: fileName || mdFile,
+    };
   } catch (error) {
     const fallback = await convertWithPython(filePath);
     await reportStage(job, 'complete', 'Markdown ready', 100, { status: 'completed' });
@@ -408,7 +446,10 @@ async function handleConvertMarkdown(job) {
         },
       }).catch(() => null);
     }
-    return { markdown: fallback, fileName: fileName || path.basename(filePath) };
+    return {
+      markdown: normalizeMarkdownOutput(fallback),
+      fileName: fileName || path.basename(filePath),
+    };
   }
 }
 
@@ -447,8 +488,27 @@ async function handleConvertPdf(job) {
 
   await reportStage(job, 'ingest', 'Markdown ingest started');
 
-  const parsedMarkdown = parseMarkdown(markdown);
+  const cleanupResult = sanitizeMarkdownContent(markdown, {
+    keepSoftHyphen: settings.keepSoftHyphen === true,
+  });
+  const sanitizedMarkdown = cleanupResult.text;
+
+  if (cleanupResult.stats.invisibleRemoved > 0 || cleanupResult.stats.nbspReplaced > 0) {
+    await reportStage(job, 'parse', 'Gorunmeyen karakterler temizlendi', null, {
+      metadata: cleanupResult.stats,
+    }).catch(() => null);
+  }
+
+  const parsedMarkdown = parseMarkdown(sanitizedMarkdown);
   const metadata = parsedMarkdown?.metadata || {};
+
+  const resolvedDocMetadata = resolveDocumentMetadata({
+    markdown: parsedMarkdown?.content || sanitizedMarkdown,
+    metadata,
+    settings,
+    fileName: settings.fileName || null,
+    fallbackTitle: 'Carbon Report',
+  });
 
   await reportStage(job, 'parse', 'Markdown parsed');
   await assertNotCancelled(job);
@@ -496,16 +556,38 @@ async function handleConvertPdf(job) {
   const layoutProfile = settings.layoutProfile || templateLayoutProfile || 'symmetric';
   const printProfile = settings.printProfile || templatePrintProfile || 'pagedjs-a4';
   const theme = settings.theme || templateTheme || 'white';
-  const title = settings.title || null;
-  const author = settings.author || null;
-  const date = settings.date || null;
+  const title = resolvedDocMetadata.title || settings.title || null;
+  const author = resolvedDocMetadata.author || settings.author || null;
+  const date = resolvedDocMetadata.date || settings.date || null;
 
-  const artDirection = await getArtDirection({
-    markdown,
-    layoutProfile,
-    printProfile,
-    theme,
-  });
+  let artDirection;
+  try {
+    artDirection = await getArtDirection({
+      markdown: parsedMarkdown?.content || sanitizedMarkdown,
+      layoutProfile,
+      printProfile,
+      theme,
+    });
+  } catch (artError) {
+    console.warn(
+      JSON.stringify({
+        event: 'art_direction_failed',
+        jobId: job.id,
+        error: artError.message,
+      })
+    );
+    artDirection = {
+      layoutProfile,
+      printProfile,
+      layoutJson: null,
+      source: 'error-fallback',
+      promptVersion: null,
+      models: null,
+    };
+    await reportStage(job, 'plan', 'AI layout plan failed, using defaults', null, {
+      metadata: { error: artError.message },
+    }).catch(() => null);
+  }
 
   console.log(
     JSON.stringify({
@@ -543,7 +625,7 @@ async function handleConvertPdf(job) {
   const jobTempDir = path.join(tempRoot, job.id);
   await ensureDir(jobTempDir);
   const tempMarkdownPath = path.join(jobTempDir, 'source.md');
-  await writeFile(tempMarkdownPath, markdown);
+  await writeFile(tempMarkdownPath, sanitizedMarkdown);
 
   const outputPath = path.join(outputRoot, `${job.id}.pdf`);
   const artifacts = {
@@ -561,6 +643,11 @@ async function handleConvertPdf(job) {
     title,
     author,
     date,
+    language: resolvedDocMetadata.language || null,
+    colorMode: resolvedDocMetadata.colorMode,
+    includeCover: resolvedDocMetadata.includeCover,
+    showPageNumbers: resolvedDocMetadata.showPageNumbers,
+    printBackground: resolvedDocMetadata.printBackground,
     artDirection: blockCatalogResult.layoutJson,
     tokens: {
       templateKey: templateMeta?.key || templateKey || null,
@@ -632,7 +719,7 @@ async function handleConvertPdf(job) {
     qaReport,
     qaRules: pressPack?.manifest_json?.qaRules || [],
     contentSchema: pressPack?.manifest_json?.contentSchema || null,
-    metadata,
+    metadata: resolvedDocMetadata,
     blockCatalogViolations: blockCatalogResult.violations || [],
     storytelling: blockCatalogResult.layoutJson?.storytelling || null,
     patternTags: metadata?.patternTags || [],
@@ -668,7 +755,10 @@ async function handleConvertPdf(job) {
     userId,
     templateMeta,
     pressPack,
-    metadata,
+    metadata: {
+      ...resolvedDocMetadata,
+      cleanup: cleanupResult.stats,
+    },
     ai: aiSummary,
     qaReport,
     preflight,
@@ -838,18 +928,36 @@ async function handleTemplatePreview(job) {
   };
 }
 
+const keepTempFiles = process.env.KEEP_TEMP_FILES === 'true';
+
+async function cleanupJobTemp(jobId) {
+  if (keepTempFiles) return;
+  const jobTempDir = path.join(tempRoot, jobId);
+  try {
+    await fs.rm(jobTempDir, { recursive: true, force: true });
+  } catch {
+    // Ignore cleanup errors
+  }
+}
+
 const worker = new Worker(
   queueName,
   async (job) => {
-    switch (job.name) {
-      case 'convert-md':
-        return await handleConvertMarkdown(job);
-      case 'convert-pdf':
-        return await handleConvertPdf(job);
-      case 'template-preview':
-        return await handleTemplatePreview(job);
-      default:
-        throw new Error(`Unsupported job type: ${job.name}`);
+    try {
+      switch (job.name) {
+        case 'convert-md':
+          return await handleConvertMarkdown(job);
+        case 'convert-pdf':
+          return await handleConvertPdf(job);
+        case 'template-preview':
+          return await handleTemplatePreview(job);
+        default:
+          throw new Error(`Unsupported job type: ${job.name}`);
+      }
+    } finally {
+      if (job.name === 'convert-pdf') {
+        await cleanupJobTemp(job.id);
+      }
     }
   },
   { connection, skipVersionCheck, concurrency: workerConcurrency }
@@ -890,6 +998,27 @@ worker.on('failed', (job, error) => {
     { error_message: error.message },
     'Job failed'
   ).catch(() => null);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error(
+    JSON.stringify({
+      event: 'unhandled_rejection',
+      message: reason?.message || String(reason),
+      stack: reason?.stack || null,
+    })
+  );
+});
+
+process.on('uncaughtException', (error) => {
+  console.error(
+    JSON.stringify({
+      event: 'uncaught_exception',
+      message: error.message,
+      stack: error.stack,
+    })
+  );
+  process.exit(1);
 });
 
 process.on('SIGINT', async () => {

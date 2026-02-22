@@ -3,7 +3,7 @@
  * Main Application with Document Workflow
  */
 
-import React, { useState, useCallback, useEffect, Suspense, lazy, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, Suspense, lazy, useRef } from 'react';
 import {
   Theme,
   Header,
@@ -21,14 +21,10 @@ import {
   SwitcherDivider,
   Button,
   TextInput,
-  Dropdown,
-  TextArea,
+  Tile,
   Tag,
   InlineNotification,
   Loading,
-  ProgressIndicator,
-  ProgressStep,
-  Tile,
 } from '@carbon/react';
 
 import {
@@ -37,16 +33,7 @@ import {
   Settings,
   Light,
   Asleep,
-  Upload,
-  Play,
   Help,
-  Download,
-  Code,
-  Template,
-  ChartBar,
-  ColorPalette,
-  TextFont,
-  Grid as GridIcon,
   User,
   Login,
   Logout,
@@ -54,21 +41,26 @@ import {
   Checkmark,
   Close,
   Home,
-  Edit,
-  View,
+  ArrowRight,
   MagicWand,
+  Template,
+  ListChecked,
+  AlignBoxTopLeft,
+  Watson,
 } from '@carbon/icons-react';
 
 import './styles/index.scss';
-import PreviewPanel from './components/layout/PreviewPanel';
 import AppFooter from './components/layout/AppFooter';
-import { focusEditorLocation } from './utils/editorFocus';
-import directiveTemplates from './utils/directiveTemplates';
+import CarbonacAiChat from './components/ai/CarbonacAiChat';
 import { useLocalStorage } from './hooks';
 
 import DocumentsPanel from './components/workspace/DocumentsPanel';
 import JobsPanel from './components/workspace/JobsPanel';
 import QualityPanel from './components/workspace/QualityPanel';
+import ErrorBoundary from './components/ErrorBoundary';
+import WorkflowSteps from './components/workflow/WorkflowSteps';
+import EditorPanel from './components/layout/EditorPanel';
+import SettingsSidebar from './components/layout/SettingsSidebar';
 
 // Contexts
 import { 
@@ -96,383 +88,8 @@ const LandingPage = lazy(() => import('./components/landing/LandingPage'));
 const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
 const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === 'true';
 
-// Layout profile options
-const layoutProfileOptions = [
-  { id: 'symmetric', label: 'Symmetric (Dengeli)' },
-  { id: 'asymmetric', label: 'Asymmetric (Vurgu)' },
-  { id: 'dashboard', label: 'Dashboard (Yoğun)' },
-];
 
-// Print profile options
-const printProfileOptions = [
-  { id: 'pagedjs-a4', label: 'Paged.js A4' },
-  { id: 'pagedjs-a3', label: 'Paged.js A3' },
-];
 
-// Workflow step configuration
-const WORKFLOW_STEP_CONFIG = {
-  [WORKFLOW_STEPS.UPLOAD]: { 
-    label: 'Doküman Yükle', 
-    icon: Upload, 
-    description: 'PDF, Word veya metin dosyası yükleyin' 
-  },
-  [WORKFLOW_STEPS.PROCESSING]: { 
-    label: 'İşleniyor', 
-    icon: MagicWand, 
-    description: 'Markdown\'a dönüştürülüyor ve önizleme hazırlanıyor' 
-  },
-  [WORKFLOW_STEPS.WIZARD]: { 
-    label: 'Stil Sihirbazı', 
-    icon: ColorPalette, 
-    description: 'Rapor tasarımını belirleyin ve özet onayı verin' 
-  },
-  [WORKFLOW_STEPS.EDITOR]: { 
-    label: 'Düzenle', 
-    icon: Edit, 
-    description: 'Markdown içeriği düzenleyin ve QA kontrolü yapın' 
-  },
-  [WORKFLOW_STEPS.PREVIEW]: { 
-    label: 'Önizleme', 
-    icon: View, 
-    description: 'PDF önizleme, job durumu ve indirme' 
-  },
-};
-
-// Workflow Step Indicator Component
-function WorkflowSteps() {
-  const { currentStep, completedSteps, setStep } = useDocument();
-  
-  const steps = Object.entries(WORKFLOW_STEP_CONFIG);
-  const currentIndex = steps.findIndex(([key]) => key === currentStep);
-
-  return (
-    <div className="workflow-steps">
-      <ProgressIndicator currentIndex={currentIndex} spaceEqually>
-        {steps.map(([key, config], index) => {
-          const isComplete = completedSteps.includes(key) || index < currentIndex;
-          const isCurrent = key === currentStep;
-          
-          return (
-            <ProgressStep
-              key={key}
-              label={config.label}
-              description={config.description}
-              complete={isComplete}
-              current={isCurrent}
-              onClick={() => isComplete && setStep(key)}
-              disabled={!isComplete && !isCurrent}
-            />
-          );
-        })}
-      </ProgressIndicator>
-    </div>
-  );
-}
-
-// Editor Panel Component
-function EditorPanel() {
-  const { markdownContent, setMarkdown, lintIssues } = useDocument();
-  const [selectedSeverityId, setSelectedSeverityId] = useState('all');
-  const [selectedRuleId, setSelectedRuleId] = useState('all');
-  const [selectedTemplateId, setSelectedTemplateId] = useState(
-    directiveTemplates[0]?.id || ''
-  );
-  const textAreaRef = useRef(null);
-
-  const severityOptions = useMemo(() => ([
-    { id: 'all', label: 'Tüm Seviyeler' },
-    { id: 'warning', label: 'Uyarı' },
-    { id: 'info', label: 'Bilgi' },
-  ]), []);
-
-  const ruleOptions = useMemo(() => {
-    const base = [{ id: 'all', label: 'Tüm Kurallar' }];
-    const uniqueRules = Array.from(new Set(lintIssues.map((issue) => issue.ruleId)));
-    uniqueRules.forEach((ruleId) => {
-      base.push({ id: ruleId, label: ruleId });
-    });
-    return base;
-  }, [lintIssues]);
-
-  const outlineItems = useMemo(() => {
-    if (!markdownContent) return [];
-    const lines = markdownContent.split('\n');
-    return lines.reduce((acc, line, index) => {
-      const match = line.match(/^(#{1,2})\s+(.+)/);
-      if (!match) return acc;
-      acc.push({
-        level: match[1].length,
-        title: match[2].trim(),
-        line: index + 1,
-      });
-      return acc;
-    }, []);
-  }, [markdownContent]);
-
-  const selectedTemplate = useMemo(
-    () => directiveTemplates.find((item) => item.id === selectedTemplateId) || directiveTemplates[0],
-    [selectedTemplateId]
-  );
-
-  const selectedSeverity = severityOptions.find((option) => option.id === selectedSeverityId) || severityOptions[0];
-  const selectedRule = ruleOptions.find((option) => option.id === selectedRuleId) || ruleOptions[0];
-
-  const filteredIssues = useMemo(() => {
-    const severityFilter = selectedSeverity?.id || 'all';
-    const ruleFilter = selectedRule?.id || 'all';
-    return lintIssues.filter((issue) => {
-      if (severityFilter !== 'all' && issue.severity !== severityFilter) {
-        return false;
-      }
-      if (ruleFilter !== 'all' && issue.ruleId !== ruleFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [lintIssues, selectedSeverity, selectedRule]);
-
-  const focusLintLocation = useCallback((issue) => {
-    focusEditorLocation({
-      line: issue?.line,
-      column: issue?.column,
-      markdown: markdownContent,
-      textArea: textAreaRef.current,
-    });
-  }, [markdownContent]);
-
-  const insertDirective = useCallback(() => {
-    const template = selectedTemplate;
-    if (!template) return;
-    const textArea = textAreaRef.current || document.getElementById('markdown-editor');
-    const current = markdownContent || '';
-    const start = textArea?.selectionStart ?? current.length;
-    const end = textArea?.selectionEnd ?? current.length;
-    const before = current.slice(0, start);
-    const after = current.slice(end);
-    const needsLeadingBreak = before && !before.endsWith('\n');
-    const needsTrailingBreak = after && !after.startsWith('\n');
-    const snippet = `${needsLeadingBreak ? '\n\n' : ''}${template.snippet}${needsTrailingBreak ? '\n' : ''}`;
-    const nextValue = `${before}${snippet}${after}`;
-    setMarkdown(nextValue);
-    if (textArea) {
-      const nextPosition = before.length + snippet.length;
-      textArea.focus();
-      try {
-        textArea.setSelectionRange(nextPosition, nextPosition);
-      } catch (error) {
-        // ignore selection errors for unsupported inputs
-      }
-    }
-  }, [markdownContent, selectedTemplate, setMarkdown]);
-
-  return (
-    <div className="editor-panel panel">
-      <div className="panel__header">
-        <h3>
-          <Code size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          Markdown Editör
-        </h3>
-        <p>Dokümanınızı düzenleyin</p>
-      </div>
-      <div className="editor-panel__tools">
-        <div className="editor-panel__actions">
-          <Dropdown
-            id="directive-template-select"
-            items={directiveTemplates}
-            selectedItem={selectedTemplate}
-            itemToString={(item) => item?.label || ''}
-            label="Directive seç"
-            onChange={({ selectedItem }) => {
-              if (selectedItem?.id) {
-                setSelectedTemplateId(selectedItem.id);
-              }
-            }}
-          />
-          <Button size="sm" kind="secondary" onClick={insertDirective} disabled={!selectedTemplate}>
-            Ekle
-          </Button>
-        </div>
-        <div className="editor-panel__outline">
-          <div className="editor-panel__outline-header">
-            <h4>Outline</h4>
-            <span>{outlineItems.length} başlık</span>
-          </div>
-          {outlineItems.length === 0 ? (
-            <p className="editor-panel__outline-empty">Başlık bulunamadı.</p>
-          ) : (
-            <ul className="editor-panel__outline-list">
-              {outlineItems.map((item) => (
-                <li key={`${item.line}-${item.title}`} className={`editor-panel__outline-item level-${item.level}`}>
-                  <button
-                    type="button"
-                    onClick={() => focusEditorLocation({
-                      line: item.line,
-                      column: 1,
-                      markdown: markdownContent,
-                      textArea: textAreaRef.current,
-                    })}
-                  >
-                    {item.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-      <div className="panel__content markdown-editor">
-        <TextArea
-          id="markdown-editor"
-          labelText="Markdown İçeriği"
-          hideLabel
-          value={markdownContent}
-          onChange={(e) => setMarkdown(e.target.value)}
-          placeholder="Markdown içeriğinizi buraya yazın..."
-          rows={30}
-          ref={textAreaRef}
-          style={{ 
-            height: '100%', 
-            fontFamily: 'IBM Plex Mono',
-            resize: 'none'
-          }}
-        />
-      </div>
-      <div className="editor-panel__lint">
-        <div className="editor-panel__lint-header">
-          <div>
-            <h4>Lint Uyarıları</h4>
-            <span>{lintIssues.length} bulgu</span>
-          </div>
-          <div className="editor-panel__lint-filters">
-            <Dropdown
-              id="lint-severity-filter"
-              items={severityOptions}
-              label="Seviye"
-              selectedItem={selectedSeverity}
-              onChange={({ selectedItem }) => setSelectedSeverityId(selectedItem.id)}
-            />
-            <Dropdown
-              id="lint-rule-filter"
-              items={ruleOptions}
-              label="Kural"
-              selectedItem={selectedRule}
-              onChange={({ selectedItem }) => setSelectedRuleId(selectedItem.id)}
-            />
-          </div>
-        </div>
-        {filteredIssues.length === 0 ? (
-          <p className="editor-panel__lint-empty">Lint bulgusu yok.</p>
-        ) : (
-          <ul className="editor-panel__lint-list">
-            {filteredIssues.map((issue, index) => (
-              <li
-                key={`${issue.ruleId}-${index}`}
-                className="editor-panel__lint-item"
-                role="button"
-                tabIndex={0}
-                onClick={() => focusLintLocation(issue)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    focusLintLocation(issue);
-                  }
-                }}
-                title={`Satır ${issue.line}, Kolon ${issue.column}`}
-              >
-                <span className={`lint-tag lint-tag--${issue.severity}`}>{issue.severity}</span>
-                <div>
-                  <strong>{issue.ruleId}</strong>
-                  <div>{issue.message}</div>
-                </div>
-                <span className="lint-meta">L{issue.line}:{issue.column}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Preview Panel Component now lives in components/layout/PreviewPanel
-
-// Settings Sidebar Component
-function SettingsSidebar() {
-  const {
-    selectedLayoutProfile,
-    selectedPrintProfile,
-    setLayoutProfile,
-    setPrintProfile,
-    reportSettings,
-  } = useDocument();
-  
-  const resolvedLayoutProfile = layoutProfileOptions.find(
-    (option) => option.id === selectedLayoutProfile
-  );
-  const resolvedPrintProfile = printProfileOptions.find(
-    (option) => option.id === selectedPrintProfile
-  );
-
-  return (
-    <aside className="settings-sidebar">
-      <div className="settings-section">
-        <div className="settings-section__title">Yerleşim Profili</div>
-        <Dropdown
-          id="layout-profile-select"
-          items={layoutProfileOptions}
-          selectedItem={resolvedLayoutProfile}
-          onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
-          label="Profil Seçin"
-          titleText=""
-        />
-      </div>
-
-      <div className="settings-section">
-        <div className="settings-section__title">Baskı Profili</div>
-        <Dropdown
-          id="print-profile-select"
-          items={printProfileOptions}
-          selectedItem={resolvedPrintProfile}
-          onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
-          label="Profil Seçin"
-          titleText=""
-        />
-      </div>
-
-      {/* Report Settings Summary */}
-      {Object.keys(reportSettings).some(k => reportSettings[k]) && (
-        <div className="settings-section">
-          <div className="settings-section__title">Rapor Ayarları</div>
-          <div className="settings-summary">
-            {reportSettings.documentType && (
-              <Tag type="blue" size="sm">{reportSettings.documentType}</Tag>
-            )}
-            {reportSettings.audience && (
-              <Tag type="purple" size="sm">{reportSettings.audience}</Tag>
-            )}
-            {reportSettings.colorScheme && (
-              <Tag type="cyan" size="sm">{reportSettings.colorScheme}</Tag>
-            )}
-            {reportSettings.layoutStyle && (
-              <Tag type="teal" size="sm">{reportSettings.layoutStyle}</Tag>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="settings-section">
-        <div className="settings-section__title">Hızlı Erişim</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <Tag type="blue" renderIcon={ColorPalette}>Renkler</Tag>
-          <Tag type="purple" renderIcon={TextFont}>Tipografi</Tag>
-          <Tag type="cyan" renderIcon={ChartBar}>Grafikler</Tag>
-          <Tag type="teal" renderIcon={GridIcon}>Grid</Tag>
-          <Tag type="green" renderIcon={Template}>Bileşenler</Tag>
-        </div>
-      </div>
-    </aside>
-  );
-}
 
 // Main App Content
 function AppContent() {
@@ -490,8 +107,6 @@ function AppContent() {
     setPrintProfile,
     autoSaveEnabled,
     setAutoSaveEnabled,
-    livePreviewEnabled,
-    setLivePreviewEnabled,
   } = useDocument();
   
   const [showSettings, setShowSettings] = useState(false);
@@ -612,9 +227,11 @@ function AppContent() {
     if (activeWorkspace === 'templates') {
       return (
         <div className="workspace-panel">
-          <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
-            <TemplateGallery />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
+              <TemplateGallery />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       );
     }
@@ -657,27 +274,38 @@ function AppContent() {
       
       case WORKFLOW_STEPS.WIZARD:
         return (
-          <Suspense fallback={<Loading withOverlay description="Yükleniyor..." />}>
-            <ReportWizard onRequestLogin={() => setShowAuth(true)} />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<Loading withOverlay description="Yükleniyor..." />}>
+              <ReportWizard onRequestLogin={() => setShowAuth(true)} />
+            </Suspense>
+          </ErrorBoundary>
         );
       
       case WORKFLOW_STEPS.EDITOR:
-      case WORKFLOW_STEPS.PREVIEW:
         return (
-          <div className="editor-preview-layout">
+          <div className="editor-canvas-layout">
             <SettingsSidebar />
-            <div className="editor-preview-body">
-              <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
-                <TemplateGallery />
-              </Suspense>
-              <div className="editor-preview-panels">
-                <EditorPanel />
-                <div className="editor-preview-stack">
-                  <PreviewPanel />
-                  <QualityPanel compact />
-                </div>
+            <div className="editor-canvas-body">
+              <div className="editor-canvas-main">
+                <ErrorBoundary>
+                  <EditorPanel />
+                </ErrorBoundary>
               </div>
+              <aside className="editor-canvas-rail" aria-label="AI düzenleme ve kalite paneli">
+                <ErrorBoundary>
+                  <CarbonacAiChat
+                    embedded
+                    embeddedClassName="carbonac-ai-chat--editor-canvas"
+                    isAuthenticated={isAuthenticated}
+                    onRequestLogin={() => setShowAuth(true)}
+                  />
+                </ErrorBoundary>
+                <div className="editor-canvas-rail-quality">
+                  <ErrorBoundary>
+                    <QualityPanel compact />
+                  </ErrorBoundary>
+                </div>
+              </aside>
             </div>
           </div>
         );
@@ -950,7 +578,9 @@ function AppContent() {
                       style={{ marginBottom: '1rem' }}
                     />
                   )}
-                  {renderContent()}
+                  <ErrorBoundary>
+                    {renderContent()}
+                  </ErrorBoundary>
                 </>
               ) : (
                 <Suspense fallback={null}>
@@ -988,8 +618,6 @@ function AppContent() {
                 onPrintProfileChange={setPrintProfile}
                 autoSave={autoSaveEnabled}
                 onAutoSaveChange={setAutoSaveEnabled}
-                livePreview={livePreviewEnabled}
-                onLivePreviewChange={setLivePreviewEnabled}
               />
             )}
           {!passwordGateMode && showAuth && (
@@ -1118,7 +746,9 @@ function App() {
       <AuthProvider>
         <PricingProvider>
           <DocumentProvider>
-            <AppContent />
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
           </DocumentProvider>
         </PricingProvider>
       </AuthProvider>

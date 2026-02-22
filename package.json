@@ -25,7 +25,8 @@
     "test:optional": "node scripts/tests/optional-tests.js",
     "qa": "npm run test:qa",
     "smoke": "npm run test:smoke",
-    "lint:tokens": "node scripts/token-lint.js"
+    "lint:tokens": "node scripts/token-lint.js",
+    "qa:update-baselines": "node scripts/tests/qa-update-baselines.js"
   },
   "keywords": [
     "markdown",

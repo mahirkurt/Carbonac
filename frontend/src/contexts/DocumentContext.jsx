@@ -27,6 +27,27 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseErrorPayload(rawPayload) {
+  if (!rawPayload) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawPayload);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function extractApiErrorMessage(rawPayload, fallbackMessage) {
+  const payload = parseErrorPayload(rawPayload);
+  return (
+    payload?.error?.message ||
+    payload?.message ||
+    fallbackMessage
+  );
+}
+
 async function pollJobStatus(jobId, options = {}) {
   const maxAttempts = options.maxAttempts || 60;
   let intervalMs = options.intervalMs || 1000;
@@ -64,8 +85,7 @@ export const WORKFLOW_STEPS = {
   UPLOAD: 'upload',           // Step 1: Upload document
   PROCESSING: 'processing',   // Step 2: Converting to Markdown
   WIZARD: 'wizard',           // Step 3: AI-guided style wizard
-  EDITOR: 'editor',           // Step 4: Review/Edit markdown
-  PREVIEW: 'preview',         // Step 5: Preview and export
+  EDITOR: 'editor',           // Step 4: Canvas editing + AI copilot + export
 };
 
 // Supported file types
@@ -106,6 +126,11 @@ const initialState = {
   // Content
   markdownContent: '',
   originalContent: '', // Keep original for reference
+  editorSelection: {
+    start: 0,
+    end: 0,
+    text: '',
+  },
   
   // Report settings (from wizard)
   reportSettings: {
@@ -120,6 +145,10 @@ const initialState = {
     components: [],   // charts, tables, callouts, etc.
     locale: 'tr-TR',
     version: 1,
+    includeCover: true,
+    showPageNumbers: true,
+    printBackground: true,
+    colorMode: 'color',
   },
   
   // AI Wizard
@@ -150,9 +179,11 @@ const ActionTypes = {
   UPDATE_CONVERSION_PROGRESS: 'UPDATE_CONVERSION_PROGRESS',
   CONVERSION_SUCCESS: 'CONVERSION_SUCCESS',
   CONVERSION_ERROR: 'CONVERSION_ERROR',
+  CLEAR_CONVERSION_ERROR: 'CLEAR_CONVERSION_ERROR',
   SET_PDF_GENERATION_STATUS: 'SET_PDF_GENERATION_STATUS',
   SET_PDF_JOB_STATUS: 'SET_PDF_JOB_STATUS',
   SET_MARKDOWN: 'SET_MARKDOWN',
+  SET_EDITOR_SELECTION: 'SET_EDITOR_SELECTION',
   UPDATE_REPORT_SETTINGS: 'UPDATE_REPORT_SETTINGS',
   ADD_WIZARD_MESSAGE: 'ADD_WIZARD_MESSAGE',
   SET_WIZARD_ANSWER: 'SET_WIZARD_ANSWER',
@@ -223,6 +254,12 @@ function documentReducer(state, action) {
         conversionError: action.payload,
       };
 
+    case ActionTypes.CLEAR_CONVERSION_ERROR:
+      return {
+        ...state,
+        conversionError: null,
+      };
+
     case ActionTypes.SET_PDF_GENERATION_STATUS:
       return {
         ...state,
@@ -241,6 +278,15 @@ function documentReducer(state, action) {
       return {
         ...state,
         markdownContent: action.payload,
+      };
+
+    case ActionTypes.SET_EDITOR_SELECTION:
+      return {
+        ...state,
+        editorSelection: {
+          ...state.editorSelection,
+          ...(action.payload || {}),
+        },
       };
 
     case ActionTypes.UPDATE_REPORT_SETTINGS:
@@ -385,7 +431,6 @@ export function DocumentProvider({ children }) {
   const selectedTemplateRef = useRef(state.selectedTemplate);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [autoSaveEnabled, setAutoSaveEnabled] = useLocalStorage('carbonac_autosave_enabled', true);
-  const [livePreviewEnabled, setLivePreviewEnabled] = useLocalStorage('carbonac_live_preview_enabled', true);
   const [lastAutoSaveAt, setLastAutoSaveAt] = useState(null);
   const hasRestoredRef = useRef(false);
   const debouncedMarkdown = useDebounce(state.markdownContent, 400);
@@ -518,6 +563,8 @@ export function DocumentProvider({ children }) {
 
   const convertDocument = useCallback(async (file) => {
     dispatch({ type: ActionTypes.START_CONVERSION });
+    let progressValue = 0;
+    let progressInterval = null;
 
     try {
       // Check if it's already markdown
@@ -545,10 +592,11 @@ export function DocumentProvider({ children }) {
       formData.append('file', file);
 
       // Simulate progress updates
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
+        progressValue = Math.min(progressValue + 10, 90);
         dispatch({
           type: ActionTypes.UPDATE_CONVERSION_PROGRESS,
-          payload: Math.min(state.conversionProgress + 10, 90),
+          payload: progressValue,
         });
       }, 500);
 
@@ -560,10 +608,14 @@ export function DocumentProvider({ children }) {
         body: formData,
       });
 
-      clearInterval(progressInterval);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
 
       if (!response.ok) {
-        throw new Error('Conversion failed');
+        const rawPayload = await response.text().catch(() => '');
+        throw new Error(extractApiErrorMessage(rawPayload, 'Conversion failed'));
       }
 
       const data = await response.json();
@@ -572,15 +624,26 @@ export function DocumentProvider({ children }) {
         payload: { markdown: data.markdown },
       });
     } catch (error) {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
       dispatch({
         type: ActionTypes.CONVERSION_ERROR,
         payload: error.message,
       });
     }
-  }, [state.conversionProgress]);
+  }, []);
 
   const setMarkdown = useCallback((content) => {
     dispatch({ type: ActionTypes.SET_MARKDOWN, payload: content });
+  }, []);
+
+  const setEditorSelection = useCallback((selection) => {
+    dispatch({ type: ActionTypes.SET_EDITOR_SELECTION, payload: selection });
+  }, []);
+
+  const clearConversionError = useCallback(() => {
+    dispatch({ type: ActionTypes.CLEAR_CONVERSION_ERROR });
   }, []);
 
   const updateReportSettings = useCallback((settings) => {
@@ -724,6 +787,29 @@ export function DocumentProvider({ children }) {
       dispatch({
         type: ActionTypes.SET_THEME,
         payload: template.activeVersion.theme,
+      });
+    }
+
+    const schema = template.activeVersion?.schema || {};
+    const defaults = schema?.defaults || schema?.settings || {};
+    const reportSettingsPatch = {};
+    const boolDefaults = [
+      ['includeCover', defaults.includeCover],
+      ['showPageNumbers', defaults.showPageNumbers],
+      ['printBackground', defaults.printBackground],
+    ];
+    for (const [key, value] of boolDefaults) {
+      if (typeof value === 'boolean') {
+        reportSettingsPatch[key] = value;
+      }
+    }
+    if (typeof defaults.colorMode === 'string' && defaults.colorMode.trim()) {
+      reportSettingsPatch.colorMode = defaults.colorMode.trim();
+    }
+    if (Object.keys(reportSettingsPatch).length) {
+      dispatch({
+        type: ActionTypes.UPDATE_REPORT_SETTINGS,
+        payload: reportSettingsPatch,
       });
     }
   }, []);
@@ -898,7 +984,9 @@ export function DocumentProvider({ children }) {
     setStep,
     setFile,
     convertDocument,
+    clearConversionError,
     setMarkdown,
+    setEditorSelection,
     updateReportSettings,
     addWizardMessage,
     setWizardAnswer,
@@ -925,8 +1013,6 @@ export function DocumentProvider({ children }) {
       : false,
     autoSaveEnabled,
     setAutoSaveEnabled,
-    livePreviewEnabled,
-    setLivePreviewEnabled,
     lastAutoSaveAt,
   };
 

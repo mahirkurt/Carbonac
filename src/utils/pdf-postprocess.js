@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
+import { PDFDocument, PDFDict, PDFName, PDFString, PDFArray, PDFNumber, StandardFonts, rgb, degrees } from 'pdf-lib';
 import { getProjectRoot } from './file-utils.js';
 
 function normalizeKeywords(value) {
@@ -143,6 +143,65 @@ async function applyWatermark(pdfDoc, text) {
   });
 }
 
+function buildPdfOutlines(pdfDoc, headings = []) {
+  if (!headings.length) return;
+  const context = pdfDoc.context;
+  const pages = pdfDoc.getPages();
+  if (!pages.length) return;
+
+  // Create outline items for each heading
+  // Simple approach: flat list linking to first page (since we can't resolve page-level anchors from toc)
+  // But we can at least map sequential headings to sequential pages roughly
+  const outlineItems = headings
+    .filter((h) => h && h.title && h.level <= 3)
+    .slice(0, 50); // Limit to 50 bookmarks
+
+  if (!outlineItems.length) return;
+
+  const itemRefs = outlineItems.map(() => context.nextRef());
+  const outlineRef = context.nextRef();
+
+  // Create each outline item dict
+  for (let i = 0; i < outlineItems.length; i++) {
+    const heading = outlineItems[i];
+    // Rough page mapping: distribute headings across pages
+    const pageIndex = Math.min(
+      Math.floor((i / outlineItems.length) * pages.length),
+      pages.length - 1
+    );
+    const pageRef = pages[pageIndex].ref;
+
+    const dict = context.obj({
+      [PDFName.of('Title').toString()]: PDFString.of(heading.title),
+      [PDFName.of('Parent').toString()]: outlineRef,
+      [PDFName.of('Dest').toString()]: context.obj([pageRef, PDFName.of('Fit')]),
+    });
+
+    // Link siblings
+    if (i > 0) {
+      dict.set(PDFName.of('Prev'), itemRefs[i - 1]);
+    }
+    if (i < outlineItems.length - 1) {
+      dict.set(PDFName.of('Next'), itemRefs[i + 1]);
+    }
+
+    context.assign(itemRefs[i], dict);
+  }
+
+  // Create the root outlines dict
+  const outlinesDict = context.obj({
+    [PDFName.of('Type').toString()]: PDFName.of('Outlines'),
+    [PDFName.of('First').toString()]: itemRefs[0],
+    [PDFName.of('Last').toString()]: itemRefs[itemRefs.length - 1],
+    [PDFName.of('Count').toString()]: PDFNumber.of(outlineItems.length),
+  });
+  context.assign(outlineRef, outlinesDict);
+
+  // Set the outlines on the catalog
+  pdfDoc.catalog.set(PDFName.of('Outlines'), outlineRef);
+  pdfDoc.catalog.set(PDFName.of('PageMode'), PDFName.of('UseOutlines'));
+}
+
 export async function postprocessPdf({
   inputPath,
   outputPath,
@@ -184,6 +243,16 @@ export async function postprocessPdf({
 
   if (draftWatermark) {
     await applyWatermark(pdfDoc, options.watermarkText || 'DRAFT');
+  }
+
+  // Generate PDF bookmarks/outlines from heading hierarchy
+  const headings = options.headings || metadata.headings || [];
+  if (headings.length > 0) {
+    try {
+      buildPdfOutlines(pdfDoc, headings);
+    } catch (outlineError) {
+      console.warn(`[pdf-postprocess] Outline generation failed: ${outlineError.message}`);
+    }
   }
 
   const outputBytes = await pdfDoc.save({
