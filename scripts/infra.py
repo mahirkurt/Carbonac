@@ -9,6 +9,15 @@ import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# Fix SSH key path before CureoHub config loads (config.py reads at import)
+# CureoHub .env may have Windows paths; override for native Linux.
+# ---------------------------------------------------------------------------
+_linux_key = Path.home() / ".ssh" / "id_ed25519"
+if _linux_key.exists():
+    os.environ.setdefault("PI_KEY_FILENAME", str(_linux_key))
+    os.environ.setdefault("HP_KEY_FILENAME", str(_linux_key))
+
+# ---------------------------------------------------------------------------
 # CureoHub ai_hub import (workspace sibling)
 # ---------------------------------------------------------------------------
 _ws = Path(__file__).resolve().parent.parent.parent  # /mnt/thunderbolt/workspaces
@@ -31,11 +40,15 @@ from ai_hub.hp_connection import HPConnection  # noqa: E402
 class CarbonacInfra:
     """Manage Carbonac Docker Compose services on Pi and HP nodes."""
 
+    # Actual topology (matches deployed state)
     PI_COMPOSE_DIR = os.getenv("CARBONAC_PI_PATH", "~/carbonac")
-    HP_COMPOSE_DIR = os.getenv("CARBONAC_HP_PATH", "~/carbonac")
-    PI_PROFILE = "pi"
+    PI_COMPOSE_FILE = "docker-compose.raspberry.yml"
+    PI_PROFILE = "api"
+    PI_ENV_FILES = "--env-file .env"
+
+    HP_COMPOSE_DIR = os.getenv("CARBONAC_HP_PATH", "~/projects/Carbonac")
+    HP_COMPOSE_FILE = "docker-compose.yml"
     HP_PROFILE = "hp-worker"
-    PI_ENV_FILES = "--env-file .env --env-file .env.pi"
     HP_ENV_FILES = "--env-file .env --env-file .env.hp"
 
     def __init__(self) -> None:
@@ -87,11 +100,13 @@ class CarbonacInfra:
         if node == "pi":
             return (
                 f"cd {self.PI_COMPOSE_DIR} && "
-                f"docker compose {self.PI_ENV_FILES} --profile {self.PI_PROFILE} {action}"
+                f"docker compose -f {self.PI_COMPOSE_FILE} {self.PI_ENV_FILES} "
+                f"--profile {self.PI_PROFILE} {action}"
             )
         return (
             f"cd {self.HP_COMPOSE_DIR} && "
-            f"docker compose {self.HP_ENV_FILES} --profile {self.HP_PROFILE} {action}"
+            f"docker compose -f {self.HP_COMPOSE_FILE} {self.HP_ENV_FILES} "
+            f"--profile {self.HP_PROFILE} {action}"
         )
 
     # -- core operations ---------------------------------------------------
