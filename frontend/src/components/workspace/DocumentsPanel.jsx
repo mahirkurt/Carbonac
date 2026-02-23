@@ -20,6 +20,7 @@ import { DocumentPdf, Edit, Renew } from '@carbon/icons-react';
 
 import { useAuth, useDocument, WORKFLOW_STEPS } from '../../contexts';
 import { documentService } from '../../services/documentService';
+import { useStaggerAnimation } from '../../hooks';
 
 const headers = [
   { key: 'title', header: 'Başlık' },
@@ -128,6 +129,13 @@ export default function DocumentsPanel({ onOpenDocument, onStartWorkflow }) {
     }))
   ), [pagedDocuments]);
 
+  const { getItemProps: getStaggerProps } = useStaggerAnimation({
+    itemCount: rows.length,
+    baseDelay: 30,
+    staggerDelay: 30,
+    triggerOnMount: true,
+  });
+
   const totalItems = filteredDocuments.length;
 
   const handleOpen = useCallback((docId) => {
@@ -230,8 +238,8 @@ export default function DocumentsPanel({ onOpenDocument, onStartWorkflow }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {tableRows.map((row) => (
-                  <TableRow {...getRowProps({ row })} key={row.id}>
+                {tableRows.map((row, idx) => (
+                  <TableRow {...getRowProps({ row })} key={row.id} style={getStaggerProps(idx).style}>
                     {row.cells.map((cell) => {
                       if (cell.info.header === 'status') {
                         const statusMeta = mapStatusTag(cell.value);

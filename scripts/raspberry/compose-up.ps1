@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $profiles = $env:DOCKER_PROFILES
-$composeFile = "docker-compose.raspberry.yml"
+$composeFile = "docker-compose.yml"
 
 if ($profiles) {
   $profileArgs = $profiles.Split(',') | ForEach-Object { "--profile $_" } | Out-String

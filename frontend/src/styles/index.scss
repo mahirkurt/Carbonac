@@ -37,6 +37,29 @@
   }
 }
 
+// AI Chat Brand Token Overrides — Carbonac gradient aura + border
+.carbonac-ai-chat--editor-canvas,
+.carbonac-ai-chat--wizard {
+  --cds-ai-aura-start-sm: rgba(26, 92, 255, 0.08);
+  --cds-ai-aura-start: rgba(26, 92, 255, 0.12);
+  --cds-ai-aura-end: rgba(232, 82, 138, 0.04);
+  --cds-ai-border-start: var(--carbonac-blue-light);
+  --cds-ai-border-end: var(--carbonac-pink-light);
+  --cds-ai-overlay: rgba(26, 92, 255, 0.5);
+}
+
+// Quick-action chip gradient border (homescreen starters)
+.cds--chat-homescreen-starter-button {
+  position: relative;
+  border: 1px solid var(--cds-border-subtle-01);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--carbonac-blue-light);
+    box-shadow: 0 0 0 1px rgba(26, 92, 255, 0.15);
+  }
+}
+
 // Custom CSS Variables for Carbon Design System
 :root {
   // Font Families
@@ -54,22 +77,22 @@
   --cds-layer-accent-01: #e0e0e0;
   --cds-field-01: #f4f4f4;
   --cds-field-02: #ffffff;
-  --cds-interactive: #0f62fe;
+  --cds-interactive: var(--carbonac-blue-dark);
   --cds-border-subtle-01: #e0e0e0;
   --cds-border-strong-01: #8d8d8d;
   --cds-text-primary: #161616;
   --cds-text-secondary: #525252;
   --cds-text-on-color: #ffffff;
-  --cds-link-primary: #0f62fe;
-  --cds-link-primary-hover: #0043ce;
-  --cds-link-visited: #8a3ffc;
+  --cds-link-primary: var(--carbonac-blue-dark);
+  --cds-link-primary-hover: var(--carbonac-blue-light);
+  --cds-link-visited: var(--carbonac-pink-dark);
   --cds-icon-primary: #161616;
   --cds-icon-secondary: #525252;
   --cds-support-error: #da1e28;
   --cds-support-success: #198038;
   --cds-support-warning: #f1c21b;
-  --cds-support-info: #0043ce;
-  --cds-focus: #0f62fe;
+  --cds-support-info: var(--carbonac-blue-dark);
+  --cds-focus: var(--carbonac-blue-dark);
   --cds-highlight: #d0e2ff;
   
   // Interactive State Tokens (Section 5)
@@ -168,7 +191,7 @@ body {
   color: var(--cds-text-primary);
 }
 
-// Custom scrollbar
+// Custom scrollbar — brand-accented
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -181,10 +204,15 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--cds-border-strong-01);
   border-radius: 4px;
+  transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--cds-icon-secondary);
+  background: var(--carbonac-blue-dark);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--carbonac-blue-light);
 }
 
 // Layout utilities
@@ -470,8 +498,8 @@ body {
 }
 
 .lint-tag--info {
-  background: rgba(15, 98, 254, 0.15);
-  color: #0f62fe;
+  background: rgba(26, 92, 255, 0.12);
+  color: var(--carbonac-blue-dark);
 }
 
 .lint-meta {
@@ -1085,16 +1113,44 @@ body {
   padding-top: var(--cds-spacing-04, 0.75rem);
 }
 
-// Gradient accent on active sidebar item
+// Premium SideNav active indicator — gradient accent strip + subtle bg
 .app-sidenav .cds--side-nav__link--current {
+  background: linear-gradient(90deg, rgba(26, 92, 255, 0.08) 0%, transparent 100%);
+
   &::before {
     content: '';
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    background: var(--gradient-line);
+    width: 3px;
+    background: var(--carbonac-gradient);
+  }
+
+  .cds--side-nav__link-text {
+    font-weight: 600;
+  }
+}
+
+// Workspace cross-fade transition
+@keyframes workspace-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.workspace-transition {
+  animation: workspace-enter 240ms cubic-bezier(0, 0, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-transition {
+    animation: none;
   }
 }
 
@@ -1249,6 +1305,94 @@ body {
   justify-content: center;
   height: 100%;
   flex: 1;
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2.5rem;
+    background: var(--cds-layer-01);
+    border-radius: 12px;
+    border: 1px solid var(--cds-border-subtle-01);
+    min-width: 280px;
+  }
+
+  &__ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+
+  &__svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  &__track {
+    fill: none;
+    stroke: var(--cds-layer-02);
+    stroke-width: 6;
+  }
+
+  &__fill {
+    fill: none;
+    stroke: url(#processingGradient);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.4s ease;
+  }
+
+  &__percent {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+  }
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    margin: 0;
+  }
+
+  &__stages {
+    display: flex;
+    gap: 1rem;
+  }
+
+  &__stage {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary);
+    transition: color 0.2s ease;
+
+    &--done {
+      color: var(--cds-text-primary);
+      font-weight: 600;
+    }
+
+    &--done .processing-screen__dot {
+      background: var(--carbonac-blue-light, #1a5cff);
+      box-shadow: 0 0 6px rgba(26, 92, 255, 0.3);
+    }
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cds-border-subtle-01);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+  }
 }
 
 // Template gallery
@@ -1327,17 +1471,28 @@ body {
   font: inherit;
   color: inherit;
   appearance: none;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .template-card:hover {
-  border-color: var(--cds-interactive);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  border-color: var(--carbonac-blue-light);
+  box-shadow: 0 6px 16px rgba(26, 92, 255, 0.1);
+  transform: translateY(-2px);
 }
 
 .template-card--selected {
-  border-color: var(--cds-interactive);
-  box-shadow: 0 0 0 2px rgba(15, 98, 254, 0.15);
+  border-color: var(--carbonac-blue-light);
+  box-shadow: 0 0 0 2px rgba(26, 92, 255, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-card {
+    transition: none;
+  }
+
+  .template-card:hover {
+    transform: none;
+  }
 }
 
 .template-card__preview {
@@ -1799,6 +1954,106 @@ body {
       }
     }
   }
+}
+
+// =============================================================================
+// Phase F: DataTable Row Hover + Status Dots
+// =============================================================================
+
+// Subtle brand-tinted row hover for all workspace DataTables
+.documents-panel,
+.jobs-panel {
+  .cds--data-table tbody tr:hover td {
+    background: rgba(26, 92, 255, 0.04);
+  }
+}
+
+// Status dot indicators for table cells
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+
+  &--ready,
+  &--completed {
+    background: var(--cds-support-success);
+  }
+
+  &--processing,
+  &--queued {
+    background: var(--carbonac-blue-light);
+    animation: statusPulse 1.5s ease-in-out infinite;
+  }
+
+  &--error,
+  &--failed {
+    background: var(--cds-support-error);
+  }
+
+  &--draft {
+    background: var(--cds-border-strong-01);
+  }
+
+  &--cancelled {
+    background: var(--cds-text-disabled);
+  }
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot--processing,
+  .status-dot--queued {
+    animation: none;
+  }
+}
+
+// Brand skeleton shimmer — subtle brand tint on loading states
+@keyframes skeletonShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.cds--skeleton__text,
+.cds--skeleton__placeholder {
+  background: linear-gradient(
+    90deg,
+    var(--cds-skeleton-background) 0%,
+    rgba(26, 92, 255, 0.06) 40%,
+    rgba(232, 82, 138, 0.04) 60%,
+    var(--cds-skeleton-background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cds--skeleton__text,
+  .cds--skeleton__placeholder {
+    animation: none;
+  }
+}
+
+// QualityPanel severity indicator colors
+.quality-panel__issue-meta .cds--tag--high-contrast[type="red"],
+.quality-panel .severity-high {
+  color: var(--cds-support-error);
+}
+
+.quality-panel__issue-meta .cds--tag--high-contrast[type="magenta"],
+.quality-panel .severity-medium {
+  color: var(--carbonac-pink-dark);
+}
+
+.quality-panel__issue-meta .cds--tag--high-contrast[type="blue"],
+.quality-panel .severity-low {
+  color: var(--carbonac-blue-light);
 }
 
 // =============================================================================

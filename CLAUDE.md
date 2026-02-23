@@ -49,9 +49,10 @@ npm run example                             # quick test with sample.md
 cd frontend && npm run build                # production build (Vite 7)
 cd frontend && npm run preview              # preview production build
 
-# Docker (Raspberry Pi → port 3003, HP → port 3001)
-docker compose -f docker-compose.raspberry.yml up -d
-docker compose -f docker-compose.hp.yml up -d
+# Docker (unified compose with profiles)
+docker compose --env-file .env --env-file .env.pi --profile pi up -d        # Pi: Redis + API (port 3003)
+docker compose --env-file .env --env-file .env.hp --profile hp-worker up -d  # HP: Worker only
+docker compose --profile full up -d                                          # Full stack (dev)
 ```
 
 ## Architecture

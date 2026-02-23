@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
+  Accordion,
+  AccordionItem,
   Button,
   Dropdown,
   InlineLoading,
@@ -133,104 +135,102 @@ function SettingsSidebar() {
 
   return (
     <aside className="settings-sidebar">
-      <div className="settings-section">
-        <div className="settings-section__title">Yerleşim Profili</div>
-        <Dropdown
-          id="layout-profile-select"
-          items={layoutProfileOptions}
-          selectedItem={resolvedLayoutProfile}
-          onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
-          itemToString={(item) => item?.label || ''}
-          label="Profil Seçin"
-          titleText=""
-        />
-        <p className="settings-section__hint" title={resolvedLayoutProfile?.hint || ''}>
-          <Information size={14} />
-          <span>{resolvedLayoutProfile?.description || resolvedLayoutProfile?.hint}</span>
-        </p>
-      </div>
+      <Accordion>
+        <AccordionItem title="Yerleşim Profili" open>
+          <Dropdown
+            id="layout-profile-select"
+            items={layoutProfileOptions}
+            selectedItem={resolvedLayoutProfile}
+            onChange={({ selectedItem }) => setLayoutProfile(selectedItem.id)}
+            itemToString={(item) => item?.label || ''}
+            label="Profil Seçin"
+            titleText=""
+          />
+          <p className="settings-section__hint" title={resolvedLayoutProfile?.hint || ''}>
+            <Information size={14} />
+            <span>{resolvedLayoutProfile?.description || resolvedLayoutProfile?.hint}</span>
+          </p>
+        </AccordionItem>
 
-      <div className="settings-section">
-        <div className="settings-section__title">Baskı Profili</div>
-        <Dropdown
-          id="print-profile-select"
-          items={printProfileOptions}
-          selectedItem={resolvedPrintProfile}
-          onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
-          itemToString={(item) => item?.label || ''}
-          label="Profil Seçin"
-          titleText=""
-        />
-        <p className="settings-section__hint" title={resolvedPrintProfile?.hint || ''}>
-          <Information size={14} />
-          <span>{resolvedPrintProfile?.description || resolvedPrintProfile?.hint}</span>
-        </p>
-      </div>
+        <AccordionItem title="Baskı Profili" open>
+          <Dropdown
+            id="print-profile-select"
+            items={printProfileOptions}
+            selectedItem={resolvedPrintProfile}
+            onChange={({ selectedItem }) => setPrintProfile(selectedItem.id)}
+            itemToString={(item) => item?.label || ''}
+            label="Profil Seçin"
+            titleText=""
+          />
+          <p className="settings-section__hint" title={resolvedPrintProfile?.hint || ''}>
+            <Information size={14} />
+            <span>{resolvedPrintProfile?.description || resolvedPrintProfile?.hint}</span>
+          </p>
+        </AccordionItem>
 
-      {Object.keys(reportSettings).some(k => reportSettings[k]) && (
-        <div className="settings-section">
-          <div className="settings-section__title">Rapor Ayarları</div>
-          <div className="settings-summary">
-            {reportSettings.documentType && (
-              <Tag type="blue" size="sm">{reportSettings.documentType}</Tag>
-            )}
-            {reportSettings.audience && (
-              <Tag type="purple" size="sm">{reportSettings.audience}</Tag>
-            )}
-            {reportSettings.colorScheme && (
-              <Tag type="cyan" size="sm">{reportSettings.colorScheme}</Tag>
-            )}
-            {reportSettings.layoutStyle && (
-              <Tag type="teal" size="sm">{reportSettings.layoutStyle}</Tag>
-            )}
+        {Object.keys(reportSettings).some(k => reportSettings[k]) && (
+          <AccordionItem title="Rapor Ayarları" open>
+            <div className="settings-summary">
+              {reportSettings.documentType && (
+                <Tag type="blue" size="sm">{reportSettings.documentType}</Tag>
+              )}
+              {reportSettings.audience && (
+                <Tag type="purple" size="sm">{reportSettings.audience}</Tag>
+              )}
+              {reportSettings.colorScheme && (
+                <Tag type="cyan" size="sm">{reportSettings.colorScheme}</Tag>
+              )}
+              {reportSettings.layoutStyle && (
+                <Tag type="teal" size="sm">{reportSettings.layoutStyle}</Tag>
+              )}
+            </div>
+          </AccordionItem>
+        )}
+
+        <AccordionItem title="Hızlı Erişim" open>
+          <div className="quick-access-actions">
+            {QUICK_ACCESS_ACTIONS.map((action) => (
+              <Button
+                key={action.id}
+                size="sm"
+                kind="tertiary"
+                renderIcon={action.icon}
+                className="quick-access-button"
+                onClick={() => handleQuickAccess(action)}
+                disabled={Boolean(pendingQuickActionId)}
+              >
+                {action.label}
+              </Button>
+            ))}
           </div>
-        </div>
-      )}
-
-      <div className="settings-section">
-        <div className="settings-section__title">Hızlı Erişim</div>
-        <div className="quick-access-actions">
-          {QUICK_ACCESS_ACTIONS.map((action) => (
+          <div className="quick-access-actions quick-access-actions--secondary">
             <Button
-              key={action.id}
               size="sm"
-              kind="tertiary"
-              renderIcon={action.icon}
-              className="quick-access-button"
-              onClick={() => handleQuickAccess(action)}
-              disabled={Boolean(pendingQuickActionId)}
+              kind="ghost"
+              renderIcon={Bullhorn}
+              onClick={handleSelectionContext}
+              disabled={!String(editorSelection?.text || '').trim() || Boolean(pendingQuickActionId)}
             >
-              {action.label}
+              Seçili Metni AI Bağlamına Ekle
             </Button>
-          ))}
-        </div>
-        <div className="quick-access-actions quick-access-actions--secondary">
-          <Button
-            size="sm"
-            kind="ghost"
-            renderIcon={Bullhorn}
-            onClick={handleSelectionContext}
-            disabled={!String(editorSelection?.text || '').trim() || Boolean(pendingQuickActionId)}
-          >
-            Seçili Metni AI Bağlamına Ekle
-          </Button>
-          <Button
-            size="sm"
-            kind="ghost"
-            renderIcon={MagicWandFilled}
-            onClick={handleWizardTransform}
-            disabled={!markdownContent || Boolean(pendingQuickActionId)}
-          >
-            Sihirbazı Markdown'a Uygula
-          </Button>
-        </div>
-        {pendingQuickActionId ? (
-          <InlineLoading status="active" description={quickActionStatus || 'AI komutu çalışıyor...'} />
-        ) : null}
-        {!pendingQuickActionId && quickActionStatus ? (
-          <p className="settings-section__status">{quickActionStatus}</p>
-        ) : null}
-      </div>
+            <Button
+              size="sm"
+              kind="ghost"
+              renderIcon={MagicWandFilled}
+              onClick={handleWizardTransform}
+              disabled={!markdownContent || Boolean(pendingQuickActionId)}
+            >
+              Sihirbazı Markdown'a Uygula
+            </Button>
+          </div>
+          {pendingQuickActionId ? (
+            <InlineLoading status="active" description={quickActionStatus || 'AI komutu çalışıyor...'} />
+          ) : null}
+          {!pendingQuickActionId && quickActionStatus ? (
+            <p className="settings-section__status">{quickActionStatus}</p>
+          ) : null}
+        </AccordionItem>
+      </Accordion>
     </aside>
   );
 }

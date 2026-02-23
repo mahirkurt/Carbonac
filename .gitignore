@@ -35,3 +35,10 @@ service-client-key.json
 .mcp.json
 .vscode/mcp.json
 mcp/mcp-shared.json
+
+# AI tool workspace files
+.claude/
+.roo/
+
+# Environment backup files (may contain secrets)
+.env.*.bak

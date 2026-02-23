@@ -1,5 +1,6 @@
 /**
- * LandingPage Styles
+ * LandingPage Styles — Premium Edition
+ * Uses Carbonac brand gradient palette + IBM Carbon Design tokens
  */
 
 @use '../../styles/abstracts' as *;
@@ -43,12 +44,8 @@
   &__pattern {
     position: absolute;
     inset: 0;
-    @include pattern-dots(1px, 32px, rgba(15, 98, 254, 0.05));
+    @include pattern-dots(1px, 32px, rgba(26, 92, 255, 0.05));
     z-index: 1;
-
-    @media (prefers-reduced-motion: reduce) {
-      animation: none;
-    }
   }
 
   // Content
@@ -93,9 +90,15 @@
     }
   }
 
+  // Animated gradient text
   &__gradient-text {
     @include gradient-text;
     font-weight: 600;
+    background-size: 200% auto;
+
+    @media (prefers-reduced-motion: no-preference) {
+      animation: gradient-shift 4s ease-in-out infinite;
+    }
   }
 
   &__subheadline {
@@ -123,6 +126,56 @@
     font-size: 0.8125rem;
     color: var(--cds-text-helper);
     margin: 0;
+  }
+}
+
+// Gradient shift keyframe
+@keyframes gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+// ============================================================================
+// Trust Metrics
+// ============================================================================
+
+.landing-trust {
+  padding: $spacing-07 $spacing-05;
+  background: var(--cds-layer-01);
+  border-top: 1px solid var(--cds-border-subtle-01);
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+
+  &__row {
+    display: flex;
+    justify-content: center;
+    gap: $spacing-10;
+    flex-wrap: wrap;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  &__metric {
+    text-align: center;
+    min-width: 120px;
+  }
+
+  &__value {
+    @include gradient-text;
+    font-family: $font-family-sans;
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1;
+    display: block;
+  }
+
+  &__label {
+    @include type-style('label-01');
+    color: var(--cds-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: $spacing-02;
+    display: block;
   }
 }
 
@@ -192,9 +245,9 @@
   margin-bottom: $spacing-05;
 
   &:hover {
-    border-color: var(--cds-border-interactive);
+    border-color: var(--carbonac-blue-light);
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(15, 98, 254, 0.12);
+    box-shadow: 0 8px 24px rgba(26, 92, 255, 0.12);
   }
 
   &__icon-wrap {
@@ -264,22 +317,12 @@
     margin: 0;
   }
 
-  // Carbon ProgressIndicator override for landing
-  &__steps {
-    max-width: 900px;
-    margin: 0 auto $spacing-09;
-
-    .cds--progress {
-      justify-content: center;
-    }
-  }
-
-  // Step detail cards
+  // Interactive step detail cards
   &__details {
     display: grid;
     grid-template-columns: 1fr;
     gap: $spacing-05;
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
 
     @include md {
@@ -297,20 +340,38 @@
     align-items: center;
     text-align: center;
     gap: $spacing-04;
+    padding: $spacing-05;
+    border-radius: 8px;
+    cursor: default;
+    transition:
+      background $duration-moderate-01 $ease-standard-productive,
+      box-shadow $duration-moderate-01 $ease-standard-productive;
+    position: relative;
+
+    &:hover,
+    &--active {
+      background: var(--cds-layer-01);
+
+      .landing-workflow__detail-number {
+        box-shadow: 0 0 0 4px rgba(26, 92, 255, 0.15);
+        transform: scale(1.08);
+      }
+    }
   }
 
   &__detail-number {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--gradient-primary);
     color: #fff;
-    font-weight: 600;
-    font-size: 1rem;
     flex-shrink: 0;
+    transition:
+      box-shadow $duration-moderate-01 $ease-standard-productive,
+      transform $duration-moderate-01 $ease-standard-productive;
   }
 
   &__detail-text {
@@ -328,6 +389,22 @@
       font-size: 0.8125rem;
       color: var(--cds-text-secondary);
       line-height: 1.4;
+    }
+  }
+
+  // Step connector line (hidden on mobile)
+  &__connector {
+    display: none;
+
+    @include lg {
+      display: block;
+      position: absolute;
+      top: 27px;
+      left: calc(50% + 30px);
+      width: calc(100% - 16px);
+      height: 2px;
+      background: var(--gradient-line);
+      opacity: 0.3;
     }
   }
 }
@@ -361,6 +438,14 @@
     margin: 0 auto;
   }
 
+  &__tag {
+    margin-bottom: $spacing-05;
+
+    svg {
+      margin-right: $spacing-02;
+    }
+  }
+
   &__title {
     font-family: $font-family-sans;
     font-size: 2rem;
@@ -379,6 +464,12 @@
     color: var(--cds-text-secondary);
     margin: 0 0 $spacing-07;
   }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-04;
+    justify-content: center;
+  }
 }
 
 // ============================================================================
@@ -387,14 +478,25 @@
 
 [data-carbon-theme="g90"],
 [data-carbon-theme="g100"] {
+  // Glassmorphism feature cards
   .landing-feature-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+
     &:hover {
-      box-shadow: 0 8px 24px rgba(15, 98, 254, 0.2);
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(26, 92, 255, 0.3);
+      box-shadow: 0 8px 24px rgba(26, 92, 255, 0.2);
     }
   }
 
   .landing-hero__pattern {
-    @include pattern-dots(1px, 32px, rgba(15, 98, 254, 0.08));
+    @include pattern-dots(1px, 32px, rgba(26, 92, 255, 0.08));
+  }
+
+  .landing-trust {
+    border-color: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -409,5 +511,13 @@
     &:hover {
       transform: none;
     }
+  }
+
+  .landing-workflow__detail-number {
+    transition: none;
+  }
+
+  .landing-hero__gradient-text {
+    animation: none;
   }
 }

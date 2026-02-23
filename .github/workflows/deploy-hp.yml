@@ -7,20 +7,22 @@ on:
     paths:
       - 'backend/**'
       - 'docker/**'
-      - 'docker-compose.hp.yml'
-      - 'docker-compose.raspberry.yml'
+      - 'docker-compose.yml'
+      - '.env.hp'
+      - '.env.pi'
       - '.github/workflows/deploy-hp.yml'
   workflow_dispatch:
     inputs:
       profile:
         description: 'Docker Compose profile to deploy'
         required: false
-        default: 'worker'
+        default: 'hp-worker'
         type: choice
         options:
+          - hp-worker
           - worker
           - api
-          - api,worker
+          - full
       skip_build:
         description: 'Skip Docker build (use existing images)'
         required: false
@@ -33,8 +35,9 @@ on:
         type: boolean
 
 env:
-  COMPOSE_FILE: docker-compose.hp.yml
-  DEFAULT_PROFILE: worker
+  COMPOSE_FILE: docker-compose.yml
+  ENV_FILE_ARGS: --env-file .env --env-file .env.hp
+  DEFAULT_PROFILE: hp-worker
 
 jobs:
   deploy:
@@ -100,7 +103,7 @@ jobs:
           done
 
           echo "Building with profiles: $PROFILE"
-          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS build
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} $PROFILE_FLAGS build
 
       - name: Stop existing containers
         run: |
@@ -113,7 +116,7 @@ jobs:
           done
 
           echo "Stopping containers..."
-          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS down --remove-orphans || true
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} $PROFILE_FLAGS down --remove-orphans || true
 
       - name: Start containers
         run: |
@@ -126,13 +129,13 @@ jobs:
           done
 
           echo "Starting containers with profiles: $PROFILE"
-          docker compose -f ${{ env.COMPOSE_FILE }} $PROFILE_FLAGS up -d
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} $PROFILE_FLAGS up -d
 
       - name: Wait for services
         run: |
           echo "Waiting for services to be healthy..."
           sleep 10
-          docker compose -f ${{ env.COMPOSE_FILE }} ps
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} ps
 
       - name: Health check
         if: contains(steps.vars.outputs.profile, 'api')
@@ -152,7 +155,7 @@ jobs:
           done
 
           echo "Health check failed after $MAX_ATTEMPTS attempts"
-          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} logs --tail=50
           exit 1
 
       - name: Smoke test
@@ -176,7 +179,7 @@ jobs:
           echo "Commit: ${{ github.sha }}"
           echo ""
           echo "=== Container Status ==="
-          docker compose -f ${{ env.COMPOSE_FILE }} ps
+          docker compose -f ${{ env.COMPOSE_FILE }} ${{ env.ENV_FILE_ARGS }} ps
           echo ""
           echo "=== Resource Usage ==="
           docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" || true

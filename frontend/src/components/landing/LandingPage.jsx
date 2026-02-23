@@ -1,16 +1,16 @@
 /**
- * LandingPage - Self-promotion landing page for unauthenticated users
- * Showcases Carbonac features with Carbon Design System aesthetics
+ * LandingPage - Premium landing page for unauthenticated users
+ * Showcases Carbonac features with IBM Carbon Design System aesthetics
+ * Uses brand gradient palette, scroll-reveal, and stagger animations
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Button,
   Grid,
   Column,
   Tile,
-  ProgressIndicator,
-  ProgressStep,
+  Tag,
 } from '@carbon/react';
 
 import {
@@ -20,14 +20,16 @@ import {
   ChartBar,
   CheckmarkOutline,
   Chat,
+  ArrowRight,
+  Login,
   Upload,
   Settings,
   Edit,
   Download,
-  ArrowRight,
-  Login,
 } from '@carbon/icons-react';
 
+import { useStaggerAnimation, usePageLoadSequence } from '../../hooks';
+import { RippleButton } from '../animations/RippleButton';
 import './LandingPage.scss';
 
 const FEATURES = [
@@ -64,17 +66,34 @@ const FEATURES = [
 ];
 
 const WORKFLOW_STEPS = [
-  { label: 'Yükle', description: 'PDF, Word veya Markdown dosyanızı sürükleyip bırakın' },
-  { label: 'İşle', description: 'AI içeriğinizi analiz eder ve Markdown\'a dönüştürür' },
-  { label: 'Tasarla', description: '8 soruluk sihirbaz ile stili belirleyin' },
-  { label: 'Düzenle', description: 'Canlı önizleme ile içeriği son haline getirin' },
-  { label: 'İndir', description: 'Matbaa kalitesinde PDF\'inizi indirin' },
+  { label: 'Yükle', description: 'PDF, Word veya Markdown dosyanızı sürükleyip bırakın', icon: Upload },
+  { label: 'İşle', description: 'AI içeriğinizi analiz eder ve Markdown\'a dönüştürür', icon: Settings },
+  { label: 'Tasarla', description: '8 soruluk sihirbaz ile stili belirleyin', icon: MagicWand },
+  { label: 'Düzenle', description: 'Canlı önizleme ile içeriği son haline getirin', icon: Edit },
+  { label: 'İndir', description: 'Matbaa kalitesinde PDF\'inizi indirin', icon: Download },
+];
+
+const TRUST_METRICS = [
+  { value: '16+', label: 'Profesyonel Şablon' },
+  { value: '22', label: 'Grafik Türü' },
+  { value: 'WCAG AA', label: 'Erişilebilirlik' },
+  { value: 'Paged.js', label: 'Baskı Motoru' },
 ];
 
 export default function LandingPage({ onLogin }) {
-  const scrollToFeatures = () => {
+  const [activeStep, setActiveStep] = useState(null);
+
+  const { isTitleVisible, isPrimaryVisible, isSecondaryVisible } = usePageLoadSequence();
+
+  const { containerRef, getItemProps } = useStaggerAnimation({
+    itemCount: FEATURES.length,
+    baseDelay: 60,
+    staggerDelay: 40,
+  });
+
+  const scrollToFeatures = useCallback(() => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   return (
     <div className="landing">
@@ -83,24 +102,54 @@ export default function LandingPage({ onLogin }) {
         <div className="landing-hero__bg" aria-hidden="true" />
         <div className="landing-hero__pattern" aria-hidden="true" />
         <div className="landing-hero__content">
-          <p className="landing-hero__eyebrow">IBM Carbon Design System ile güçlendirilmiş</p>
-          <h1 className="landing-hero__headline">
+          <p
+            className="landing-hero__eyebrow"
+            style={{
+              opacity: isTitleVisible ? 1 : 0,
+              transform: isTitleVisible ? 'none' : 'translateY(-8px)',
+              transition: 'opacity 240ms ease, transform 240ms ease',
+            }}
+          >
+            IBM Carbon Design System ile güçlendirilmiş
+          </p>
+          <h1
+            className="landing-hero__headline"
+            style={{
+              opacity: isTitleVisible ? 1 : 0,
+              transform: isTitleVisible ? 'none' : 'translateY(12px)',
+              transition: 'opacity 300ms ease 50ms, transform 300ms ease 50ms',
+            }}
+          >
             Markdown'dan{' '}
             <span className="landing-hero__gradient-text">Profesyonel PDF'ler</span>
           </h1>
-          <p className="landing-hero__subheadline">
+          <p
+            className="landing-hero__subheadline"
+            style={{
+              opacity: isPrimaryVisible ? 1 : 0,
+              transform: isPrimaryVisible ? 'none' : 'translateY(8px)',
+              transition: 'opacity 240ms ease 100ms, transform 240ms ease 100ms',
+            }}
+          >
             AI destekli tasarım sihirbazı, 16+ şablon ve Paged.js baskı motoru ile
             dokümanlarınızı matbaa kalitesinde raporlara dönüştürün.
           </p>
-          <div className="landing-hero__actions">
-            <Button
+          <div
+            className="landing-hero__actions"
+            style={{
+              opacity: isPrimaryVisible ? 1 : 0,
+              transform: isPrimaryVisible ? 'none' : 'translateY(8px)',
+              transition: 'opacity 240ms ease 150ms, transform 240ms ease 150ms',
+            }}
+          >
+            <RippleButton
               kind="primary"
               size="lg"
               renderIcon={Login}
               onClick={onLogin}
             >
               Ücretsiz Başla
-            </Button>
+            </RippleButton>
             <Button
               kind="ghost"
               size="lg"
@@ -110,7 +159,27 @@ export default function LandingPage({ onLogin }) {
               Nasıl Çalışır?
             </Button>
           </div>
-          <p className="landing-hero__note">10 sayfa/ay ücretsiz — kredi kartı gerekmez</p>
+          <p
+            className="landing-hero__note"
+            style={{
+              opacity: isSecondaryVisible ? 1 : 0,
+              transition: 'opacity 240ms ease 200ms',
+            }}
+          >
+            10 sayfa/ay ücretsiz — kredi kartı gerekmez
+          </p>
+        </div>
+      </section>
+
+      {/* ─── Trust Metrics ─── */}
+      <section className="landing-trust">
+        <div className="landing-trust__row">
+          {TRUST_METRICS.map((metric) => (
+            <div key={metric.label} className="landing-trust__metric">
+              <span className="landing-trust__value">{metric.value}</span>
+              <span className="landing-trust__label">{metric.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -122,9 +191,9 @@ export default function LandingPage({ onLogin }) {
             İçe aktarmadan baskıya kadar tüm süreç — yapay zeka desteğiyle.
           </p>
         </div>
-        <Grid className="landing-features__grid">
-          {FEATURES.map((feature) => (
-            <Column key={feature.title} lg={5} md={4} sm={4}>
+        <Grid className="landing-features__grid" ref={containerRef}>
+          {FEATURES.map((feature, index) => (
+            <Column key={feature.title} lg={5} md={4} sm={4} {...getItemProps(index)}>
               <Tile className="landing-feature-card">
                 <div className="landing-feature-card__icon-wrap">
                   <feature.icon size={28} />
@@ -145,28 +214,30 @@ export default function LandingPage({ onLogin }) {
             Dosyanızı yükleyin, AI sihirbazı ile tasarlayın, indirin.
           </p>
         </div>
-        <div className="landing-workflow__steps">
-          <ProgressIndicator currentIndex={4} spaceEqually>
-            {WORKFLOW_STEPS.map((step) => (
-              <ProgressStep
-                key={step.label}
-                label={step.label}
-                description={step.description}
-                complete
-              />
-            ))}
-          </ProgressIndicator>
-        </div>
         <div className="landing-workflow__details">
-          {WORKFLOW_STEPS.map((step, i) => (
-            <div key={step.label} className="landing-workflow__detail">
-              <div className="landing-workflow__detail-number">{i + 1}</div>
-              <div className="landing-workflow__detail-text">
-                <strong>{step.label}</strong>
-                <span>{step.description}</span>
+          {WORKFLOW_STEPS.map((step, i) => {
+            const StepIcon = step.icon;
+            const isActive = activeStep === i;
+            return (
+              <div
+                key={step.label}
+                className={`landing-workflow__detail${isActive ? ' landing-workflow__detail--active' : ''}`}
+                onMouseEnter={() => setActiveStep(i)}
+                onMouseLeave={() => setActiveStep(null)}
+              >
+                <div className="landing-workflow__detail-number">
+                  <StepIcon size={20} />
+                </div>
+                <div className="landing-workflow__detail-text">
+                  <strong>{step.label}</strong>
+                  <span>{step.description}</span>
+                </div>
+                {i < WORKFLOW_STEPS.length - 1 && (
+                  <div className="landing-workflow__connector" aria-hidden="true" />
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -174,18 +245,24 @@ export default function LandingPage({ onLogin }) {
       <section className="landing-cta">
         <div className="landing-cta__bg" aria-hidden="true" />
         <div className="landing-cta__content">
+          <Tag type="blue" size="sm" className="landing-cta__tag">
+            <MagicWand size={14} />
+            AI Destekli
+          </Tag>
           <h2 className="landing-cta__title">Dokümanlarınızı Dönüştürmeye Başlayın</h2>
           <p className="landing-cta__subtitle">
             Ücretsiz hesap oluşturun, her ay 10 sayfaya kadar PDF oluşturun.
           </p>
-          <Button
-            kind="primary"
-            size="lg"
-            renderIcon={ArrowRight}
-            onClick={onLogin}
-          >
-            Hemen Başla
-          </Button>
+          <div className="landing-cta__actions">
+            <RippleButton
+              kind="primary"
+              size="lg"
+              renderIcon={ArrowRight}
+              onClick={onLogin}
+            >
+              Hemen Başla
+            </RippleButton>
+          </div>
         </div>
       </section>
     </div>

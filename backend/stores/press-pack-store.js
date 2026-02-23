@@ -1,7 +1,7 @@
-import './env.js';
+import '../env.js';
 import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
-import { validatePressPackManifest, normalizePressPackStatus, getPressPackSummary } from './press-pack-schema.js';
+import { validatePressPackManifest, normalizePressPackStatus, getPressPackSummary } from '../schemas/press-pack-schema.js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_PROJECT_URL;
 const supabaseServiceKey =

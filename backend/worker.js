@@ -10,7 +10,7 @@ import {
   updateJobRecord,
   addJobEvent,
   getJobRecord,
-} from './job-store.js';
+} from './stores/job-store.js';
 import { convertToPaged } from '../src/convert-paged.js';
 import { ensureDir, getProjectRoot, writeFile } from '../src/utils/file-utils.js';
 import { getArtDirection } from '../src/ai/art-director.js';
@@ -29,7 +29,7 @@ import {
   buildTemplatePreviewPath,
   uploadTemplatePreview,
   createTemplatePreviewSignedUrl,
-} from './storage.js';
+} from './stores/storage.js';
 import {
   templateStoreEnabled,
   getTemplateByKey,
@@ -37,13 +37,13 @@ import {
   getTemplateVersionById,
   normalizeTemplateSchema,
   createTemplatePreview,
-} from './templates-store.js';
+} from './stores/templates-store.js';
 import {
   getPressPackById,
   getLatestPressPackForTemplateVersion,
-} from './press-pack-store.js';
+} from './stores/press-pack-store.js';
 import { evaluatePreflight } from './preflight.js';
-import { usageStoreEnabled, createUsageEvent } from './usage-store.js';
+import { usageStoreEnabled, createUsageEvent } from './stores/usage-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

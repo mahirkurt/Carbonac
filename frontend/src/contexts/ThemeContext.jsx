@@ -222,10 +222,10 @@ export function useTheme() {
 // ============================================================================
 
 /**
- * Get appropriate logo variant based on theme
+ * Get appropriate logo path based on theme
  */
 export function getLogoVariant(theme) {
-  return DARK_THEMES.includes(theme) ? 'light' : 'dark';
+  return DARK_THEMES.includes(theme) ? '/logos/Carbonac-White.svg' : '/logos/Carbonac-Color.svg';
 }
 
 /**

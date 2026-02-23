@@ -74,24 +74,24 @@ scripts/raspberry/use-local-context.ps1
 ```
 
 ## 4. Raspberry Uzerinde Compose Calistirma
-Raspberry icin compose dosyasi:
+Unified compose dosyasi (profil tabanli):
 ```
-docker-compose.raspberry.yml
-```
-
-Baslatma (API):
-```
-docker compose -f docker-compose.raspberry.yml --profile api up -d
+docker-compose.yml
 ```
 
-Worker (profile ile):
+Baslatma (Redis + API, production):
 ```
-docker compose -f docker-compose.raspberry.yml --profile worker up -d
+docker compose --env-file .env --env-file .env.pi --profile pi up -d
 ```
 
-API + Worker birlikte:
+HP Worker (Pi Redis'e baglanir):
 ```
-docker compose -f docker-compose.raspberry.yml --profile api --profile worker up -d
+docker compose --env-file .env --env-file .env.hp --profile hp-worker up -d
+```
+
+Full stack (development):
+```
+docker compose --profile full up -d
 ```
 
 Not: Profil kullanildigi icin `docker compose up -d` tek basina sadece profili olmayan servisleri (redis) calistirir.
@@ -144,7 +144,7 @@ VITE_API_URL=http://raspberrypi.local:3001
 
 ## 10. Domain Deploy (carbonac.com)
 Backend:
-- Cloudflare tunnel ingress: `api.carbonac.com -> http://localhost:3001`
+- Cloudflare tunnel ingress: `api.carbonac.com -> http://localhost:3003` (Raspberry profile)
 - DNS: `api.carbonac.com` icin CNAME kaydi `CLOUDFLARE_TUNNEL_ID.cfargotunnel.com`
 - TLS: Cloudflare proxy (SSL/TLS mode: Full) onerilir.
 

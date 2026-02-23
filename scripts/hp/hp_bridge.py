@@ -183,7 +183,7 @@ def main() -> None:
         print(f"Deploying with profile: {profile}...")
         command = (
             f"cd {remote_path} && "
-            f"docker compose -f docker-compose.hp.yml "
+            f"docker compose --env-file .env --env-file .env.hp "
             f"--profile {profile} up -d {build_flag}"
         )
         print(ssh_command(host, user, command, timeout=600))

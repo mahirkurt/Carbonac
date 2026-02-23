@@ -6,50 +6,27 @@
 import React, { useState, useCallback, useEffect, Suspense, lazy, useRef } from 'react';
 import {
   Theme,
-  Header,
-  HeaderNavigation,
-  HeaderMenuItem,
-  HeaderGlobalBar,
-  HeaderGlobalAction,
-  HeaderPanel,
-  HeaderMenuButton,
   SideNav,
   SideNavItems,
   SideNavLink,
-  Switcher,
-  SwitcherItem,
-  SwitcherDivider,
   Button,
   TextInput,
   Tile,
-  Tag,
   InlineNotification,
+  ToastNotification,
   Loading,
 } from '@carbon/react';
 
 import {
   Document,
-  DocumentPdf,
-  Settings,
-  Light,
-  Asleep,
-  Help,
-  User,
-  Login,
-  Logout,
-  Currency,
-  Checkmark,
-  Close,
   Home,
-  ArrowRight,
   MagicWand,
   Template,
-  ListChecked,
-  AlignBoxTopLeft,
-  Watson,
+  Checkmark,
 } from '@carbon/icons-react';
 
 import './styles/index.scss';
+import AppHeader from './components/layout/AppHeader';
 import AppFooter from './components/layout/AppFooter';
 import CarbonacAiChat from './components/ai/CarbonacAiChat';
 import { useLocalStorage } from './hooks';
@@ -63,12 +40,12 @@ import EditorPanel from './components/layout/EditorPanel';
 import SettingsSidebar from './components/layout/SettingsSidebar';
 
 // Contexts
-import { 
-  ThemeProvider, 
+import {
+  ThemeProvider,
   useTheme,
-  AuthProvider, 
+  AuthProvider,
   useAuth,
-  PricingProvider, 
+  PricingProvider,
   usePricing,
   DocumentProvider,
   useDocument,
@@ -89,11 +66,9 @@ const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
 const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === 'true';
 
 
-
-
 // Main App Content
 function AppContent() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const { credits, subscription } = usePricing();
   const {
@@ -107,8 +82,9 @@ function AppContent() {
     setPrintProfile,
     autoSaveEnabled,
     setAutoSaveEnabled,
+    conversionProgress,
   } = useDocument();
-  
+
   const [showSettings, setShowSettings] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
@@ -264,14 +240,50 @@ function AppContent() {
             <DocumentUploader />
           </Suspense>
         );
-      
-      case WORKFLOW_STEPS.PROCESSING:
+
+      case WORKFLOW_STEPS.PROCESSING: {
+        const stages = [
+          { label: 'Yükleme', threshold: 10 },
+          { label: 'Analiz', threshold: 30 },
+          { label: 'Dönüşüm', threshold: 60 },
+          { label: 'Tamamlandı', threshold: 100 },
+        ];
+        const progress = conversionProgress || 0;
         return (
           <div className="processing-screen">
-            <Loading withOverlay={false} description="Doküman işleniyor..." />
+            <div className="processing-screen__card">
+              <div className="processing-screen__ring">
+                <svg viewBox="0 0 80 80" className="processing-screen__svg">
+                  <defs>
+                    <linearGradient id="processingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="var(--carbonac-blue-light, #1a5cff)" />
+                      <stop offset="100%" stopColor="var(--carbonac-pink-light, #e8528a)" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="40" cy="40" r="34" className="processing-screen__track" />
+                  <circle cx="40" cy="40" r="34" className="processing-screen__fill" stroke="url(#processingGradient)"
+                    strokeDasharray={`${2 * Math.PI * 34}`}
+                    strokeDashoffset={`${2 * Math.PI * 34 * (1 - progress / 100)}`}
+                  />
+                </svg>
+                <span className="processing-screen__percent">{progress}%</span>
+              </div>
+              <h3 className="processing-screen__title">Doküman İşleniyor</h3>
+              <div className="processing-screen__stages">
+                {stages.map((stage) => (
+                  <div key={stage.label}
+                    className={`processing-screen__stage${progress >= stage.threshold ? ' processing-screen__stage--done' : ''}`}
+                  >
+                    <span className="processing-screen__dot" />
+                    <span>{stage.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         );
-      
+      }
+
       case WORKFLOW_STEPS.WIZARD:
         return (
           <ErrorBoundary>
@@ -280,7 +292,7 @@ function AppContent() {
             </Suspense>
           </ErrorBoundary>
         );
-      
+
       case WORKFLOW_STEPS.EDITOR:
         return (
           <div className="editor-canvas-layout">
@@ -309,7 +321,7 @@ function AppContent() {
             </div>
           </div>
         );
-      
+
       default:
         return (
           <Suspense fallback={<Loading withOverlay description="Yükleniyor..." />}>
@@ -322,164 +334,28 @@ function AppContent() {
   return (
     <Theme theme={theme}>
       <div className="app-container">
-        {/* Header */}
-        <Header aria-label="Carbonac" className={!canAccessWorkspace ? 'cds--header--landing' : ''}>
-          {canAccessWorkspace && (
-            <HeaderMenuButton
-              aria-label={showSideNav ? 'Yan menüyü kapat' : 'Yan menüyü aç'}
-              onClick={() => setShowSideNav((prev) => !prev)}
-              isActive={showSideNav}
-              isCollapsible
-            />
-          )}
-
-          <a
-            href="/"
-            className="app-header__logo-link"
-            onClick={(e) => {
-              e.preventDefault();
-              reset();
-              handleWorkspaceChange('workflow');
-            }}
-          >
-            <img
-              src="/logos/Carbonac-Color-Wide.png"
-              alt="Carbonac"
-              className={`header-logo${!canAccessWorkspace ? ' header-logo--landing' : ''}`}
-            />
-          </a>
-           
-          {canAccessWorkspace && (
-            <HeaderNavigation aria-label="Main navigation" className="app-header__nav">
-              <HeaderMenuItem
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  reset();
-                  handleWorkspaceChange('workflow');
-                }}
-              >
-                <Home size={16} style={{ marginRight: '0.5rem' }} />
-                Ana Sayfa
-              </HeaderMenuItem>
-              <HeaderMenuItem
-                href="#templates"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleWorkspaceChange('templates');
-                }}
-              >
-                Şablonlar
-              </HeaderMenuItem>
-              <HeaderMenuItem
-                href="#documents"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleWorkspaceChange('documents');
-                }}
-              >
-                Dokümanlarım
-              </HeaderMenuItem>
-            </HeaderNavigation>
-          )}
-
-          <HeaderGlobalBar>
-            {/* Credits Display */}
-            {!passwordGateMode && isAuthenticated && (
-              <div className="app-header__credits" onClick={() => setShowPricing(true)}>
-                <Tag type="blue" size="sm">
-                  <Currency size={14} style={{ marginRight: '0.25rem' }} />
-                  {credits} Kredi
-                </Tag>
-              </div>
-            )}
-
-            <HeaderGlobalAction
-              aria-label="Tema Değiştir"
-              onClick={toggleTheme}
-              tooltipAlignment="end"
-            >
-              {theme === 'white' ? <Asleep size={20} /> : <Light size={20} />}
-            </HeaderGlobalAction>
-            
-            <HeaderGlobalAction
-              aria-label="Ayarlar"
-              onClick={() => setShowSettings(true)}
-              tooltipAlignment="end"
-            >
-              <Settings size={20} />
-            </HeaderGlobalAction>
-            
-            {!passwordGateMode && (
-              <HeaderGlobalAction
-                aria-label={isAuthenticated ? 'Hesap' : 'Giriş Yap'}
-                onClick={() => isAuthenticated ? setShowUserPanel(!showUserPanel) : setShowAuth(true)}
-                isActive={showUserPanel}
-                aria-expanded={showUserPanel}
-                aria-controls="user-panel"
-                data-user-panel-toggle="true"
-                tooltipAlignment="end"
-              >
-                {isAuthenticated ? <User size={20} /> : <Login size={20} />}
-              </HeaderGlobalAction>
-            )}
-          </HeaderGlobalBar>
-
-          {/* User Panel */}
-          <HeaderPanel
-            id="user-panel"
-            aria-label="User panel"
-            expanded={showUserPanel}
-            onHeaderPanelFocus={() => {}}
-          >
-            {isAuthenticated && user && (
-              <div className="app-header__user-panel" ref={userPanelRef}>
-                <div className="app-header__user-panel-header">
-                  <Button
-                    kind="ghost"
-                    size="sm"
-                    hasIconOnly
-                    renderIcon={Close}
-                    iconDescription="Kapat"
-                    onClick={() => setShowUserPanel(false)}
-                  />
-                </div>
-                <div className="app-header__user-info">
-                  <div className="app-header__user-avatar">
-                    <User size={32} />
-                  </div>
-                  <div className="app-header__user-details">
-                    <span className="app-header__user-name">{user.name}</span>
-                    <span className="app-header__user-email">{user.email}</span>
-                  </div>
-                </div>
-                <Switcher aria-label="User menu">
-                  <SwitcherItem
-                    aria-label="Hesabım"
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setShowUserPanel(false);
-                    }}
-                  >
-                    Hesabım
-                  </SwitcherItem>
-                  <SwitcherItem aria-label="Abonelik" onClick={() => { setShowPricing(true); setShowUserPanel(false); }}>
-                    Abonelik ({subscription?.tier || 'Free'})
-                  </SwitcherItem>
-                  <SwitcherItem aria-label="Kredi Satın Al" onClick={() => { setShowPricing(true); setShowUserPanel(false); }}>
-                    Kredi Satın Al
-                  </SwitcherItem>
-                  <SwitcherDivider />
-                  <SwitcherItem aria-label="Çıkış Yap" onClick={() => { logout(); setShowUserPanel(false); }}>
-                    <Logout size={16} style={{ marginRight: '0.5rem' }} />
-                    Çıkış Yap
-                  </SwitcherItem>
-                </Switcher>
-              </div>
-            )}
-          </HeaderPanel>
-        </Header>
+        {/* Header — extracted to AppHeader component */}
+        <AppHeader
+          canAccessWorkspace={canAccessWorkspace}
+          activeWorkspace={activeWorkspace}
+          onWorkspaceChange={handleWorkspaceChange}
+          onReset={reset}
+          showSideNav={showSideNav}
+          onToggleSideNav={() => setShowSideNav((prev) => !prev)}
+          isAuthenticated={isAuthenticated}
+          user={user}
+          onLogin={() => setShowAuth(true)}
+          onLogout={logout}
+          showUserPanel={showUserPanel}
+          onToggleUserPanel={() => setShowUserPanel(!showUserPanel)}
+          onCloseUserPanel={() => setShowUserPanel(false)}
+          userPanelRef={userPanelRef}
+          onOpenSettings={() => setShowSettings(true)}
+          credits={credits}
+          subscription={subscription}
+          onOpenPricing={() => setShowPricing(true)}
+          passwordGateMode={passwordGateMode}
+        />
 
         {/* Main Content */}
         <main className="app-main">
@@ -557,7 +433,7 @@ function AppContent() {
                 </SideNavItems>
               </SideNav>
             )}
-            <div className="app-workspace">
+            <div key={activeWorkspace} className="app-workspace workspace-transition">
             {canAccessWorkspace ? (
                 <>
                   {!isAuthenticated && passwordGateMode && (
@@ -594,13 +470,14 @@ function AppContent() {
         {/* Footer */}
         <AppFooter withGradient={!canAccessWorkspace} />
 
-        {/* Notifications */}
+        {/* Toast Notifications */}
         {notification && (
           <div className="app-notification">
-            <InlineNotification
+            <ToastNotification
               kind={notification.kind}
               title={notification.title}
               subtitle={notification.subtitle}
+              timeout={5000}
               onCloseButtonClick={() => setNotification(null)}
             />
           </div>

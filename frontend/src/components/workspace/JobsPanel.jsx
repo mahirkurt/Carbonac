@@ -18,6 +18,7 @@ import {
 import { Renew, WarningAlt } from '@carbon/icons-react';
 
 import { useAuth } from '../../contexts';
+import { useStaggerAnimation } from '../../hooks';
 
 const headers = [
   { key: 'type', header: 'İş Türü' },
@@ -180,6 +181,13 @@ export default function JobsPanel() {
     }))
   ), [jobs]);
 
+  const { getItemProps: getStaggerProps } = useStaggerAnimation({
+    itemCount: rows.length,
+    baseDelay: 30,
+    staggerDelay: 30,
+    triggerOnMount: true,
+  });
+
   const selectedJob = jobs.find((job) => job.id === selectedJobId) || null;
   const events = jobDetails?.events || [];
   const canRetry = selectedJob?.status === 'failed';
@@ -256,12 +264,13 @@ export default function JobsPanel() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {tableRows.map((row) => (
+                    {tableRows.map((row, idx) => (
                       <TableRow
                         {...getRowProps({ row })}
                         key={row.id}
                         className={row.id === selectedJobId ? 'jobs-panel__row--active' : ''}
                         onClick={() => setSelectedJobId(row.id)}
+                        style={getStaggerProps(idx).style}
                       >
                         {row.cells.map((cell) => {
                           if (cell.info.header === 'status') {

@@ -26,7 +26,11 @@
     "qa": "npm run test:qa",
     "smoke": "npm run test:smoke",
     "lint:tokens": "node scripts/token-lint.js",
-    "qa:update-baselines": "node scripts/tests/qa-update-baselines.js"
+    "qa:update-baselines": "node scripts/tests/qa-update-baselines.js",
+    "dev": "concurrently -n api,worker,ui -c blue,magenta,green \"node --watch backend/server.js\" \"node --watch backend/worker.js\" \"npm run dev --prefix frontend\"",
+    "dev:api": "node --watch backend/server.js",
+    "dev:worker": "node --watch backend/worker.js",
+    "dev:frontend": "npm run dev --prefix frontend"
   },
   "keywords": [
     "markdown",
@@ -74,6 +78,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "prettier": "^3.8.1"
   }
 }

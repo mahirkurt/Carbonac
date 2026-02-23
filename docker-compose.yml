@@ -1,16 +1,19 @@
-# docker-compose.raspberry.yml
-#
-# Raspberry Pi — Primary node (Redis + API)
-#
-# Pi runs Redis and API server (always-on, low power).
-# HP worker connects to this Redis over Tailscale.
+# docker-compose.yml — Unified Carbonac compose (profile-based)
 #
 # Usage:
-#   API + Redis (recommended — HP handles PDF generation):
-#     docker compose -f docker-compose.raspberry.yml --profile api up -d
+#   Pi (Redis + API, production):
+#     docker compose --env-file .env --env-file .env.pi --profile pi up -d
 #
-#   Full stack (including worker on Pi):
-#     docker compose -f docker-compose.raspberry.yml --profile full up -d
+#   HP (Worker only, connects to Pi Redis):
+#     docker compose --env-file .env --env-file .env.hp --profile hp-worker up -d
+#
+#   Full stack (all services, development):
+#     docker compose --env-file .env --profile full up -d
+#
+#   Individual services:
+#     docker compose --profile redis up -d
+#     docker compose --profile api up -d
+#     docker compose --profile worker up -d
 
 services:
   redis:
@@ -21,12 +24,11 @@ services:
       - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis-data:/data
     ports:
-      # Expose to Tailscale network so HP worker can connect
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     deploy:
       resources:
         limits:
-          memory: 128m
+          memory: ${REDIS_MEMORY_LIMIT:-256m}
           cpus: '0.5'
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -34,6 +36,10 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    profiles:
+      - redis
+      - pi
+      - full
 
   api:
     build:
@@ -44,19 +50,17 @@ services:
       - .env
     environment:
       - PORT=3001
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - JOB_QUEUE_NAME=carbonac-jobs
     ports:
-      # Pi host port 3001 is in use (anythingllm). Use 3003.
-      # Cloudflare tunnel ingress: http://localhost:3003
-      - "3003:3001"
+      - "${API_HOST_PORT:-3001}:3001"
     deploy:
       resources:
         limits:
-          memory: 384m
+          memory: ${API_MEMORY_LIMIT:-512m}
           cpus: '1.0'
     healthcheck:
-      test: ["CMD", "node", "scripts/redis-healthcheck.js"]
+      test: ["CMD", "node", "backend/scripts/redis-healthcheck.js"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -66,8 +70,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
     profiles:
       - api
+      - pi
       - full
 
   worker:
@@ -81,16 +87,16 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - JOB_QUEUE_NAME=carbonac-jobs
       - PUPPETEER_SKIP_DOWNLOAD=1
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-      - WORKER_CONCURRENCY=1
-      - PDF_QA_ENABLED=false
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-1}
+      - PDF_QA_ENABLED=${PDF_QA_ENABLED:-false}
     deploy:
       resources:
         limits:
-          memory: 1536m
+          memory: ${WORKER_MEMORY_LIMIT:-2g}
           cpus: '2.0'
     healthcheck:
       test: ["CMD", "node", "backend/scripts/redis-healthcheck.js"]
@@ -100,11 +106,10 @@ services:
     volumes:
       - output-data:/app/output
       - temp-data:/app/temp
-    depends_on:
-      redis:
-        condition: service_healthy
+    restart: unless-stopped
     profiles:
       - worker
+      - hp-worker
       - full
 
 volumes:

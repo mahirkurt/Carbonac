@@ -7,6 +7,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   Accordion,
   AccordionItem,
+  AILabel,
   Button,
   ClickableTile,
   Dropdown,
@@ -110,11 +111,11 @@ const WIZARD_QUESTIONS = [
     type: 'single-choice',
     isColorChoice: true,
     options: [
-      { value: 'professional', label: 'Profesyonel', colors: ['#0f62fe', '#393939', '#f4f4f4'], description: 'Mavi ve gri tonları' },
-      { value: 'vibrant', label: 'Canlı', colors: ['#0f62fe', '#da1e28', '#198038'], description: 'Çeşitli renk paleti' },
+      { value: 'professional', label: 'Profesyonel', colors: ['#1a5cff', '#393939', '#f4f4f4'], description: 'Mavi ve gri tonları' },
+      { value: 'vibrant', label: 'Canlı', colors: ['#1a5cff', '#e8528a', '#198038'], description: 'Çeşitli renk paleti' },
       { value: 'minimal', label: 'Minimal', colors: ['#161616', '#525252', '#ffffff'], description: 'Siyah ve beyaz' },
       { value: 'warm', label: 'Sıcak', colors: ['#da1e28', '#ff832b', '#f1c21b'], description: 'Sıcak tonlar' },
-      { value: 'cool', label: 'Soğuk', colors: ['#0f62fe', '#0072c3', '#009d9a'], description: 'Mavi ve yeşil tonları' },
+      { value: 'cool', label: 'Soğuk', colors: ['#1a5cff', '#0072c3', '#009d9a'], description: 'Mavi ve yeşil tonları' },
     ],
   },
   {
@@ -551,7 +552,7 @@ function ReportWizard() {
             </div>
             <div className="report-wizard__chat-header-text">
               <span className="report-wizard__chat-header-title">AI Danışmanı</span>
-              <span className="report-wizard__chat-header-subtitle">Carbonac AI</span>
+              <span className="report-wizard__chat-header-subtitle">Carbonac AI <AILabel size="mini" /></span>
             </div>
           </div>
           <div className="report-wizard__chat-header-actions">
@@ -599,7 +600,7 @@ function ReportWizard() {
 
         {/* Options Area */}
         {currentQuestion && !isTyping && !showSummary && (
-          <div className="report-wizard__options">
+          <div key={currentQuestionIndex} className="report-wizard__options report-wizard__question-transition">
             {showValidation && !canProceed && (
               <InlineNotification
                 kind="warning"

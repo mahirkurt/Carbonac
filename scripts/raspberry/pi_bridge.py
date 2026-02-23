@@ -167,13 +167,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     deploy_parser.add_argument(
         "--compose-file",
-        default="docker-compose.raspberry.yml",
-        help="Compose file name (default: docker-compose.raspberry.yml)",
+        default="docker-compose.yml",
+        help="Compose file name (default: docker-compose.yml)",
     )
     deploy_parser.add_argument(
         "--profile",
-        default="worker",
-        help="Compose profile to use (default: worker)",
+        default="pi",
+        help="Compose profile to use (default: pi)",
     )
     deploy_parser.add_argument(
         "--no-build",
@@ -197,13 +197,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     deploy_smoke_parser.add_argument(
         "--compose-file",
-        default="docker-compose.raspberry.yml",
-        help="Compose file name (default: docker-compose.raspberry.yml)",
+        default="docker-compose.yml",
+        help="Compose file name (default: docker-compose.yml)",
     )
     deploy_smoke_parser.add_argument(
         "--profiles",
-        default="api,worker",
-        help="Compose profiles (comma-separated, default: api,worker)",
+        default="pi",
+        help="Compose profiles (comma-separated, default: pi)",
     )
     deploy_smoke_parser.add_argument(
         "--no-build",
@@ -281,9 +281,10 @@ def main() -> None:
                 raise SystemExit("Repo not found on Pi. Provide --git-url to clone.")
 
             build_flag = "" if args.no_build else "--build"
+            env_file_args = "--env-file .env --env-file .env.pi"
             command = (
                 f"cd {remote_path} && "
-                f"docker compose -f {compose_file} --profile {profile} up -d {build_flag}"
+                f"docker compose -f {compose_file} {env_file_args} --profile {profile} up -d {build_flag}"
             )
             print(pi.run(command))
             return
@@ -304,9 +305,10 @@ def main() -> None:
 
             profile_flags = " ".join([f"--profile {profile}" for profile in profiles])
             build_flag = "" if args.no_build else "--build"
+            env_file_args = "--env-file .env --env-file .env.pi"
             compose_cmd = (
                 f"cd {remote_path} && "
-                f"docker compose -f {compose_file} {profile_flags} up -d {build_flag}"
+                f"docker compose -f {compose_file} {env_file_args} {profile_flags} up -d {build_flag}"
             )
             deploy_output = pi.run(compose_cmd)
 

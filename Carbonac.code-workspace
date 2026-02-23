@@ -1,0 +1,57 @@
+{
+  "folders": [
+    { "path": ".", "name": "Carbonac (Root)" },
+    { "path": "backend", "name": "Backend" },
+    { "path": "frontend", "name": "Frontend" },
+    { "path": "src", "name": "Core (Shared)" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "output": true,
+      "temp": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "library": true
+    },
+    "editor.formatOnSave": true,
+    "terminal.integrated.cwd": "${workspaceFolder}"
+  },
+  "launch": {
+    "configurations": [
+      {
+        "name": "Backend API",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/backend/server.js",
+        "cwd": "${workspaceFolder}",
+        "envFile": "${workspaceFolder}/.env"
+      },
+      {
+        "name": "Worker",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/backend/worker.js",
+        "cwd": "${workspaceFolder}",
+        "envFile": "${workspaceFolder}/.env"
+      },
+      {
+        "name": "Frontend Dev",
+        "type": "node",
+        "request": "launch",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "dev"],
+        "cwd": "${workspaceFolder}/frontend"
+      }
+    ],
+    "compounds": [
+      {
+        "name": "Full Stack (API + Worker + Frontend)",
+        "configurations": ["Backend API", "Worker", "Frontend Dev"]
+      }
+    ]
+  }
+}
