@@ -22,7 +22,7 @@ function analyzeWizardIntent(options) {
     hasFigures: emphasis.includes('visuals'),
     hasAuthors: docType === 'academic',
     sectionCount: pageGoal === 'long' ? 8 : pageGoal === 'medium' ? 5 : 3,
-    isDataHeavy: emphasis.includes('data') && emphasis.length >= 2,
+    isDataHeavy: emphasis.includes('data') && (emphasis.length >= 2 || docType === 'analytics'),
     isLongForm: pageGoal === 'long',
   };
 }
