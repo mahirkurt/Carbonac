@@ -38,9 +38,12 @@ function scorePattern(card, intent) {
   }
 
   // Content signal boosts
-  if (intent.hasTables && ['data-table-spread', 'chart-composition', 'kpi-grid', 'comparison-table'].includes(card.id)) score += 2;
+  if (intent.hasTables && ['data-table-spread', 'kpi-grid', 'comparison-table'].includes(card.id)) score += 2;
+  if (intent.hasCharts && ['chart-composition', 'survey-chart-page', 'infographic-strip'].includes(card.id)) score += 2;
   if (intent.hasQuotes && ['hero-stat-with-quote', 'pull-quote-spread'].includes(card.id)) score += 2;
   if (intent.hasSurvey && card.id === 'survey-chart-page') score += 3;
+  if (intent.hasTimeline && card.id === 'timeline-process') score += 2;
+  if (intent.hasComparison && card.id === 'comparison-table') score += 2;
   if (intent.hasMethodology && card.id === 'methodology-section') score += 3;
   if (intent.hasFigures && card.id === 'figure-with-caption') score += 2;
   if (intent.hasAuthors && card.id === 'author-bio-strip') score += 2;
