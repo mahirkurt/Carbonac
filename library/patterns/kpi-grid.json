@@ -1,0 +1,52 @@
+{
+  "id": "kpi-grid",
+  "name": "KPI Grid",
+  "description": "Multi-column grid layout displaying 3-6 key performance indicators with large display numbers and compact captions, ideal for dashboards and report summaries requiring at-a-glance metric scanning.",
+  "grid": {
+    "columns": "1-16 (full-width), internally divided into 4/4/4/4 or 5/5/6 sub-columns",
+    "verticalAlignment": "top",
+    "margins": "$spacing-05 (16px) between KPI cards, $spacing-07 (32px) above/below grid"
+  },
+  "components": [
+    "PatternBlock(kpi-grid) as root container",
+    "KPI card (repeated 3-6 times): self-contained metric unit",
+    "Metric value: $display-01 for the primary number, $text-01 color",
+    "Metric unit: $label-01 inline or superscript for unit/suffix (%, USD, etc.)",
+    "Metric caption: $label-01 in $text-03 below the number describing the KPI",
+    "Optional trend indicator: $label-01 with directional arrow + $green-60 (up) or $red-60 (down)",
+    "Optional g10 card background for each KPI unit"
+  ],
+  "rules": [
+    "Maximum 6 KPIs — more than 6 on one grid loses scannability; split into two grids if needed",
+    "Optimal count is 3-4 KPIs for A4; use 4/4/4/4 (4-col) or 5/5/6 (3-col) internal sub-grid",
+    "Metric value uses $display-01 — this is the largest element in the grid and the primary visual anchor",
+    "Caption uses $label-01 in $text-03 — de-emphasized but readable, max 3 words",
+    "Use g10 theme for the entire grid to create visual separation from surrounding content",
+    "Internal spacing between KPI cards is $spacing-05 (16px) — tight enough to read as a group",
+    "Each KPI card has $spacing-05 internal padding and optional $ui-03 bottom border",
+    "Trend indicators (if present) use $green-60 for positive and $red-60 for negative trends"
+  ],
+  "carbonTokens": {
+    "typography": ["$display-01", "$label-01", "$heading-02"],
+    "spacing": ["$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-03", "$green-60", "$red-60", "$blue-60", "$ui-01", "$ui-03"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "g10"
+  },
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "ibm-garage-style-guide"
+  ],
+  "antiPatterns": [
+    "Never exceed 6 KPIs in a single grid — cognitive overload makes metrics unreadable at a glance",
+    "Never use body typography ($body-long-01, $body-short-01) for metric values — $display-01 scale is required",
+    "Never use an 8/8 two-column grid for KPIs — minimum 3 columns to justify using this pattern over inline stats",
+    "Never place two KPI grids on the same page — one grid per page or spread maximum",
+    "Never include descriptive paragraphs inside KPI cards — captions are 3 words max; use adjacent RichText for context"
+  ],
+  "docTypeAffinity": ["dashboard", "report", "annual-report"]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "executive-summary",
+  "name": "Executive Summary",
+  "description": "Structured summary block placed immediately after the cover page, presenting key metrics, 3-5 bullet findings, and optional methodology note in a visually distinct g10-themed container.",
+  "grid": {
+    "columns": "3-14 (colSpan 12, offset 2 for breathing room)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) internal padding, $spacing-09 (48px) top margin from cover"
+  },
+  "components": [
+    "PatternBlock(executive-summary) as root container",
+    "Section heading: $heading-04 'Executive Summary' or equivalent",
+    "Key metrics row: 2-3 inline stat callouts using $heading-02 + $label-01 caption",
+    "Findings list: 3-5 bullet points using $body-long-01, each one sentence max",
+    "Methodology note: $label-02 in $text-03, bottom-aligned as footnote-style"
+  ],
+  "rules": [
+    "Always use g10 (light gray) theme to visually separate from surrounding white-theme content",
+    "Section heading uses $heading-04 — not larger, to avoid competing with the cover title",
+    "Findings list must contain 3-5 items; fewer than 3 looks sparse, more than 5 loses focus",
+    "Each finding is exactly one sentence — no multi-sentence bullets",
+    "Key metrics use $heading-02 for the number and $label-01 for the descriptor below it",
+    "Internal padding is $spacing-07 (32px) on all sides for comfortable reading",
+    "Place immediately after cover page — never deeper than page 2",
+    "Methodology note (if present) uses $label-02 in $text-03 color, separated by $spacing-05 from findings"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-02", "$body-long-01", "$label-01", "$label-02"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-02", "$text-03", "$blue-60", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 12,
+    "offset": 2,
+    "preferredTheme": "g10"
+  },
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never place executive summary deeper than page 2 — it must follow the cover immediately",
+    "Never include charts or data tables in the executive summary — use prose and inline metrics only",
+    "Never exceed 5 bullet findings — distill to the most critical insights",
+    "Never use full-width (colSpan 16) — the offset provides essential visual hierarchy and breathing room",
+    "Never omit the g10 theme — the summary must be visually distinct from surrounding content"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "annual-report", "research"]
+}

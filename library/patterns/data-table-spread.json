@@ -1,0 +1,48 @@
+{
+  "id": "data-table-spread",
+  "name": "Data Table Spread",
+  "description": "Full-width or near-full-width DataTable layout for presenting dense tabular data with zebra striping, condensed grid, and clear header hierarchy for print readability.",
+  "grid": {
+    "columns": "1-16 (full-width) or 2-15 (colSpan 14, offset 1 for slight inset)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-05 (16px) internal cell padding, $spacing-07 (32px) above/below table"
+  },
+  "components": [
+    "PatternBlock(data-table-spread) or DataTable as root",
+    "Table title: $heading-04 above the table with $spacing-05 gap",
+    "Column headers: $label-01 bold in $ui-03 background",
+    "Data cells: $body-short-01 for compact row content",
+    "Optional source note: $label-02 in $text-05 below the table",
+    "Optional row highlight: $blue-10 background for featured rows"
+  ],
+  "rules": [
+    "Use condensed grid (1px gutters) for dense data — never wide grid for tables",
+    "Zebra striping alternates $ui-01 and $ui-background for row readability",
+    "Maximum 8 visible columns — more than 8 causes truncation in A4 portrait; split into multiple tables if needed",
+    "Column headers use $label-01 bold weight on $ui-03 background for clear hierarchy",
+    "Data cells use $body-short-01 (14px) — never $body-long variants which waste vertical space",
+    "Table must have a title ($heading-04) and optional source note ($label-02) for context",
+    "Numeric columns right-align; text columns left-align; use monospace ($code-01) for precise values",
+    "Prefer colSpan 16 for tables with 6+ columns; use colSpan 14 offset 1 for narrower tables (3-5 columns)"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$label-01", "$body-short-01", "$label-02", "$code-01"],
+    "spacing": ["$spacing-03", "$spacing-05", "$spacing-07"],
+    "colors": ["$ui-01", "$ui-03", "$ui-background", "$text-01", "$text-05", "$blue-10"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0
+  },
+  "references": [
+    "ibm-garage-style-guide"
+  ],
+  "antiPatterns": [
+    "Never use wide grid gutters (32px) for tables — condensed (1px) is required for data density",
+    "Never exceed 8 visible columns — split into multiple tables or use a secondary detail view",
+    "Never omit zebra striping on tables with 5+ rows — unstriped tables cause row-tracking errors",
+    "Never use $body-long-01 for table cells — the line height wastes vertical space in dense layouts",
+    "Never place two full-width data tables on consecutive pages without intervening narrative content"
+  ],
+  "docTypeAffinity": ["report", "dashboard", "annual-report", "research"]
+}

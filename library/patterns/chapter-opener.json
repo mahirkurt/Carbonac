@@ -1,0 +1,50 @@
+{
+  "id": "chapter-opener",
+  "name": "Chapter Opener",
+  "description": "Full-width section divider with part number and chapter title, used to signal major narrative transitions in documents with 3+ sections. Forces a page break before to ensure clean separation.",
+  "grid": {
+    "columns": "1-16 (full-width)",
+    "verticalAlignment": "center",
+    "margins": "$spacing-10 (64px) top, $spacing-09 (48px) bottom"
+  },
+  "components": [
+    "PatternBlock(chapter-opener) as root container",
+    "Part number: $label-01 in $text-05, uppercase, letter-spaced (e.g. 'PART 01')",
+    "Chapter title: $heading-06 or $heading-05 for primary heading",
+    "Optional subtitle: $body-long-01 in $text-02, max 2 lines",
+    "Decorative rule: 2px $blue-60 horizontal line, $spacing-03 below part number"
+  ],
+  "rules": [
+    "Force page break BEFORE every chapter opener — it must always start on a new page",
+    "Part number uses $label-01 with $text-05 color and 2px letter-spacing for quiet authority",
+    "Chapter title uses $heading-06 for major sections or $heading-05 for subsections",
+    "Decorative rule (2px solid $blue-60) sits between part number and title, spanning 25% of page width",
+    "Maximum 4-5 chapter openers per document — more creates excessive white space",
+    "Only use in documents with 3+ distinct sections; for shorter docs use heading hierarchy instead",
+    "Bottom margin of $spacing-09 (48px) before first content element on the page",
+    "Never pair with another full-width component immediately after — follow with offset content"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-06", "$heading-05", "$label-01", "$body-long-01"],
+    "spacing": ["$spacing-03", "$spacing-09", "$spacing-10"],
+    "colors": ["$blue-60", "$text-01", "$text-02", "$text-05", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "forceBreakBefore": true
+  },
+  "references": [
+    "ibm-ix-brand-guidelines",
+    "ibm-think-summit-guidelines",
+    "ibm-event-experience-design-toolkit"
+  ],
+  "antiPatterns": [
+    "Never use chapter openers in documents with fewer than 3 sections — it fragments short content",
+    "Never exceed 5 chapter openers per document — too many breaks disrupt reading flow",
+    "Never follow a chapter opener with another full-width (colSpan 16) component — use offset content for rhythm",
+    "Never omit the page break before — a chapter opener mid-page looks like an ordinary heading",
+    "Never use $heading-07 or $display-01 for chapter titles — those are reserved for the cover page"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "annual-report", "research", "case-study"]
+}

@@ -1,0 +1,51 @@
+{
+  "id": "chart-composition",
+  "name": "Chart Composition",
+  "description": "Split layout combining a CarbonChart with adjacent insight text, mapping chart types to data characteristics and ensuring every visualization is paired with interpretive narrative.",
+  "grid": {
+    "columns": "1-10 / 11-16 (10/6 chart-left) or 1-6 / 7-16 (6/10 chart-right)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) gutter between chart and insight columns"
+  },
+  "components": [
+    "CarbonChart in the wider column (10-col or flexible)",
+    "Insight text block in the narrower column (6-col)",
+    "Chart title: $heading-04 above the chart",
+    "Insight heading: $heading-03 for the adjacent takeaway",
+    "Insight body: $body-long-01 for 2-3 sentences of interpretation",
+    "Data source: $label-02 in $text-05 below the chart",
+    "dataHint attribute: MUST be set on every CarbonChart instance"
+  ],
+  "rules": [
+    "Every CarbonChart MUST have a dataHint attribute — this drives chart type selection by the renderer",
+    "Chart type mapping: time-series -> line/area, composition -> donut/pie, correlation -> scatter/bubble, distribution -> histogram/boxplot, comparison -> grouped-bar, hierarchy -> treemap",
+    "Chart occupies the wider column (10 cols); insight text occupies the narrower column (6 cols)",
+    "Insight text must interpret the data — never just restate the chart title; highlight the 'so what'",
+    "Chart title uses $heading-04; insight heading uses $heading-03 for clear visual subordination",
+    "Data source line uses $label-02 in $text-05, placed below the chart with $spacing-03 gap",
+    "Maximum 2 chart-composition patterns per page — more overwhelms the reader with visuals",
+    "Alternate chart/insight placement (left/right) across pages for visual variety"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-long-01", "$label-02"],
+    "spacing": ["$spacing-03", "$spacing-05", "$spacing-07"],
+    "colors": ["$blue-60", "$green-60", "$purple-60", "$text-01", "$text-05", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0
+  },
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "ibm-garage-style-guide"
+  ],
+  "antiPatterns": [
+    "Never place a CarbonChart without a dataHint — the renderer cannot select the correct chart type without it",
+    "Never leave a chart without adjacent insight text — an uninterpreted chart forces the reader to guess the takeaway",
+    "Never use an 8/8 equal split — the chart needs the wider column for legibility",
+    "Never place more than 2 chart compositions on a single page — visual overload reduces comprehension",
+    "Never use the same chart type three times consecutively — vary between line, bar, donut to maintain visual interest"
+  ],
+  "docTypeAffinity": ["report", "dashboard", "annual-report"]
+}

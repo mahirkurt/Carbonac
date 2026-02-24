@@ -1,0 +1,50 @@
+{
+  "id": "action-box",
+  "name": "Action Box",
+  "description": "Call-to-action container with bulleted recommendations and next steps, placed near the end of the document before any appendix. Uses g10 theme and HighlightBox tone for visual emphasis.",
+  "grid": {
+    "columns": "3-14 (colSpan 12, offset 2 for centered prominence)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) internal padding, $spacing-09 (48px) top margin for separation"
+  },
+  "components": [
+    "PatternBlock(action-box) as root container",
+    "Section heading: $heading-04 'Recommendations' or 'Next Steps'",
+    "HighlightBox(success) or HighlightBox(info) as visual wrapper",
+    "Recommendation list: 3-5 bulleted items using $body-long-01",
+    "Priority indicator: $label-01 prefix (e.g. 'Immediate:', 'Short-term:', 'Long-term:')",
+    "Optional CTA: $heading-03 bold closing statement or contact prompt"
+  ],
+  "rules": [
+    "Maximum 5 recommendations — more than 5 dilutes urgency; aim for 3 as the strong default",
+    "Use HighlightBox with tone 'success' for positive recommendations or 'info' for neutral next steps",
+    "Always use g10 theme background to visually distinguish from preceding analysis content",
+    "Section heading uses $heading-04 — not larger, to maintain hierarchy below chapter titles",
+    "Each recommendation starts with a priority/timeframe prefix in $label-01 bold",
+    "Recommendations use $body-long-01 for readability — each should be 1-2 sentences max",
+    "Place near document end: after conclusion/analysis sections, before appendix if one exists",
+    "Internal padding is $spacing-07 (32px) on all sides within the HighlightBox wrapper"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-long-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$green-60", "$blue-60", "$text-01", "$text-02", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 12,
+    "offset": 2,
+    "preferredTheme": "g10"
+  },
+  "references": [
+    "ibm-garage-style-guide",
+    "ibm-design-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never exceed 5 recommendations — a long list of actions causes decision paralysis",
+    "Never place the action box at the beginning of the document — it must follow the analysis that justifies it",
+    "Never use full-width (colSpan 16) — the offset creates focus and prevents the box from feeling like a wall of text",
+    "Never omit the HighlightBox wrapper — a plain list of recommendations lacks visual distinction from body content",
+    "Never use HighlightBox tone 'danger' for recommendations — danger tone implies problems, not solutions"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "research", "annual-report"]
+}

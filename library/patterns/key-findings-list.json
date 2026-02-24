@@ -1,0 +1,49 @@
+{
+  "id": "key-findings-list",
+  "name": "Key Findings List",
+  "description": "Numbered list of prioritized findings with severity markers, used to present research outcomes or audit results in a scannable, hierarchical format with HighlightBox children.",
+  "grid": {
+    "columns": "3-14 (colSpan 12, offset 2)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) internal padding, $spacing-06 (24px) between items"
+  },
+  "components": [
+    "PatternBlock(key-findings-list) as root container",
+    "Section heading: $heading-04 'Key Findings' or context-specific label",
+    "Finding items: ordered list, each with severity tag + one-sentence finding",
+    "Severity tag: $label-01 in colored pill (high=$red-60, medium=$yellow-30, low=$green-60)",
+    "Finding text: $body-short-01 for concise single-sentence descriptions",
+    "HighlightBox children: each finding can expand into a HighlightBox(info) for detail"
+  ],
+  "rules": [
+    "Maximum 7 findings — more than 7 loses prioritization impact; aim for 5 as the sweet spot",
+    "Each finding is exactly one sentence — use $body-short-01, not $body-long-01",
+    "Severity tags use $label-01 inside colored pill badges: $red-60 (high), $yellow-30 (medium), $green-60 (low)",
+    "Numbered sequentially starting from 1 — numbers use $heading-03 for visual weight",
+    "Vertical spacing between findings is $spacing-06 (24px) for clear separation",
+    "Section heading uses $heading-04 and sits above the list with $spacing-07 gap",
+    "If a finding needs elaboration, nest a HighlightBox(info) below it — never inline the detail",
+    "Use colSpan 12 offset 2 to center the list and create breathing room from page edges"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-short-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-06", "$spacing-07"],
+    "colors": ["$red-60", "$yellow-30", "$green-60", "$text-01", "$text-02", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 12,
+    "offset": 2
+  },
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never exceed 7 findings — a long unranked list defeats the purpose of prioritized findings",
+    "Never write multi-sentence findings — if it needs two sentences, split into finding + nested HighlightBox",
+    "Never omit severity markers — findings without severity tags look like a generic bullet list",
+    "Never use full-width (colSpan 16) layout — centered offset is essential for scannable reading",
+    "Never mix severity color tokens — stick to the three-level system ($red-60/$yellow-30/$green-60)"
+  ],
+  "docTypeAffinity": ["report", "research", "whitepaper"]
+}

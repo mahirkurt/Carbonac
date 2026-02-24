@@ -1,0 +1,49 @@
+{
+  "id": "cover-page-hero",
+  "name": "Cover Page Hero",
+  "description": "Full-bleed opening page with large title, subtitle, date, and optional visual accent. Sets the tone for the entire document and must never contain body text or data visualizations.",
+  "grid": {
+    "columns": "1-16 (full-width)",
+    "verticalAlignment": "center",
+    "margins": "$spacing-09 (48px) top/bottom, $spacing-07 (32px) left/right"
+  },
+  "components": [
+    "PatternBlock(cover-page-hero) as root container",
+    "Heading: $heading-07 or $display-01 for main title (max 8 words)",
+    "Subtitle: $heading-03 in $text-02 color, placed below title with $spacing-05 gap",
+    "Date line: $label-01 in $text-05, bottom-aligned or below subtitle",
+    "Optional: brand accent bar (4px $blue-60) at top or left edge"
+  ],
+  "rules": [
+    "Title MUST use $heading-07 (productive) or $display-01 (expressive) — never smaller than $heading-05",
+    "Subtitle uses $heading-03 with $text-02 color token for secondary hierarchy",
+    "Vertical spacing between title and subtitle is exactly $spacing-05 (16px)",
+    "Date/author line uses $label-01 at $text-05 for de-emphasized metadata",
+    "No body text, charts, tables, or data visualizations on the cover page",
+    "Background must be a single solid theme color (white or $ui-background) — no gradients or images unless explicitly provided",
+    "Force page break after cover so content starts on a fresh page",
+    "Brand accent bar: 4px height, $blue-60 fill, spans full page width at top edge"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-07", "$display-01", "$heading-03", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09", "$spacing-13"],
+    "colors": ["$blue-60", "$text-01", "$text-02", "$text-05", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "forceBreakAfter": true
+  },
+  "references": [
+    "ibm-ix-brand-guidelines",
+    "ibm-think-summit-guidelines"
+  ],
+  "antiPatterns": [
+    "Never place CarbonChart, DataTable, or any data visualization on the cover page",
+    "Never use body-level typography ($body-long-01, $body-short-01) for the main title",
+    "Never include more than 6 text elements — cover must be sparse and impactful",
+    "Never use colSpan less than 16 — cover must be full-width without offsets",
+    "Never add RichText prose paragraphs to the cover — save content for page 2+"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "annual-report"]
+}

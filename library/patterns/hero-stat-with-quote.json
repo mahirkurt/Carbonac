@@ -1,0 +1,49 @@
+{
+  "id": "hero-stat-with-quote",
+  "name": "Hero Stat with Quote",
+  "description": "High-impact split layout pairing a large display statistic with an expert quote, designed to anchor key data points with human context and credibility.",
+  "grid": {
+    "columns": "1-6 / 7-16 (6/10 split) or 1-10 / 11-16 (10/6 split)",
+    "verticalAlignment": "center",
+    "margins": "$spacing-07 (32px) gutter between stat and quote columns"
+  },
+  "components": [
+    "PatternBlock(hero-stat-with-quote) as root container",
+    "Hero statistic: $display-02 for the number, $blue-60 color",
+    "Stat descriptor: $label-01 below the number explaining what it measures",
+    "Unit/context: $body-short-01 for unit label or time period",
+    "Quote text: $body-long-02 italic for the quotation body",
+    "Attribution: $label-02 in $text-03 for speaker name and title"
+  ],
+  "rules": [
+    "Statistic MUST use $display-02 in $blue-60 — this is the visual anchor of the composition",
+    "Stat descriptor uses $label-01 directly below the number with $spacing-03 gap",
+    "Split layout is 6/10 (stat left, quote right) or 10/6 (quote left, stat right) — never equal halves",
+    "Quote text uses $body-long-02 in italic style — never bold, never larger than $heading-03",
+    "Attribution line uses $label-02 in $text-03, preceded by an em-dash",
+    "Gutter between columns uses wide grid gutter ($spacing-07 / 32px)",
+    "Only one hero stat per pattern instance — multiple stats belong in kpi-grid instead",
+    "Vertical alignment is centered between stat and quote for visual balance"
+  ],
+  "carbonTokens": {
+    "typography": ["$display-02", "$body-long-02", "$label-01", "$label-02", "$body-short-01"],
+    "spacing": ["$spacing-03", "$spacing-05", "$spacing-07"],
+    "colors": ["$blue-60", "$text-01", "$text-03", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0
+  },
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never use $heading-07 or $display-01 for the statistic — $display-02 is the correct scale for inline stats",
+    "Never place two hero-stat-with-quote patterns on the same page — one per spread maximum",
+    "Never use an 8/8 equal split — the asymmetry (6/10 or 10/6) creates visual tension and hierarchy",
+    "Never include more than one statistic — use kpi-grid for multiple metrics",
+    "Never omit the quote attribution — an unattributed quote reduces credibility"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "annual-report", "research"]
+}

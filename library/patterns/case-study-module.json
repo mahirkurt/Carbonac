@@ -1,0 +1,50 @@
+{
+  "id": "case-study-module",
+  "name": "Case Study Module",
+  "description": "Three-part bordered container presenting a challenge/solution/result narrative structure, with subtle left-border accent and consistent internal typography for evidence-based storytelling.",
+  "grid": {
+    "columns": "2-15 (colSpan 14, offset 1 for slight inset)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) internal padding, $spacing-06 (24px) between sections"
+  },
+  "components": [
+    "PatternBlock(case-study-module) as root container",
+    "Module title: $heading-04 for the case study name or client reference",
+    "Challenge section: $heading-04 label + $body-long-01 content (1-2 paragraphs)",
+    "Solution section: $heading-04 label + $body-long-01 content (1-2 paragraphs)",
+    "Result section: $heading-04 label + $body-long-01 content with optional inline metric",
+    "Left border accent: 4px solid $blue-60 spanning full module height",
+    "Optional result metric: $heading-02 in $blue-60 for a key outcome number"
+  ],
+  "rules": [
+    "Three-part structure is mandatory: Challenge, Solution, Result — all three must be present",
+    "Left border accent is 4px solid $blue-60, spanning the full height of the module",
+    "Section labels (Challenge/Solution/Result) use $heading-04 with $spacing-06 gap before content",
+    "Body content uses $body-long-01 for comfortable reading — each section is 1-2 paragraphs max",
+    "Vertical spacing between the three sections is $spacing-06 (24px) with a subtle $ui-03 divider line",
+    "Optional result metric uses $heading-02 in $blue-60 to quantify the outcome",
+    "Internal padding is $spacing-07 (32px) on all sides, with $spacing-05 extra left padding to clear the accent border",
+    "Maximum 3 case study modules per document — more should be moved to an appendix"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-02", "$body-long-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-06", "$spacing-07"],
+    "colors": ["$blue-60", "$text-01", "$text-02", "$ui-03", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 14,
+    "offset": 1
+  },
+  "references": [
+    "ibm-event-experience-design-toolkit",
+    "ibm-digital-event-design-toolkit"
+  ],
+  "antiPatterns": [
+    "Never omit one of the three sections (challenge/solution/result) — incomplete case studies undermine credibility",
+    "Never use full-width (colSpan 16) — the offset and border-left need spatial context to look intentional",
+    "Never include charts or data tables inside a case study module — keep it narrative-focused; place data adjacent",
+    "Never exceed 3 case study modules in one document — consolidate or move extras to an appendix",
+    "Never use a border color other than $blue-60 for the left accent — brand consistency requires the primary blue"
+  ],
+  "docTypeAffinity": ["case-study", "whitepaper", "report"]
+}
