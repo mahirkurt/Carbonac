@@ -63,6 +63,12 @@ python3 scripts/infra.py stop           # Both nodes
 python3 scripts/infra.py status         # Container status on both nodes
 python3 scripts/infra.py logs-pi        # Pi compose logs
 python3 scripts/infra.py logs-hp        # HP compose logs
+
+# AI Training Pipeline
+node scripts/training/collect-example.js --markdown input.md --layout layout.json --qa-score 92 --tags report
+node scripts/training/review-candidates.js                    # list pending candidates
+node scripts/training/review-candidates.js approve <id>       # approve example
+node scripts/training/export-training-data.js                 # export JSONL for fine-tuning
 ```
 
 ## Architecture

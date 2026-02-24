@@ -42,3 +42,9 @@ mcp/mcp-shared.json
 
 # Environment backup files (may contain secrets)
 .env.*.bak
+
+# Training pipeline (large files, user-specific)
+library/examples-staging/*/
+library/examples/*/input.md
+library/examples/*/layout.json
+library/training-data*.jsonl
