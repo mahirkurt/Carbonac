@@ -177,7 +177,7 @@ function normalizePrintProfile(value) {
   return PRINT_PROFILES.has(value) ? value : 'pagedjs-a4';
 }
 
-function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme, referenceBrief }) {
+function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme, referenceBrief, patternContext }) {
   return `You are the art director for a print-ready report system.
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
@@ -261,7 +261,8 @@ Print design token reference:
 - CMYK-safe accents: blue-60, green-60, red-60
 - Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
-${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
+${patternContext || ''}
+${referenceBrief ? `\nAdditional reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -342,7 +343,7 @@ Output schema:
 }`;
 }
 
-function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief, qaFeedback }) {
+function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief, qaFeedback, patternContext }) {
   const feedbackBlock = qaFeedback
     ? `\nPrior QA feedback (avoid repeating these issues):\n${JSON.stringify(qaFeedback)}\n`
     : '';
@@ -416,7 +417,8 @@ Print design token reference:
 - CMYK-safe accents: blue-60, green-60, red-60
 - Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
-${referenceBrief ? `Reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
+${patternContext || ''}
+${referenceBrief ? `\nAdditional reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
 - layoutProfile: ${layoutProfile}
@@ -521,6 +523,87 @@ async function loadReferenceBrief() {
     referenceBriefCache = '';
     return '';
   }
+}
+
+let patternCardsCache = null;
+
+async function loadPatternCards() {
+  if (patternCardsCache !== null) {
+    return patternCardsCache;
+  }
+  try {
+    const projectRoot = getProjectRoot();
+    const patternsDir = path.join(projectRoot, 'library', 'patterns');
+    const files = await fs.readdir(patternsDir);
+    const jsonFiles = files.filter((f) => f.endsWith('.json'));
+    const cards = [];
+    for (const file of jsonFiles) {
+      const raw = await fs.readFile(path.join(patternsDir, file), 'utf-8');
+      cards.push(JSON.parse(raw));
+    }
+    patternCardsCache = cards;
+    return cards;
+  } catch (error) {
+    console.warn(`[art-director] Pattern cards unavailable: ${error.message}`);
+    patternCardsCache = [];
+    return [];
+  }
+}
+
+function analyzeDocumentIntent(metadata, content, toc) {
+  const docType = (metadata.docType || metadata.documentType || 'report').toLowerCase();
+  const audience = (metadata.audience || 'general').toLowerCase();
+  const hasTables = /\|.*\|/.test(content || '');
+  const hasCharts = /chart|grafik|figure|diagram/i.test(content || '');
+  const hasQuotes = /["\u201C\u201D]|alinti|quote/i.test(content || '');
+  const sectionCount = (toc || []).filter((t) => t.level === 1 || t.level === 2).length;
+  const isDataHeavy = hasTables && sectionCount >= 3;
+  return { docType, audience, hasTables, hasCharts, hasQuotes, sectionCount, isDataHeavy };
+}
+
+function selectRelevantPatterns(allCards, intent) {
+  if (!allCards.length) return [];
+  const scored = allCards.map((card) => {
+    let score = 0;
+    if (Array.isArray(card.docTypeAffinity)) {
+      if (card.docTypeAffinity.some((t) => intent.docType.includes(t))) {
+        score += 3;
+      }
+    }
+    if (intent.hasTables && ['data-table-spread', 'chart-composition', 'kpi-grid'].includes(card.id)) {
+      score += 2;
+    }
+    if (intent.hasQuotes && card.id === 'hero-stat-with-quote') {
+      score += 2;
+    }
+    if (intent.sectionCount >= 3 && card.id === 'chapter-opener') {
+      score += 2;
+    }
+    if (intent.isDataHeavy && ['kpi-grid', 'chart-composition'].includes(card.id)) {
+      score += 1;
+    }
+    if (['cover-page-hero', 'executive-summary'].includes(card.id)) {
+      score += 1;
+    }
+    return { card, score };
+  });
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((s) => s.card);
+}
+
+function formatPatternsForPrompt(patterns) {
+  if (!patterns.length) return '';
+  const lines = patterns.map((p) => {
+    const rules = (p.rules || []).slice(0, 4).map((r) => `  - ${r}`).join('\n');
+    const anti = (p.antiPatterns || []).slice(0, 2).map((r) => `  - AVOID: ${r}`).join('\n');
+    const tokens = p.carbonTokens
+      ? `  Tokens: ${Object.entries(p.carbonTokens).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join('; ')}`
+      : '';
+    return `### ${p.name} (${p.id})\n${p.description}\nGrid: ${p.grid?.columns || 'full-width'}\nRules:\n${rules}\n${anti}\n${tokens}`;
+  });
+  return `\n## Design Pattern Reference (apply these rules):\n\n${lines.join('\n\n')}`;
 }
 
 function extractJson(text) {
@@ -1233,6 +1316,10 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
   const promptVersion = resolvePromptVersion(ART_DIRECTOR_PROMPT_VERSION, 'v2');
   const rollbackVersion = resolveRollbackVersion(ART_DIRECTOR_PROMPT_ROLLBACK);
   const referenceBrief = await loadReferenceBrief();
+  const allPatterns = await loadPatternCards();
+  const intent = analyzeDocumentIntent(metadata, content, toc);
+  const relevantPatterns = selectRelevantPatterns(allPatterns, intent);
+  const patternContext = formatPatternsForPrompt(relevantPatterns);
 
   const outlineContent = buildOutlineContent({ toc, content });
   const clippedContent = (outlineContent || content || '').slice(0, MAX_CONTENT_CHARS);
@@ -1259,6 +1346,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
       printProfile: resolvedPrintProfile,
       theme,
       referenceBrief,
+      patternContext,
     });
     return await runLegacyPrompt({
       prompt,
@@ -1302,6 +1390,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
     documentPlan,
     referenceBrief,
     qaFeedback: priorFeedback,
+    patternContext,
   });
 
   try {
@@ -1322,6 +1411,8 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
       layoutProfile: resolvedLayoutProfile,
       printProfile: resolvedPrintProfile,
       theme,
+      referenceBrief,
+      patternContext,
     });
     return await runLegacyPrompt({
       prompt,
