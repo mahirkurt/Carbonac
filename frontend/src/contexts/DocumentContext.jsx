@@ -15,6 +15,7 @@ import React, {
 import { useDebounce, useLocalStorage } from '../hooks';
 import { lintMarkdown, buildLintCacheKey } from '../utils/markdownLint';
 import { buildApiUrl } from '../utils/apiBase';
+import { enhanceConvertedMarkdown } from '../utils/markdownConversion';
 import { supabase } from '../lib/supabase';
 
 const AUTOSAVE_STORAGE_KEY = 'carbonac_autosave_v1';
@@ -143,9 +144,12 @@ const initialState = {
     layoutStyle: '',  // compact, spacious, balanced
     emphasis: [],     // data, narrative, visuals
     components: [],   // charts, tables, callouts, etc.
+    enabledPatterns: [], // wizard pattern suggestions (user toggles)
     locale: 'tr-TR',
     version: 1,
     includeCover: true,
+    includeToc: true,
+    includeBackCover: true,
     showPageNumbers: true,
     printBackground: true,
     colorMode: 'color',
@@ -570,9 +574,10 @@ export function DocumentProvider({ children }) {
       // Check if it's already markdown
       if (file.type === 'text/markdown' || file.name.endsWith('.md')) {
         const text = await file.text();
+        const { markdown } = enhanceConvertedMarkdown(text);
         dispatch({
           type: ActionTypes.CONVERSION_SUCCESS,
-          payload: { markdown: text },
+          payload: { markdown },
         });
         return;
       }
@@ -580,9 +585,10 @@ export function DocumentProvider({ children }) {
       // Check if it's plain text
       if (file.type === 'text/plain') {
         const text = await file.text();
+        const { markdown } = enhanceConvertedMarkdown(text);
         dispatch({
           type: ActionTypes.CONVERSION_SUCCESS,
-          payload: { markdown: text },
+          payload: { markdown },
         });
         return;
       }
@@ -619,9 +625,10 @@ export function DocumentProvider({ children }) {
       }
 
       const data = await response.json();
+      const { markdown } = enhanceConvertedMarkdown(data.markdown);
       dispatch({
         type: ActionTypes.CONVERSION_SUCCESS,
-        payload: { markdown: data.markdown },
+        payload: { markdown },
       });
     } catch (error) {
       if (progressInterval) {
