@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { randomUUID } from 'crypto';
 import { chromium } from 'playwright';
 import {
   readFile,
@@ -49,6 +50,8 @@ const TABLE_SPLIT_MIN_ROWS_PER_PAGE = Math.max(
   Number(process.env.PRINT_TABLE_SPLIT_MIN_ROWS_PER_PAGE || 6)
 );
 const execFileAsync = promisify(execFile);
+const EXAMPLE_QA_THRESHOLD = Number(process.env.EXAMPLE_QA_THRESHOLD || 85);
+const EXAMPLE_AUTO_STAGE = process.env.EXAMPLE_AUTO_STAGE !== 'false';
 
 // Module-level caches for performance (avoid repeated disk I/O)
 const _cssCache = new Map();
@@ -645,6 +648,7 @@ function buildCover(metadata) {
 
   return `
     <header class="report-cover">
+      <div class="report-cover__eyebrow">Carbonac · Carbon Design Report</div>
       ${title ? `<h1 class="report-title">${title}</h1>` : ''}
       ${subtitle ? `<p class="report-subtitle">${subtitle}</p>` : ''}
       ${(author || date) ? `
@@ -654,6 +658,59 @@ function buildCover(metadata) {
         </div>
       ` : ''}
     </header>
+  `;
+}
+
+function buildToc(metadata = {}, toc = []) {
+  const includeToc = metadata.includeToc !== false;
+  if (!includeToc || !Array.isArray(toc) || toc.length === 0) {
+    return '';
+  }
+
+  const title = String(metadata.language || metadata.locale || 'tr').toLowerCase().startsWith('en')
+    ? 'Table of Contents'
+    : 'İçindekiler';
+
+  const list = toc
+    .filter((item) => item && item.title)
+    .map((item) => {
+      const level = Math.max(1, Math.min(3, Number(item.level) || 1));
+      return `<li class="report-toc__item level-${level}">${escapeHtml(item.title)}</li>`;
+    })
+    .join('');
+
+  if (!list) {
+    return '';
+  }
+
+  return `
+    <section class="report-toc">
+      <h2 class="report-toc__title">${escapeHtml(title)}</h2>
+      <ol class="report-toc__list">
+        ${list}
+      </ol>
+    </section>
+  `;
+}
+
+function buildBackCover(metadata = {}) {
+  const includeBackCover = metadata.includeBackCover !== false;
+  if (!includeBackCover) {
+    return '';
+  }
+
+  const title = resolveDocumentTitle(metadata, 'Carbon Report');
+  const locale = String(metadata.language || metadata.locale || 'tr').toLowerCase();
+  const thanks = locale.startsWith('en')
+    ? 'Thank you for reviewing this report.'
+    : 'Bu raporu incelediğiniz için teşekkür ederiz.';
+
+  return `
+    <footer class="report-back-cover">
+      <div class="report-back-cover__brand">Carbonac</div>
+      <p class="report-back-cover__title">${escapeHtml(title)}</p>
+      <p class="report-back-cover__thanks">${escapeHtml(thanks)}</p>
+    </footer>
   `;
 }
 
@@ -1544,6 +1601,7 @@ async function buildHtml({
   artDirection,
   typography,
   tokens,
+  toc = [],
 }) {
   const projectRoot = getProjectRoot();
   const baseCssPath = path.join(projectRoot, 'styles', 'print', 'print-base.css');
@@ -1571,6 +1629,7 @@ async function buildHtml({
     : '';
 
   const cover = buildCover(metadata);
+  const tocSection = buildToc(metadata, toc);
   const processedMarkdown = applyHyphenationExceptions(
     markdown,
     typographySettings.hyphenationExceptions
@@ -1629,9 +1688,11 @@ ${printCss}
   <body class="layout layout--${layoutProfile} theme--${theme} print--${printProfile} color-mode--${colorMode} ${typographyClasses.join(' ')}" data-page-numbers="${pageNumbersEnabled ? 'on' : 'off'}">
     <div class="report">
       ${cover}
+      ${tocSection}
       <main class="report-content">
         ${mainContent}
       </main>
+      ${buildBackCover(metadata)}
     </div>
     ${hyphenationScriptTag}
     ${chartRendererScriptTag}
@@ -2529,6 +2590,36 @@ async function runQaHarness(page, options = {}) {
   return report;
 }
 
+async function stageTrainingExample({ markdown, layoutJson, qaReport, metadata, template }) {
+  if (!EXAMPLE_AUTO_STAGE) return;
+  const score = qaReport?.overallScore ?? qaReport?.score ?? 0;
+  if (score < EXAMPLE_QA_THRESHOLD) return;
+
+  try {
+    const id = `example-${randomUUID().slice(0, 8)}`;
+    const stagingDir = path.join(getProjectRoot(), 'library', 'examples-staging', id);
+    await fs.mkdir(stagingDir, { recursive: true });
+    await fs.writeFile(path.join(stagingDir, 'input.md'), markdown || '');
+    await fs.writeFile(path.join(stagingDir, 'layout.json'), JSON.stringify(layoutJson, null, 2));
+    await fs.writeFile(
+      path.join(stagingDir, 'score.json'),
+      JSON.stringify({
+        qaScore: score,
+        manualReview: 'pending',
+        strengths: [],
+        weaknesses: [],
+        tags: [],
+        template: template || 'unknown',
+        docType: metadata?.docType || 'report',
+        createdAt: new Date().toISOString(),
+      }, null, 2)
+    );
+    console.log(`[training] Example staged: ${id} (QA score: ${score})`);
+  } catch (error) {
+    console.warn(`[training] Failed to stage example: ${error.message}`);
+  }
+}
+
 /**
  * Convert markdown to PDF using Paged.js + headless Chromium
  * @param {string} inputPath - Path to markdown file
@@ -2549,6 +2640,8 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
     language,
     colorMode,
     includeCover,
+    includeToc,
+    includeBackCover,
     showPageNumbers,
     printBackground,
     artDirection = null,
@@ -2592,6 +2685,8 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
       language: language || metadata.language,
       colorMode: colorMode || metadata.colorMode || 'color',
       includeCover: includeCover === undefined ? metadata.includeCover : includeCover,
+      includeToc: includeToc === undefined ? metadata.includeToc : includeToc,
+      includeBackCover: includeBackCover === undefined ? metadata.includeBackCover : includeBackCover,
       showPageNumbers: showPageNumbers === undefined ? metadata.showPageNumbers : showPageNumbers,
       printBackground: printBackground === undefined ? metadata.printBackground : printBackground,
       keywords: mergedKeywords,
@@ -2618,6 +2713,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
       artDirection,
       typography,
       tokens,
+      toc,
     });
     if (typeof onStage === 'function') {
       await onStage('render-html');
@@ -2678,7 +2774,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         baselineKey: qa.baselineKey,
         visual: qa.visual,
         axe: qa.axe,
-        printProfile: resolvedPrintProfile,
+        printProfile: resolvedPrint,
       });
       if (qaReport) {
         console.log(
@@ -2697,6 +2793,7 @@ export async function convertToPaged(inputPath, outputPath = null, options = {})
         try {
           storeQaFeedback(markdown || '', qaReport);
         } catch { /* non-critical */ }
+        await stageTrainingExample({ markdown, layoutJson: artDirection?.layoutJson, qaReport, metadata, template: options?.template });
       }
       if (qaReport) {
         const baseName = path.basename(finalOutputPath, '.pdf');
