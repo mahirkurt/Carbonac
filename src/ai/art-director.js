@@ -177,7 +177,7 @@ function normalizePrintProfile(value) {
   return PRINT_PROFILES.has(value) ? value : 'pagedjs-a4';
 }
 
-function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme, referenceBrief, patternContext }) {
+function buildSystemPrompt({ metadata, layoutProfile, printProfile, theme, referenceBrief, patternContext, exampleContext }) {
   return `You are the art director for a print-ready report system.
 
 Return JSON only. Use the requested layoutProfile and printProfile without changing them.
@@ -262,6 +262,7 @@ Print design token reference:
 - Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
 ${patternContext || ''}
+${exampleContext || ''}
 ${referenceBrief ? `\nAdditional reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
@@ -343,7 +344,7 @@ Output schema:
 }`;
 }
 
-function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief, qaFeedback, patternContext }) {
+function buildLayoutPlanPrompt({ metadata, layoutProfile, printProfile, theme, documentPlan, referenceBrief, qaFeedback, patternContext, exampleContext }) {
   const feedbackBlock = qaFeedback
     ? `\nPrior QA feedback (avoid repeating these issues):\n${JSON.stringify(qaFeedback)}\n`
     : '';
@@ -418,6 +419,7 @@ Print design token reference:
 - Dark themes (g90/g100) use light text tokens — contrast increases automatically
 
 ${patternContext || ''}
+${exampleContext || ''}
 ${referenceBrief ? `\nAdditional reference cues (IBM Carbon-style):\n${referenceBrief}` : ''}
 
 Requested settings:
@@ -604,6 +606,69 @@ function formatPatternsForPrompt(patterns) {
     return `### ${p.name} (${p.id})\n${p.description}\nGrid: ${p.grid?.columns || 'full-width'}\nRules:\n${rules}\n${anti}\n${tokens}`;
   });
   return `\n## Design Pattern Reference (apply these rules):\n\n${lines.join('\n\n')}`;
+}
+
+async function loadSimilarExamples(intent, maxExamples = 2) {
+  try {
+    const projectRoot = getProjectRoot();
+    const examplesDir = path.join(projectRoot, 'library', 'examples');
+    const entries = await fs.readdir(examplesDir);
+    const candidates = [];
+
+    for (const entry of entries) {
+      if (entry.startsWith('.')) continue;
+      const scorePath = path.join(examplesDir, entry, 'score.json');
+      try {
+        const raw = await fs.readFile(scorePath, 'utf-8');
+        const score = JSON.parse(raw);
+        if (score.manualReview !== 'approved') continue;
+
+        let relevance = score.qaScore || 0;
+        if (score.docType === intent.docType) relevance += 20;
+        if ((score.tags || []).some((t) => intent.docType.includes(t))) relevance += 10;
+
+        candidates.push({ dir: path.join(examplesDir, entry), relevance, score });
+      } catch {
+        // skip invalid
+      }
+    }
+
+    candidates.sort((a, b) => b.relevance - a.relevance);
+    const top = candidates.slice(0, maxExamples);
+    const examples = [];
+
+    for (const c of top) {
+      try {
+        const layout = await fs.readFile(path.join(c.dir, 'layout.json'), 'utf-8');
+        const parsed = JSON.parse(layout);
+        examples.push({
+          qaScore: c.score.qaScore,
+          docType: c.score.docType,
+          components: (parsed.components || []).slice(0, 8).map((comp) => ({
+            type: comp.type,
+            layoutProps: comp.layoutProps,
+            patternType: comp.patternType,
+            chartType: comp.chartType,
+          })),
+          storytelling: parsed.storytelling,
+        });
+      } catch {
+        // skip
+      }
+    }
+
+    return examples;
+  } catch {
+    return [];
+  }
+}
+
+function formatExamplesForPrompt(examples) {
+  if (!examples.length) return '';
+  const formatted = examples.map((ex, i) => {
+    return `Example ${i + 1} (QA score: ${ex.qaScore}, type: ${ex.docType}):\n${JSON.stringify({ components: ex.components, storytelling: ex.storytelling }, null, 2)}`;
+  });
+  return `\n## Reference examples (good layouts — learn from these):\n\n${formatted.join('\n\n')}`;
 }
 
 function extractJson(text) {
@@ -1320,6 +1385,8 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
   const intent = analyzeDocumentIntent(metadata, content, toc);
   const relevantPatterns = selectRelevantPatterns(allPatterns, intent);
   const patternContext = formatPatternsForPrompt(relevantPatterns);
+  const similarExamples = await loadSimilarExamples(intent);
+  const exampleContext = formatExamplesForPrompt(similarExamples);
 
   const outlineContent = buildOutlineContent({ toc, content });
   const clippedContent = (outlineContent || content || '').slice(0, MAX_CONTENT_CHARS);
@@ -1347,6 +1414,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
       theme,
       referenceBrief,
       patternContext,
+      exampleContext,
     });
     return await runLegacyPrompt({
       prompt,
@@ -1391,6 +1459,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
     referenceBrief,
     qaFeedback: priorFeedback,
     patternContext,
+    exampleContext,
   });
 
   try {
@@ -1413,6 +1482,7 @@ export async function getArtDirection({ markdown, layoutProfile, printProfile, t
       theme,
       referenceBrief,
       patternContext,
+      exampleContext,
     });
     return await runLegacyPrompt({
       prompt,
