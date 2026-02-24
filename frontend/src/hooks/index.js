@@ -62,3 +62,6 @@ export {
   useThrottledCallback,
   useSearchInput,
 } from './useDebounce';
+
+// Pattern suggestions for wizard
+export { usePatternSuggestions } from './usePatternSuggestions';
