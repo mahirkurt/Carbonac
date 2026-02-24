@@ -35,7 +35,7 @@
     "offset": 0
   },
   "references": [
-    "ibm-garage-style-guide"
+    "healthcare-and-life-sciences"
   ],
   "antiPatterns": [
     "Never use wide grid gutters (32px) for tables — condensed (1px) is required for data density",

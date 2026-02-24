@@ -36,8 +36,8 @@
     "offset": 1
   },
   "references": [
-    "ibm-event-experience-design-toolkit",
-    "ibm-digital-event-design-toolkit"
+    "healthcare-and-life-sciences",
+    "healthcare-in-the-ai-era"
   ],
   "antiPatterns": [
     "Never omit one of the three sections (challenge/solution/result) — incomplete case studies undermine credibility",

@@ -4,14 +4,14 @@
     "name": "Carbonac Reference Library",
     "owner": "Carbonac",
     "defaultLicense": "internal-only",
-    "lastUpdated": "2026-01-22",
+    "lastUpdated": "2026-02-24",
     "notes": "Reference entries are tracked here; local PDFs live under library/pdfs when available."
   },
   "items": [
     {
       "id": "ibm-ix-brand-guidelines",
       "title": "IBM iX Brand Guidelines",
-      "status": "active",
+      "status": "deprecated",
       "source": {
         "type": "web",
         "url": "https://www.ibm.com/design/event/files/IBM_iX_Brand_Guidelines_101218.pdf"
@@ -31,12 +31,12 @@
         "pdf": "library/pdfs/ibm-ix-brand-guidelines.pdf",
         "thumbnail": "library/thumbnails/ibm-ix-brand-guidelines.png"
       },
-      "notes": "Brand system reference for cover and opener layouts."
+      "notes": "Brand system reference for cover and opener layouts. DEPRECATED: PDF removed from library."
     },
     {
       "id": "ibm-garage-style-guide",
       "title": "IBM Garage Style Guide",
-      "status": "active",
+      "status": "deprecated",
       "source": {
         "type": "web",
         "url": "https://www.ibm.com/design/event/files/Garage_Style_Guide_V1_040219.pdf"
@@ -56,7 +56,7 @@
         "pdf": "library/pdfs/ibm-garage-style-guide.pdf",
         "thumbnail": "library/thumbnails/ibm-garage-style-guide.png"
       },
-      "notes": "Workshop-ready layouts and action blocks."
+      "notes": "Workshop-ready layouts and action blocks. DEPRECATED: PDF removed from library."
     },
     {
       "id": "ibm-think-summit-guidelines",
@@ -86,7 +86,7 @@
     {
       "id": "ibm-event-experience-design-toolkit",
       "title": "Event Experience Design Toolkit",
-      "status": "active",
+      "status": "deprecated",
       "source": {
         "type": "web",
         "url": "https://www.ibm.com/design/event/files/IBM-Event-Experience-Design-Toolkit.pdf"
@@ -106,12 +106,12 @@
         "pdf": "library/pdfs/ibm-event-experience-design-toolkit.pdf",
         "thumbnail": "library/thumbnails/ibm-event-experience-design-toolkit.png"
       },
-      "notes": "Experience design toolkit with modular layouts."
+      "notes": "Experience design toolkit with modular layouts. DEPRECATED: PDF removed from library."
     },
     {
       "id": "ibm-digital-event-design-toolkit",
       "title": "Digital Event Design Toolkit",
-      "status": "active",
+      "status": "deprecated",
       "source": {
         "type": "web",
         "url": "https://www.ibm.com/design/event/files/220204_Digital_Event_Design_Toolkit.pdf"
@@ -131,7 +131,7 @@
         "pdf": "library/pdfs/ibm-digital-event-design-toolkit.pdf",
         "thumbnail": "library/thumbnails/ibm-digital-event-design-toolkit.png"
       },
-      "notes": "Digital-first event experience references."
+      "notes": "Digital-first event experience references. DEPRECATED: PDF removed from library."
     },
     {
       "id": "ibm-design-for-sustainability",
@@ -182,6 +182,224 @@
         "thumbnail": "library/thumbnails/ibm-engineering-for-sustainability.png"
       },
       "notes": "Engineering-focused reference for evidence-led narratives."
+    },
+    {
+      "id": "5-trends-for-2026",
+      "title": "5 Trends for 2026",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:executive-summary",
+        "pattern:key-findings-list",
+        "pattern:kpi-grid",
+        "pattern:cover-page-hero"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2025
+      },
+      "files": {
+        "pdf": "library/pdfs/5 trends for 2026.pdf",
+        "thumbnail": ""
+      },
+      "notes": "IBM Institute for Business Value trend forecast covering top technology and business trends shaping 2026."
+    },
+    {
+      "id": "healthcare-and-life-sciences",
+      "title": "Healthcare and Life Sciences",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:data-table-spread",
+        "pattern:chart-composition",
+        "pattern:case-study-module",
+        "pattern:executive-summary"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/Healthcare and Life sciences.pdf",
+        "thumbnail": ""
+      },
+      "notes": "IBM industry report on digital transformation, data strategies, and AI adoption in healthcare and life sciences."
+    },
+    {
+      "id": "healthcare-in-the-ai-era",
+      "title": "Healthcare in the AI Era",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:data-table-spread",
+        "pattern:chart-composition",
+        "pattern:case-study-module",
+        "pattern:kpi-grid"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/Healthcare in the AI era.pdf",
+        "thumbnail": ""
+      },
+      "notes": "AI-driven healthcare transformation covering clinical workflows, diagnostics, and patient outcomes."
+    },
+    {
+      "id": "ibm-institute-for-business-value",
+      "title": "IBM Institute for Business Value",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:executive-summary",
+        "pattern:key-findings-list",
+        "pattern:kpi-grid",
+        "pattern:hero-stat-with-quote"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/IBM Institute for Business Value.pdf",
+        "thumbnail": ""
+      },
+      "notes": "IBM IBV research publication with data-driven insights on business strategy and technology adoption."
+    },
+    {
+      "id": "its-time-for-the-great-tech-reset",
+      "title": "It\u2019s Time for the Great Tech Reset",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:cover-page-hero",
+        "pattern:chapter-opener",
+        "pattern:executive-summary",
+        "pattern:action-box"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2025
+      },
+      "files": {
+        "pdf": "library/pdfs/It\u2019s time for the Great Tech Reset.pdf",
+        "thumbnail": ""
+      },
+      "notes": "Strategic IBM report on enterprise technology modernization, platform consolidation, and IT transformation imperatives."
+    },
+    {
+      "id": "secure-by-design-smarter-with-ai",
+      "title": "Secure by Design, Smarter with AI",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:action-box",
+        "pattern:key-findings-list",
+        "pattern:data-table-spread",
+        "pattern:cover-page-hero"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/Secure by design, smarter with AI.pdf",
+        "thumbnail": ""
+      },
+      "notes": "IBM cybersecurity and AI governance report covering secure-by-design principles, threat intelligence, and AI-augmented defenses."
+    },
+    {
+      "id": "the-ceos-guide-to-generative-ai",
+      "title": "The CEO\u2019s Guide to Generative AI",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:executive-summary",
+        "pattern:action-box",
+        "pattern:cover-page-hero",
+        "pattern:chapter-opener",
+        "pattern:kpi-grid"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/The CEO\u2019s guide to generative AI.pdf",
+        "thumbnail": ""
+      },
+      "notes": "C-suite guide covering generative AI strategy, enterprise adoption roadmaps, ROI frameworks, and organizational readiness."
+    },
+    {
+      "id": "the-enterprise-in-2030",
+      "title": "The Enterprise in 2030",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:cover-page-hero",
+        "pattern:chapter-opener",
+        "pattern:executive-summary",
+        "pattern:chart-composition",
+        "pattern:kpi-grid"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2024
+      },
+      "files": {
+        "pdf": "library/pdfs/The enterprise in 2030.pdf",
+        "thumbnail": ""
+      },
+      "notes": "Long-horizon IBM forecast on enterprise evolution, covering AI, sustainability, workforce, and platform strategies through 2030."
+    },
+    {
+      "id": "the-essential-guide-to-agentic-ai",
+      "title": "The Essential Guide to Agentic AI",
+      "status": "active",
+      "source": {
+        "type": "web"
+      },
+      "license": "public",
+      "tags": [
+        "pattern:action-box",
+        "pattern:cover-page-hero",
+        "pattern:chapter-opener",
+        "pattern:key-findings-list"
+      ],
+      "metadata": {
+        "publisher": "IBM",
+        "year": 2025
+      },
+      "files": {
+        "pdf": "library/pdfs/The essential guide to agentic AI.pdf",
+        "thumbnail": ""
+      },
+      "notes": "IBM guide on agentic AI architectures, autonomous agents, multi-agent systems, and enterprise deployment patterns."
     }
   ],
   "itemTemplate": {

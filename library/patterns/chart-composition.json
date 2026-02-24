@@ -38,7 +38,7 @@
   "references": [
     "ibm-design-for-sustainability",
     "ibm-engineering-for-sustainability",
-    "ibm-garage-style-guide"
+    "the-enterprise-in-2030"
   ],
   "antiPatterns": [
     "Never place a CarbonChart without a dataHint — the renderer cannot select the correct chart type without it",

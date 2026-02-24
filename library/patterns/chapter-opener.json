@@ -35,9 +35,9 @@
     "forceBreakBefore": true
   },
   "references": [
-    "ibm-ix-brand-guidelines",
+    "its-time-for-the-great-tech-reset",
     "ibm-think-summit-guidelines",
-    "ibm-event-experience-design-toolkit"
+    "the-enterprise-in-2030"
   ],
   "antiPatterns": [
     "Never use chapter openers in documents with fewer than 3 sections — it fragments short content",

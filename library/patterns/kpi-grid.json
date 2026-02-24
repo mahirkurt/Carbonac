@@ -39,7 +39,7 @@
   "references": [
     "ibm-design-for-sustainability",
     "ibm-engineering-for-sustainability",
-    "ibm-garage-style-guide"
+    "ibm-institute-for-business-value"
   ],
   "antiPatterns": [
     "Never exceed 6 KPIs in a single grid — cognitive overload makes metrics unreadable at a glance",
