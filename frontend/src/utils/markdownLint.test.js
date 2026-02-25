@@ -50,13 +50,10 @@ describe('lintMarkdown', () => {
     expect(issues.some((i) => i.ruleId === 'long-paragraph')).toBe(false);
   });
 
-  // NOTE: The directive regex in markdownLint uses double-escaped \\s in regex
-  // literals, causing directive detection to only match literal backslash-s.
-  // These tests verify current behavior. Fix tracked separately.
-  it('does not detect directives without literal backslash-s prefix', () => {
+  it('detects unknown directives', () => {
     const md = ':::foobar\nContent\n:::';
     const issues = lintMarkdown(md);
-    expect(issues.some((i) => i.ruleId === 'unknown-directive')).toBe(false);
+    expect(issues.some((i) => i.ruleId === 'unknown-directive')).toBe(true);
   });
 
   it('accepts known directives without flagging', () => {
@@ -65,10 +62,16 @@ describe('lintMarkdown', () => {
     expect(issues.some((i) => i.ruleId === 'unknown-directive')).toBe(false);
   });
 
-  it('does not flag directive attributes when regex does not match', () => {
+  it('flags directive attribute values when invalid', () => {
     const md = ':::callout {tone="invalid"}\nText\n:::';
     const issues = lintMarkdown(md);
-    expect(issues.some((i) => i.ruleId === 'directive-attribute-value')).toBe(false);
+    expect(issues.some((i) => i.ruleId === 'directive-attribute-value')).toBe(true);
+  });
+
+  it('flags unsupported directive attributes', () => {
+    const md = ':::callout {foo="bar"}\nText\n:::';
+    const issues = lintMarkdown(md);
+    expect(issues.some((i) => i.ruleId === 'directive-attribute')).toBe(true);
   });
 
   it('detects invisible characters', () => {

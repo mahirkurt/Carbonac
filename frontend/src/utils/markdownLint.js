@@ -85,12 +85,12 @@ function normalizeHeading(text) {
 function parseDirectiveAttributes(raw = '') {
   const attributes = {};
   if (!raw) return attributes;
-  const regex = /([a-zA-Z0-9_-]+)\s*=\s*(\"[^\"]*\"|'[^']*'|[^\\s\"]+)/g;
+  const regex = /([a-zA-Z0-9_-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s"]+)/g;
   let match;
   while ((match = regex.exec(raw)) !== null) {
     const key = match[1];
     let value = match[2] || '';
-    if ((value.startsWith('\"') && value.endsWith('\"')) || (value.startsWith('\'') && value.endsWith('\''))) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
       value = value.slice(1, -1);
     }
     attributes[key] = value;
@@ -100,8 +100,8 @@ function parseDirectiveAttributes(raw = '') {
 
 function lintDirectives(lines, issues) {
   lines.forEach((line, index) => {
-    const blockMatch = line.match(/^\\s*:::+\\s*([a-z0-9-]+)\\s*(\\{[^}]*\\})?/i);
-    const leafMatch = line.match(/^\\s*:([a-z0-9-]+)\\[[^\\]]*\\]\\s*(\\{[^}]*\\})?/i);
+    const blockMatch = line.match(/^\s*:::+\s*([a-z0-9-]+)\s*(\{[^}]*\})?/i);
+    const leafMatch = line.match(/^\s*:([a-z0-9-]+)\[[^\]]*\]\s*(\{[^}]*\})?/i);
     const match = blockMatch || leafMatch;
     if (!match) {
       return;
