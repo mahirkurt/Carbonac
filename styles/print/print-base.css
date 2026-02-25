@@ -92,7 +92,7 @@ body {
   margin: 0 auto;
   padding: var(--space-5) 0 var(--space-4);
   border-bottom: var(--border-thin) solid var(--cds-border-subtle);
-  page-break-after: always;
+  margin-bottom: var(--space-5);
 }
 
 .report-toc__title {
@@ -121,7 +121,7 @@ body {
   position: absolute;
   left: 0;
   top: 0.62em;
-  width: 8px;
+  width: var(--space-2);
   border-top: var(--border-thin) solid var(--cds-border-subtle);
 }
 
@@ -205,8 +205,14 @@ body {
 .report-content pre {
   background: var(--report-code-bg);
   padding: var(--space-3);
-  overflow: auto;
+  overflow-x: visible;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   hyphens: manual;
+  border-left: var(--border-thick) solid var(--cds-accent);
+  font-size: 0.85em;
+  line-height: 1.5;
 }
 
 .report-content code {
@@ -215,12 +221,19 @@ body {
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0;
   hyphens: manual;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .report-content table {
   width: 100%;
   border-collapse: collapse;
   margin: var(--space-4) 0;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.report-content table tr {
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -362,6 +375,14 @@ body {
   padding: var(--space-4);
   margin: 0 0 var(--report-gap);
   background: var(--report-surface);
+}
+
+/* Only small patterns avoid page breaks; large ones can split */
+.pattern--kpi-grid,
+.pattern--profile-card,
+.pattern--cv-profile,
+.pattern--cv-skills,
+.pattern--cv-languages {
   break-inside: avoid;
 }
 
@@ -575,9 +596,10 @@ body {
 }
 
 .report-content th {
-  background: color-mix(in srgb, var(--cds-accent) 10%, var(--report-surface));
+  background: var(--print-table-header-bg, color-mix(in srgb, var(--cds-accent) 12%, var(--report-surface)));
   color: var(--cds-text-primary);
   font-weight: 600;
+  border-bottom: var(--border-thick) solid var(--cds-accent);
 }
 
 .report-content td {

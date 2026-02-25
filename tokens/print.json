@@ -16,9 +16,10 @@
     "--font-size-code": "0.95em",
     "--line-height-body": "1.6",
     "--line-height-heading": "1.3",
-    "--print-text-primary": "#000000",
-    "--print-text-secondary": "#4d4d4d",
-    "--print-border-subtle": "#bdbdbd",
-    "--print-accent": "#000000"
+    "--print-text-primary": "#161616",
+    "--print-text-secondary": "#525252",
+    "--print-border-subtle": "#c6c6c6",
+    "--print-accent": "#0f62fe",
+    "--print-table-header-bg": "#e0e0e0"
   }
 }

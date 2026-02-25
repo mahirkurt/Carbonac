@@ -637,9 +637,11 @@ function buildCover(metadata) {
     return '';
   }
 
-  const title = escapeHtml(metadata.title || '');
+  const title = escapeHtml(resolveDocumentTitle(metadata));
   const subtitle = escapeHtml(metadata.subtitle || '');
-  const author = escapeHtml(metadata.author || '');
+  const rawAuthor = String(metadata.author || '').trim().toLowerCase();
+  const isInvalidAuthor = ['', 'anonymous', 'anon', 'unknown', 'n/a', 'none'].includes(rawAuthor);
+  const author = isInvalidAuthor ? '' : escapeHtml(metadata.author);
   const date = escapeHtml(metadata.date || '');
 
   if (!title && !subtitle && !author && !date) {
@@ -714,9 +716,14 @@ function buildBackCover(metadata = {}) {
   `;
 }
 
+const INVALID_TITLE_VALUES = new Set([
+  '', 'untitled', 'untitled document', 'document', 'anonymous', 'n/a', 'none',
+  'new document', 'yeni belge', 'başlıksız', 'isimsiz', 'adsız',
+]);
+
 function resolveDocumentTitle(metadata = {}, fallback = 'Carbon Report') {
   const candidate = String(metadata?.title || '').trim();
-  if (!candidate || candidate.toLowerCase() === 'untitled document') {
+  if (!candidate || INVALID_TITLE_VALUES.has(candidate.toLowerCase())) {
     return fallback;
   }
   return candidate;

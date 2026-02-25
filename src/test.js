@@ -139,6 +139,24 @@ test('handles empty input', () => {
   assert.equal(result.text, '');
 });
 
+test('strips emoji and replaces known ones with text labels', () => {
+  const result = sanitizeMarkdownContent('## \u{1F517} İlişkili Dokümantasyon');
+  assert.equal(result.text, '## [link] İlişkili Dokümantasyon');
+  assert.ok(result.stats.emojiStripped > 0);
+});
+
+test('strips unknown emoji completely', () => {
+  const result = sanitizeMarkdownContent('Hello \u{1F600} World');
+  assert.equal(result.text, 'Hello  World');
+  assert.ok(result.stats.emojiStripped > 0);
+});
+
+test('preserves emoji when keepEmoji option is true', () => {
+  const result = sanitizeMarkdownContent('Hello \u{1F517} World', { keepEmoji: true });
+  assert.ok(result.text.includes('\u{1F517}'));
+  assert.equal(result.stats.emojiStripped, 0);
+});
+
 // ─── Metadata Inference ─────────────────────────────────────────
 
 console.log('\nMetadata Inference:');
