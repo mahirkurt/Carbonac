@@ -202,7 +202,7 @@ function getAiUserFacingErrorText(error) {
   return 'AI isteği başarısız oldu.';
 }
 
-function buildSuggestionPack({ hasMarkdown = false, hasSelection = false } = {}) {
+function buildSuggestionPack({ hasMarkdown = false, hasSelection = false, reportSettings = null } = {}) {
   if (!hasMarkdown) {
     return [
       {
@@ -218,34 +218,39 @@ function buildSuggestionPack({ hasMarkdown = false, hasSelection = false } = {})
     ];
   }
 
-  const suggestions = [
-    {
-      label: 'Tüm metni Carbon uyumlu revize et',
-      prompt: 'Markdown içeriğini Carbon tasarım ilkelerine göre baştan sona revize et. Çıktıyı yalnızca markdown code block olarak ver.',
-      expectMarkdown: true,
-      applyTarget: 'document',
-    },
-    {
-      label: 'Kapak + içindekiler ekle',
-      prompt: 'Mevcut markdown içeriğine Carbon uyumlu kapak ve içindekiler ekle. Çıktıyı tam markdown olarak ver.',
-      expectMarkdown: true,
-      applyTarget: 'document',
-    },
-    {
-      label: 'Tablo/grafik noktalarını öner',
-      prompt: 'Bu dokümanda tablo ve grafik eklenebilecek bölümleri kısa gerekçelerle listele.',
-      expectMarkdown: false,
-    },
-  ];
+  const suggestions = [];
 
   if (hasSelection) {
-    suggestions.unshift({
+    suggestions.push({
       label: 'Seçili metni revize et',
       prompt: 'Seçili metni daha açık, kısa ve profesyonel olacak şekilde revize et. Çıktıyı sadece seçili bölüm markdown olarak ver.',
       expectMarkdown: true,
       applyTarget: 'selection',
     });
   }
+
+  suggestions.push({
+    label: 'Tüm metni Carbon uyumlu revize et',
+    prompt: 'Markdown içeriğini Carbon tasarım ilkelerine göre baştan sona revize et. Çıktıyı yalnızca markdown code block olarak ver.',
+    expectMarkdown: true,
+    applyTarget: 'document',
+  });
+
+  // Profile-aware suggestions
+  const docType = reportSettings?.documentType || '';
+  if (docType === 'analytics' || docType === 'academic') {
+    suggestions.push({
+      label: 'Veri görselleştirme planı',
+      prompt: 'İçeriği bölüm bölüm analiz ederek hangi bölüme hangi görselleştirme türünün uygun olduğunu listele ve örnek directive ver.',
+      expectMarkdown: false,
+    });
+  }
+
+  suggestions.push({
+    label: 'Tablo/grafik noktalarını öner',
+    prompt: 'Bu dokümanda tablo ve grafik eklenebilecek bölümleri kısa gerekçelerle listele.',
+    expectMarkdown: false,
+  });
 
   return suggestions.slice(0, 6);
 }
@@ -265,6 +270,18 @@ function insertSnippetAtSelection({ markdown = '', snippet = '', start = 0, end 
 
   return `${before}${needsLeadingBreak ? '\n\n' : ''}${normalizedSnippet}${needsTrailingBreak ? '\n' : ''}${after}`;
 }
+
+const DOC_TYPE_LABELS = {
+  report: 'İş Raporu', presentation: 'Sunum', article: 'Makale',
+  documentation: 'Dokümantasyon', analytics: 'Analiz Raporu', academic: 'Akademik Rapor',
+};
+const AUDIENCE_LABELS = {
+  executive: 'Üst Yönetim', technical: 'Teknik Ekip',
+  business: 'İş Birimi', general: 'Genel Okuyucu', academic: 'Akademik Çevre',
+};
+const TONE_LABELS = {
+  formal: 'Resmi', technical: 'Teknik', casual: 'Yarı Resmi',
+};
 
 export default function CarbonacAiChat({
   enabled = true,
@@ -342,8 +359,12 @@ export default function CarbonacAiChat({
   const publishSuggestionPack = useCallback(() => {
     const hasMarkdown = Boolean(String(doc.markdownContent || '').trim());
     const hasSelection = Boolean(String(doc.editorSelection?.text || '').trim());
-    emitAiSuggestions(buildSuggestionPack({ hasMarkdown, hasSelection }));
-  }, [doc.editorSelection?.text, doc.markdownContent, emitAiSuggestions]);
+    emitAiSuggestions(buildSuggestionPack({
+      hasMarkdown,
+      hasSelection,
+      reportSettings: doc.reportSettings || null,
+    }));
+  }, [doc.editorSelection?.text, doc.markdownContent, doc.reportSettings, emitAiSuggestions]);
 
   const buildContext = useCallback((question) => {
     const markdown = doc.markdownContent || '';
@@ -1027,6 +1048,33 @@ export default function CarbonacAiChat({
       window.removeEventListener(AI_APPLY_COMMAND_EVENT, onApplyCommand);
     };
   }, [emitAiCommandResult, handleAiApplyCommand]);
+
+  useEffect(() => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+    if (!embedded) return;
+
+    const docType = doc.reportSettings?.documentType;
+    if (!docType) return;
+
+    const docLabel = DOC_TYPE_LABELS[docType] || docType;
+    const audienceLabel = AUDIENCE_LABELS[doc.reportSettings?.audience] || '';
+    const toneLabel = TONE_LABELS[doc.reportSettings?.tone] || '';
+    const patterns = Array.isArray(doc.reportSettings?.enabledPatterns)
+      ? doc.reportSettings.enabledPatterns
+      : [];
+
+    const profileParts = [docLabel, audienceLabel, toneLabel].filter(Boolean).join(' / ');
+    const patternNames = patterns.length
+      ? `\nEtkin pattern'lar: ${patterns.join(', ')}.`
+      : '';
+
+    const welcome = `Sihirbaz profiliniz hazır: ${profileParts}.${patternNames}\nSağ paneldeki önerilerle hızlıca içerik ekleyebilir veya doğrudan yazarak başlayabilirsiniz.`;
+
+    addAssistantText(instance, welcome).catch(() => null);
+    publishSuggestionPack();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded]);
 
   const customSendMessage = useCallback(async (request, requestOptions, instance) => {
     const signal = requestOptions?.signal;
