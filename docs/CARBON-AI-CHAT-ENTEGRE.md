@@ -36,6 +36,53 @@ Bu repo'da AI Chat zaten uca kadar kablolanmis durumda:
 
 Bu dokumanin geri kalanini, mevcut entegrasyonu modern ilkelerle "uretim kalitesine" tasimak icin kontrol listesi gibi dusunebilirsiniz.
 
+## 1.2) 2026-02 Uygulanan Guncellemeler (Carbonac Snapshot)
+
+Bu bolum, repoda halihazirda tamamlanan entegrasyonlari ozetler. Asagidaki maddeler "plan" degil, uygulanan guncel davranistir:
+
+- Markdown temizleme + metadata infer hattı eklendi:
+  - `src/utils/markdown-cleanup.js` ile gorunmeyen karakter temizligi (`sanitizeMarkdownContent`) ve baslik/yazar infer'i (`resolveDocumentMetadata`) merkezilestirildi.
+  - Bu hat hem `backend/worker.js` hem `src/convert-paged.js` tarafinda kullaniliyor.
+- PDF ayarlarinda yeni alanlar uctan uca gecirildi:
+  - `colorMode` (`color|mono`), `includeCover`, `showPageNumbers`, `printBackground`
+  - UI state: `frontend/src/contexts/DocumentContext.jsx`
+  - Wizard controls: `frontend/src/components/wizard/ReportWizard.jsx`
+  - API frontmatter: `backend/server.js`
+  - Render/PDF export: `src/convert-paged.js`
+- Print CSS iyilestirmeleri uygulandi:
+  - Tablo okunabilirligi (caption, header, border ve spacing iyilestirmeleri)
+  - Callout ikonlarinin `data-icon` ile gorunur basimi
+  - Mono modda kosullu grayscale (renkli modda zorla griye cevirme yok)
+  - Dosya: `styles/print/print-base.css`
+- Wizard tarafinda AI tabanli template onerisi sadeleştirildi:
+  - AI'dan 3 template + gerekce uretiliyor, parse fallback ile guvenli sekilde kullaniciya sunuluyor.
+  - Secim dogrudan template secimine uygulanabiliyor.
+  - Dosya: `frontend/src/components/wizard/ReportWizard.jsx`
+- Workflow sadeleştirildi, preview adimi kaldirildi:
+  - Akis artik `upload -> processing -> wizard -> editor` olarak ilerliyor.
+  - `WORKFLOW_STEPS.PREVIEW` kullanimi kaldirildi.
+  - Dosyalar: `frontend/src/contexts/DocumentContext.jsx`, `frontend/src/App.jsx`
+- Editor deneyimi "canvas" modeline tasindi:
+  - Markdown editor ana alanda, AI chat yan rail'de (embedded) calisiyor.
+  - QA/quality panel ayni rail icinde compact varyantla konumlandirildi.
+  - Dosya: `frontend/src/App.jsx`
+- AI revizyonu secim-duyarli hale getirildi:
+  - Editor secili metin araligi (`start/end/text`) context'e ekleniyor.
+  - Revizyon komutlari once secili parcaya uygulanip fallback ile tum metne donuyor.
+  - Dosyalar: `frontend/src/contexts/DocumentContext.jsx`, `frontend/src/components/ai/CarbonacAiChat.jsx`, `frontend/src/App.jsx`
+- Sihirbazda editor oncesi zorunlu template secimi getirildi:
+  - AI'nin onerdigi 3 template'ten birini secmeden editor adimina gecis engelleniyor.
+  - Secim yoksa kullaniciya acik hata/uyari gosteriliyor.
+  - Dosya: `frontend/src/components/wizard/ReportWizard.jsx`
+- Sihirbaz layout'u modern Carbon ilkeleriyle yeniden duzenlendi:
+  - Bilgi hiyerarsisi, panel ayrimi ve aksiyon navigasyonu netlestirildi.
+  - Dosya: `frontend/src/components/wizard/ReportWizard.scss`
+- AI Chat tarafinda serbest metinden "revizyon" niyeti algilanip markdown'a uygulanmasi eklendi:
+  - `revize et`, `yeniden yaz`, `metni duzenle`, `/revize` vb. niyetlerde AI cevabindan markdown cikarilip editor state'ine yaziliyor.
+  - Dosya: `frontend/src/components/ai/CarbonacAiChat.jsx`
+- Lint tarafinda gorunmeyen karakter kurali eklendi:
+  - Dosya: `frontend/src/utils/markdownLint.js`
+
 ## 2) On Kosullar
 
 - Node.js `>=20.19.0` (frontend ve backend zaten bunu istiyor)
@@ -61,6 +108,8 @@ Carbon AI Chat React'te iki temel yerlesim modeli sunar:
 - Container layout: Siz bir container bolge ayirirsiniz, chat orayi doldurur.
 
 Carbonac icin pratik iki secenek:
+
+Guncel Carbonac uygulamasi varsayilan olarak **Container (Editor Canvas Rail)** modelini kullanir; chat, editor'un yan panelinde embedded render edilir.
 
 ### Secenek A: Float Launcher (Hizli Baslangic)
 
@@ -93,9 +142,10 @@ Bu callback bir `MessageResponse` **return etmez**; bunun yerine `instance.messa
 
 `/api/ai/ask` endpoint'i `question` ve `context` bekliyor. En iyi sonuc icin context'i "kisa ama yeterli" tutun:
 
-- Workflow step: `upload | processing | wizard | editor | preview`
+- Workflow step: `upload | processing | wizard | editor`
 - Secili template / theme / layout / print profilleri
 - Lint issue ozeti (adet + top 5)
+- Editor secimi (varsa): `start`, `end`, `text`
 - Markdown icerigi: tamami yerine
   - ya sadece secili bolum (varsa)
   - ya da ilk N karakter + outline (H1/H2) + son N karakter
@@ -237,10 +287,11 @@ export default function CarbonacAiChat() {
 
 ### 6.3) App'a Ekleme
 
-- `frontend/src/App.jsx` icinde (provider'larin altinda kalacak sekilde) `CarbonacAiChat` component'ini en dis layout'a ekleyin.
-- Eger Secenek B (Header butonu) istiyorsaniz:
-  - `onBeforeRender` ile instance'i alip bir `ref`/state'e koyun
-  - header action click'inde `instance.changeView('mainWindow')` / `instance.changeView('launcher')` cagirin
+- Guncel Carbonac akisinda `frontend/src/App.jsx` icinde editor adimi, `editor-canvas-layout` altinda iki kolonlu render edilir:
+  - Sol: markdown editor
+  - Sag rail: `CarbonacAiChat` (`embedded`) + compact quality panel
+- Bu modelde ayri bir preview route/step yerine editor icinden PDF aksiyonlari kullanilir.
+- Float launcher veya header-action toggle modeli hala opsiyoneldir; ancak varsayilan deneyim editor-canvas icine gomulu chat'tir.
 
 ## 7) UI Ozellestirme (Carbonac'a Ozel)
 
@@ -309,6 +360,16 @@ Not: v1 ile birlikte dokumantasyon tarafinda `renderUserDefinedResponse` ve `wri
 - Backend zaten PII redaction ve rate limit uyguluyor; yine de client tarafinda context'i truncation ile sinirlayin.
 - Kullanici auth yoksa `input.isDisabled=true` veya `isReadonly=true` ile chat input'unu kapatin ve "Giris yapin" mesajiyla karsilayin.
 
+### 8.1) API Sozlesmesi Guncel Notlar (Carbonac)
+
+- `POST /api/convert/to-pdf` ayarlari içinde asagidaki alanlar desteklenir:
+  - `settings.colorMode`
+  - `settings.includeCover`
+  - `settings.showPageNumbers`
+  - `settings.printBackground`
+- `POST /api/convert/to-markdown` ve worker markdown pipeline'inda cleanup adimi uygulanir; temizleme ozeti yanit/meta icine eklenir.
+- Frontmatter uretiminde bu ayarlar markdown basina yazilir ve worker render hattina tasinir.
+
 ## 9) Modern ve Ileri Seviye Ilkeler (Uretim Standardi)
 
 Bu bolum, "calisan demo"dan "uretim kalitesi"ne gecis icin kontrol listesi.
@@ -348,3 +409,14 @@ Bu bolum, "calisan demo"dan "uretim kalitesi"ne gecis icin kontrol listesi.
 - Streaming: Backend'i SSE/stream destekler hale getirip `instance.messaging.addMessageChunk(...)` ile daha hizli algi.
 - Alinti/Citation: Yanita kaynak linki veya dokuman bolum referansi eklemek icin `user_defined` content.
 - Telemetry: Basari/hatayi ve gecikmeyi (p95) olc.
+
+## 11) Kisa Operasyon Kontrol Listesi (Guncel)
+
+- Wizard'da PDF ozellestirme seceneklerinin (`colorMode`, `includeCover`, `showPageNumbers`, `printBackground`) secildigini dogrula.
+- Wizard son asamada AI'nin onerdigi 3 template'ten biri secilmeden editor'e gecisin engellendigini dogrula.
+- Editor canvas'ta AI chat rail'in gorundugunu ve secili metinle revizyon komutlarinin once secili parcaya uygulandigini dogrula.
+- Preview ekrani olmadan editor uzerinden PDF aksiyonlarinin calistigini dogrula.
+- Print ciktilarinda:
+  - renkli modda chart/callout bileşenlerinin renk korudugunu,
+  - mono modda gri ton davranisinin aktif oldugunu,
+  - tablo/callout ikonlarinin okunabilir oldugunu dogrula.

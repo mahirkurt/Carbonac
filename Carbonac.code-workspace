@@ -1,9 +1,21 @@
 {
   "folders": [
-    { "path": ".", "name": "Carbonac (Root)" },
-    { "path": "backend", "name": "Backend" },
-    { "path": "frontend", "name": "Frontend" },
-    { "path": "src", "name": "Core (Shared)" }
+    {
+      "path": ".",
+      "name": "Carbonac (Root)"
+    },
+    {
+      "path": "backend",
+      "name": "Backend"
+    },
+    {
+      "path": "frontend",
+      "name": "Frontend"
+    },
+    {
+      "path": "src",
+      "name": "Core (Shared)"
+    }
   ],
   "settings": {
     "files.exclude": {
@@ -18,7 +30,35 @@
       "library": true
     },
     "editor.formatOnSave": true,
-    "terminal.integrated.cwd": "${workspaceFolder}"
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#1b12c4",
+      "titleBar.activeForeground": "#ffffff",
+      "titleBar.inactiveBackground": "#1b12c4",
+      "titleBar.inactiveForeground": "#ffffff90",
+      "statusBarItem.warningBackground": "#1b12c4",
+      "statusBarItem.warningForeground": "#ffffff",
+      "statusBarItem.warningHoverBackground": "#1b12c4",
+      "statusBarItem.warningHoverForeground": "#ffffff90",
+      "statusBarItem.remoteBackground": "#281fd1",
+      "statusBarItem.remoteForeground": "#ffffff",
+      "statusBarItem.remoteHoverBackground": "#352cde",
+      "statusBarItem.remoteHoverForeground": "#ffffff90",
+      "statusBar.background": "#1b12c4",
+      "statusBar.foreground": "#ffffff",
+      "statusBar.border": "#1b12c4",
+      "statusBar.debuggingBackground": "#1b12c4",
+      "statusBar.debuggingForeground": "#ffffff",
+      "statusBar.debuggingBorder": "#1b12c4",
+      "statusBar.noFolderBackground": "#1b12c4",
+      "statusBar.noFolderForeground": "#ffffff",
+      "statusBar.noFolderBorder": "#1b12c4",
+      "statusBar.prominentBackground": "#1b12c4",
+      "statusBar.prominentForeground": "#ffffff",
+      "statusBar.prominentHoverBackground": "#1b12c4",
+      "statusBar.prominentHoverForeground": "#ffffff90"
+    },
+    "window.title": "Carbonac.code-workspace"
   },
   "launch": {
     "configurations": [
@@ -43,14 +83,21 @@
         "type": "node",
         "request": "launch",
         "runtimeExecutable": "npm",
-        "runtimeArgs": ["run", "dev"],
+        "runtimeArgs": [
+          "run",
+          "dev"
+        ],
         "cwd": "${workspaceFolder}/frontend"
       }
     ],
     "compounds": [
       {
         "name": "Full Stack (API + Worker + Frontend)",
-        "configurations": ["Backend API", "Worker", "Frontend Dev"]
+        "configurations": [
+          "Backend API",
+          "Worker",
+          "Frontend Dev"
+        ]
       }
     ]
   }
