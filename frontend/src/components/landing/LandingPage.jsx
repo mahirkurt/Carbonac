@@ -16,7 +16,7 @@ import {
 import {
   MagicWand,
   DocumentImport,
-  Template,
+  ColorPalette,
   ChartBar,
   CheckmarkOutline,
   Chat,
@@ -44,9 +44,9 @@ const FEATURES = [
     description: 'PDF, Word, Google Docs ve Markdown dosyalarınızı tek tıkla içe aktarın.',
   },
   {
-    icon: Template,
-    title: '16+ Profesyonel Şablon',
-    description: 'IBM Carbon Design System uyumlu, matbaa kalitesinde şablon koleksiyonu.',
+    icon: ColorPalette,
+    title: 'Akıllı Tasarım Profili',
+    description: 'Sihirbaz yanıtlarınıza göre sistem en uygun tasarım profilini otomatik uygular.',
   },
   {
     icon: ChartBar,
@@ -74,7 +74,7 @@ const WORKFLOW_STEPS = [
 ];
 
 const TRUST_METRICS = [
-  { value: '16+', label: 'Profesyonel Şablon' },
+  { value: 'Adaptif', label: 'Tasarım Profili' },
   { value: '22', label: 'Grafik Türü' },
   { value: 'WCAG AA', label: 'Erişilebilirlik' },
   { value: 'Paged.js', label: 'Baskı Motoru' },
@@ -131,7 +131,7 @@ export default function LandingPage({ onLogin }) {
               transition: 'opacity 240ms ease 100ms, transform 240ms ease 100ms',
             }}
           >
-            AI destekli tasarım sihirbazı, 16+ şablon ve Paged.js baskı motoru ile
+            AI destekli tasarım sihirbazı ve Paged.js baskı motoru ile
             dokümanlarınızı matbaa kalitesinde raporlara dönüştürün.
           </p>
           <div

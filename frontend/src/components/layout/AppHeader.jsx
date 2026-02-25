@@ -3,7 +3,6 @@
  *
  * Production application header with Carbon Design System.
  * Includes logo, navigation, global actions, user panel, and theme toggle.
- * Gradient accent strip activated via AppHeader.scss.
  */
 
 import React, { memo } from 'react';
@@ -14,7 +13,6 @@ import {
   HeaderGlobalBar,
   HeaderGlobalAction,
   HeaderPanel,
-  HeaderMenuButton,
   Switcher,
   SwitcherItem,
   SwitcherDivider,
@@ -41,8 +39,6 @@ function AppHeader({
   activeWorkspace,
   onWorkspaceChange,
   onReset,
-  showSideNav,
-  onToggleSideNav,
   isAuthenticated,
   user,
   onLogin,
@@ -61,15 +57,6 @@ function AppHeader({
 
   return (
     <Header aria-label="Carbonac" className={!canAccessWorkspace ? 'cds--header--landing' : ''}>
-      {canAccessWorkspace && (
-        <HeaderMenuButton
-          aria-label={showSideNav ? 'Yan menüyü kapat' : 'Yan menüyü aç'}
-          onClick={onToggleSideNav}
-          isActive={showSideNav}
-          isCollapsible
-        />
-      )}
-
       <a
         href="/"
         className="app-header__logo-link"
@@ -98,15 +85,6 @@ function AppHeader({
           >
             <Home size={16} style={{ marginRight: '0.5rem' }} />
             Ana Sayfa
-          </HeaderMenuItem>
-          <HeaderMenuItem
-            href="#templates"
-            onClick={(e) => {
-              e.preventDefault();
-              onWorkspaceChange('templates');
-            }}
-          >
-            Şablonlar
           </HeaderMenuItem>
           <HeaderMenuItem
             href="#documents"
