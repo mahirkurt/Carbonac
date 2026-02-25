@@ -21,7 +21,6 @@ import {
   Document,
   Home,
   MagicWand,
-  Template,
   Checkmark,
 } from '@carbon/icons-react';
 
@@ -59,7 +58,6 @@ const AuthModal = lazy(() => import('./components/auth/AuthModal'));
 const PricingModal = lazy(() => import('./components/pricing/PricingModal'));
 const DocumentUploader = lazy(() => import('./components/document/DocumentUploader'));
 const ReportWizard = lazy(() => import('./components/wizard/ReportWizard'));
-const TemplateGallery = lazy(() => import('./components/templates/TemplateGallery'));
 const LandingPage = lazy(() => import('./components/landing/LandingPage'));
 
 const PASSWORD_GATE_MODE = import.meta.env.VITE_PASSWORD_GATE === 'true';
@@ -89,15 +87,14 @@ function AppContent() {
   const [showAuth, setShowAuth] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const [showUserPanel, setShowUserPanel] = useState(false);
-  const [showSideNav, setShowSideNav] = useState(true);
+  const [showSideNav] = useState(true);
   const [notification, setNotification] = useState(null);
   const userPanelRef = useRef(null);
   const [activeWorkspace, setActiveWorkspace] = useState(() => {
     if (typeof window === 'undefined') return 'workflow';
     const path = window.location.pathname || '';
     const hash = window.location.hash || '';
-    if (path === '/templates') return 'templates';
-    if (hash === '#templates') return 'templates';
+    if (path === '/templates' || hash === '#templates') return 'workflow';
     if (hash === '#documents') return 'documents';
     if (hash === '#jobs') return 'jobs';
     if (hash === '#quality') return 'quality';
@@ -145,13 +142,14 @@ function AppContent() {
   }, [showUserPanel]);
 
   const handleWorkspaceChange = useCallback((nextWorkspace) => {
-    setActiveWorkspace(nextWorkspace);
+    const supportedWorkspaces = new Set(['workflow', 'documents', 'jobs', 'quality']);
+    const normalizedWorkspace = supportedWorkspaces.has(nextWorkspace)
+      ? nextWorkspace
+      : 'workflow';
+
+    setActiveWorkspace(normalizedWorkspace);
     if (typeof window !== 'undefined') {
-      if (nextWorkspace === 'templates') {
-        window.history.pushState({}, '', '/templates#templates');
-        return;
-      }
-      window.history.pushState({}, '', `/#${nextWorkspace}`);
+      window.history.pushState({}, '', `/#${normalizedWorkspace}`);
     }
   }, []);
 
@@ -161,7 +159,7 @@ function AppContent() {
       const path = window.location.pathname || '';
       const hash = window.location.hash || '';
       if (hash === '#templates' || (path === '/templates' && (!hash || hash === '#templates'))) {
-        setActiveWorkspace('templates');
+        setActiveWorkspace('workflow');
         return;
       }
       if (hash === '#documents') {
@@ -200,17 +198,6 @@ function AppContent() {
 
   // Render content based on workflow step
   const renderContent = () => {
-    if (activeWorkspace === 'templates') {
-      return (
-        <div className="workspace-panel">
-          <ErrorBoundary>
-            <Suspense fallback={<Loading withOverlay={false} description="Template galerisi yükleniyor..." />}>
-              <TemplateGallery />
-            </Suspense>
-          </ErrorBoundary>
-        </div>
-      );
-    }
     if (activeWorkspace === 'documents') {
       return (
         <DocumentsPanel
@@ -340,8 +327,6 @@ function AppContent() {
           activeWorkspace={activeWorkspace}
           onWorkspaceChange={handleWorkspaceChange}
           onReset={reset}
-          showSideNav={showSideNav}
-          onToggleSideNav={() => setShowSideNav((prev) => !prev)}
           isAuthenticated={isAuthenticated}
           user={user}
           onLogin={() => setShowAuth(true)}
@@ -385,17 +370,6 @@ function AppContent() {
                     }}
                   >
                     Workflow
-                  </SideNavLink>
-                  <SideNavLink
-                    href="#templates"
-                    renderIcon={Template}
-                    isActive={activeWorkspace === 'templates'}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      handleWorkspaceChange('templates');
-                    }}
-                  >
-                    Şablonlar
                   </SideNavLink>
                   <SideNavLink
                     href="#documents"

@@ -10,16 +10,21 @@ import {
   Code,
   Play,
   Download,
-  MagicWandFilled,
   Bullhorn,
   Ai,
+  Document,
+  Catalog,
+  DataTable,
+  ChartLine,
+  Result,
+  TextCreation,
 } from '@carbon/icons-react';
 import { useDocument } from '../../contexts';
 import { focusEditorLocation } from '../../utils/editorFocus';
-import directiveTemplates from '../../utils/directiveTemplates';
 import {
   AI_APPLY_COMMAND_EVENT,
   AI_CHAT_PREFILL_EVENT,
+  AI_CHAT_SUGGESTIONS_EVENT,
   AI_COMMAND_RESULT_EVENT,
   EDITOR_PREVIEW_MODES,
   markdownToRichPreviewHtml,
@@ -46,11 +51,9 @@ function EditorPanel() {
   } = useDocument();
   const [selectedSeverityId, setSelectedSeverityId] = useState('all');
   const [selectedRuleId, setSelectedRuleId] = useState('all');
-  const [selectedTemplateId, setSelectedTemplateId] = useState(
-    directiveTemplates[0]?.id || ''
-  );
   const [editorPreviewMode, setEditorPreviewMode] = useState(EDITOR_PREVIEW_MODES[0]?.id || 'markdown');
   const [aiCommandState, setAiCommandState] = useState({ pending: false, message: '' });
+  const [chatSuggestions, setChatSuggestions] = useState([]);
   const textAreaRef = useRef(null);
   const activeAiCommandRequestRef = useRef(null);
 
@@ -83,11 +86,6 @@ function EditorPanel() {
       return acc;
     }, []);
   }, [markdownContent]);
-
-  const selectedTemplate = useMemo(
-    () => directiveTemplates.find((item) => item.id === selectedTemplateId) || directiveTemplates[0],
-    [selectedTemplateId]
-  );
 
   const selectedSeverity = severityOptions.find((option) => option.id === selectedSeverityId) || severityOptions[0];
   const selectedRule = ruleOptions.find((option) => option.id === selectedRuleId) || ruleOptions[0];
@@ -142,31 +140,6 @@ function EditorPanel() {
     link.click();
   }, [outputPath]);
 
-  const insertDirective = useCallback((templateOverride = null) => {
-    const template = templateOverride || selectedTemplate;
-    if (!template) return;
-    const textArea = textAreaRef.current || document.getElementById('markdown-editor');
-    const current = markdownContent || '';
-    const start = textArea?.selectionStart ?? current.length;
-    const end = textArea?.selectionEnd ?? current.length;
-    const before = current.slice(0, start);
-    const after = current.slice(end);
-    const needsLeadingBreak = before && !before.endsWith('\n');
-    const needsTrailingBreak = after && !after.startsWith('\n');
-    const snippet = `${needsLeadingBreak ? '\n\n' : ''}${template.snippet}${needsTrailingBreak ? '\n' : ''}`;
-    const nextValue = `${before}${snippet}${after}`;
-    setMarkdown(nextValue);
-    if (textArea) {
-      const nextPosition = before.length + snippet.length;
-      textArea.focus();
-      try {
-        textArea.setSelectionRange(nextPosition, nextPosition);
-      } catch (error) {
-        // ignore selection errors for unsupported inputs
-      }
-    }
-  }, [markdownContent, selectedTemplate, setMarkdown]);
-
   const dispatchAiCommand = useCallback((detail, fallback = null) => {
     if (typeof window === 'undefined') {
       if (typeof fallback === 'function') fallback();
@@ -186,20 +159,44 @@ function EditorPanel() {
     }));
   }, []);
 
-  const requestAiDirectiveInsert = useCallback(() => {
-    const template = selectedTemplate;
-    if (!template) return;
-    dispatchAiCommand(
-      {
-        kind: 'insert-directive',
-        templateId: template.id,
-        templateLabel: template.label,
-        templateSnippet: template.snippet,
-        loadingMessage: `${template.label} bloğu AI ile ekleniyor...`,
-      },
-      () => insertDirective(template)
-    );
-  }, [dispatchAiCommand, insertDirective, selectedTemplate]);
+  const runDesignRewrite = useCallback(() => {
+    if (!String(markdownContent || '').trim()) {
+      setAiCommandState({ pending: false, message: 'Tasarım revizyonu için önce markdown içeriği gerekli.' });
+      return;
+    }
+    dispatchAiCommand({
+      kind: 'design-rewrite',
+      wizardSettings: reportSettings,
+      layoutProfile: selectedLayoutProfile,
+      printProfile: selectedPrintProfile,
+      loadingMessage: 'AI tüm markdown içeriğini tasarım kurallarına göre revize ediyor...',
+    });
+  }, [dispatchAiCommand, markdownContent, reportSettings, selectedLayoutProfile, selectedPrintProfile]);
+
+  const requestDocStructurePack = useCallback(() => {
+    dispatchAiCommand({
+      kind: 'quick-action',
+      prompt: 'Mevcut markdown için uygun bir doküman yapısı öner: kapak, içindekiler, tablo/grafik/callout/timeline kullanım planı. Yanıtı kısa madde listesi ver.',
+      loadingMessage: 'Doküman yapısı önerileri hazırlanıyor...',
+    });
+  }, [dispatchAiCommand]);
+
+  const applySuggestion = useCallback((prompt, options = {}) => {
+    const cleanPrompt = String(prompt || '').trim();
+    if (!cleanPrompt) return;
+    const expectMarkdown = options?.expectMarkdown === true;
+    const applyTarget = options?.applyTarget === 'selection' ? 'selection' : 'document';
+    const loadingMessage = String(options?.loadingMessage || '').trim();
+    dispatchAiCommand({
+      kind: 'quick-action',
+      prompt: cleanPrompt,
+      expectMarkdown,
+      applyTarget,
+      loadingMessage: loadingMessage || (expectMarkdown
+        ? 'AI önerisi markdown içeriğine uygulanıyor...'
+        : 'Seçili öneri AI ile işleniyor...'),
+    });
+  }, [dispatchAiCommand]);
 
   const pushSelectionContextToAi = useCallback(() => {
     const selectedText = String(editorSelection?.text || '').trim();
@@ -269,6 +266,32 @@ function EditorPanel() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onSuggestions = (event) => {
+      const list = Array.isArray(event?.detail?.suggestions)
+        ? event.detail.suggestions
+        : [];
+      setChatSuggestions(
+        list
+          .map((item) => ({
+            label: String(item?.label || '').trim(),
+            prompt: String(item?.prompt || '').trim(),
+            expectMarkdown: item?.expectMarkdown === true,
+            applyTarget: item?.applyTarget === 'selection' ? 'selection' : 'document',
+            loadingMessage: String(item?.loadingMessage || '').trim(),
+          }))
+          .filter((item) => item.label && item.prompt)
+          .slice(0, 6)
+      );
+    };
+
+    window.addEventListener(AI_CHAT_SUGGESTIONS_EVENT, onSuggestions);
+    return () => {
+      window.removeEventListener(AI_CHAT_SUGGESTIONS_EVENT, onSuggestions);
+    };
+  }, []);
+
+  useEffect(() => {
     if (aiCommandState.pending || !aiCommandState.message) return undefined;
     const timeout = setTimeout(() => {
       setAiCommandState((prev) => ({ ...prev, message: '' }));
@@ -284,7 +307,7 @@ function EditorPanel() {
             <Code size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
             Markdown Editör (AI Canvas)
           </h3>
-          <p>Metni düzenleyin, seçili parçaları AI ile revize edin, PDF üretin.</p>
+          <p>Canlı düzenleyin, AI ile tek tıkta revize edin, yapısal öneriler alın ve PDF üretin.</p>
         </div>
         <div className="editor-panel__export-actions">
           <Button
@@ -328,26 +351,23 @@ function EditorPanel() {
       ) : null}
       <div className="editor-panel__tools">
         <div className="editor-panel__actions">
-          <Dropdown
-            id="directive-template-select"
-            items={directiveTemplates}
-            selectedItem={selectedTemplate}
-            itemToString={(item) => item?.label || ''}
-            label="Bileşen Şablonu Seç"
-            onChange={({ selectedItem }) => {
-              if (selectedItem?.id) {
-                setSelectedTemplateId(selectedItem.id);
-              }
-            }}
-          />
           <Button
             size="sm"
             kind="secondary"
-            renderIcon={MagicWandFilled}
-            onClick={requestAiDirectiveInsert}
-            disabled={!selectedTemplate || aiCommandState.pending}
+            renderIcon={TextCreation}
+            onClick={runDesignRewrite}
+            disabled={!markdownContent || aiCommandState.pending}
           >
-            AI ile Ekle
+            Tüm Metni AI ile Revize Et
+          </Button>
+          <Button
+            size="sm"
+            kind="tertiary"
+            renderIcon={Catalog}
+            onClick={requestDocStructurePack}
+            disabled={aiCommandState.pending}
+          >
+            Yapı Önerileri Al
           </Button>
           <Button
             size="sm"
@@ -368,6 +388,90 @@ function EditorPanel() {
             Sihirbaz Ayarını Uygula
           </Button>
         </div>
+
+        <div className="editor-panel__macro-actions" aria-label="Doküman yapı araçları">
+          <Button
+            size="sm"
+            kind="ghost"
+            renderIcon={Document}
+            onClick={() => applySuggestion('Mevcut markdown için Carbon uyumlu bir kapak sayfası ekle veya iyileştir.', {
+              expectMarkdown: true,
+              applyTarget: 'document',
+              loadingMessage: 'Kapak bölümü AI ile ekleniyor veya iyileştiriliyor...',
+            })}
+            disabled={!markdownContent || aiCommandState.pending}
+          >
+            Kapak Oluştur/İyileştir
+          </Button>
+          <Button
+            size="sm"
+            kind="ghost"
+            renderIcon={Catalog}
+            onClick={() => applySuggestion('Başlıklara göre içindekiler bölümü oluştur ve markdown akışına uygun noktaya ekle.', {
+              expectMarkdown: true,
+              applyTarget: 'document',
+              loadingMessage: 'İçindekiler bölümü AI ile güncelleniyor...',
+            })}
+            disabled={!markdownContent || aiCommandState.pending}
+          >
+            İçindekiler Ekle
+          </Button>
+          <Button
+            size="sm"
+            kind="ghost"
+            renderIcon={DataTable}
+            onClick={() => applySuggestion('Bu doküman için tablo, grafik ve karşılaştırma bloklarını öner ve gerekli yerlerde directive olarak ekle.', {
+              expectMarkdown: true,
+              applyTarget: 'document',
+              loadingMessage: 'Tablo/grafik directive önerileri markdown içine uygulanıyor...',
+            })}
+            disabled={!markdownContent || aiCommandState.pending}
+          >
+            Tablo/Grafik Öner
+          </Button>
+          <Button
+            size="sm"
+            kind="ghost"
+            renderIcon={ChartLine}
+            onClick={() => applySuggestion('İçeriği bölüm bölüm analiz ederek hangi bölüme hangi görselleştirme türünün uygun olduğunu listele ve örnek directive ver.')}
+            disabled={!markdownContent || aiCommandState.pending}
+          >
+            Veri Görselleştirme Planı
+          </Button>
+          <Button
+            size="sm"
+            kind="ghost"
+            renderIcon={Result}
+            onClick={() => applySuggestion('Rapor sonuna Carbon uyumlu bir arka kapak/kapanış bölümü ekle.', {
+              expectMarkdown: true,
+              applyTarget: 'document',
+              loadingMessage: 'Arka kapak AI ile ekleniyor...',
+            })}
+            disabled={!markdownContent || aiCommandState.pending}
+          >
+            Arka Kapak Ekle
+          </Button>
+        </div>
+
+        {chatSuggestions.length ? (
+          <div className="editor-panel__chat-suggestions" aria-label="AI seçenekli cevaplar">
+            <span className="editor-panel__chat-suggestions-label">AI cevap seçenekleri</span>
+            <div className="editor-panel__chat-suggestions-actions">
+              {chatSuggestions.map((item, idx) => (
+                <Button
+                  key={`${item.label}-${idx}`}
+                  size="sm"
+                  kind="tertiary"
+                  onClick={() => applySuggestion(item.prompt, item)}
+                  disabled={aiCommandState.pending}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="editor-panel__preview-mode">
           <span className="editor-panel__preview-mode-label">Editör Görünümü</span>
           <div className="editor-panel__preview-mode-actions">

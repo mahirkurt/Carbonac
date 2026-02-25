@@ -15,10 +15,12 @@ import {
 import { useDocument, useTheme } from '../../contexts';
 import { askAi, analyzeAi } from '../../services/aiService';
 import { applyLintFixes } from '../../utils/markdownLintFixes';
-
-const AI_APPLY_COMMAND_EVENT = 'CARBONAC_AI_APPLY_COMMAND';
-const AI_CHAT_PREFILL_EVENT = 'CARBONAC_AI_PREFILL';
-const AI_COMMAND_RESULT_EVENT = 'CARBONAC_AI_COMMAND_RESULT';
+import {
+  AI_APPLY_COMMAND_EVENT,
+  AI_CHAT_PREFILL_EVENT,
+  AI_CHAT_SUGGESTIONS_EVENT,
+  AI_COMMAND_RESULT_EVENT,
+} from '../../constants/editorConstants';
 
 function tryExtractMarkdownFromResponse(text) {
   const value = String(text || '').trim();
@@ -200,6 +202,54 @@ function getAiUserFacingErrorText(error) {
   return 'AI isteği başarısız oldu.';
 }
 
+function buildSuggestionPack({ hasMarkdown = false, hasSelection = false } = {}) {
+  if (!hasMarkdown) {
+    return [
+      {
+        label: 'Örnek markdown iskeleti oluştur',
+        prompt: 'Carbon standartlarında örnek bir rapor markdown iskeleti oluştur. Çıktıyı markdown code block olarak ver.',
+        expectMarkdown: true,
+      },
+      {
+        label: 'Doküman yapısı öner',
+        prompt: 'Bu doküman için kapak, içindekiler ve bölüm akışını kısa maddelerle öner.',
+        expectMarkdown: false,
+      },
+    ];
+  }
+
+  const suggestions = [
+    {
+      label: 'Tüm metni Carbon uyumlu revize et',
+      prompt: 'Markdown içeriğini Carbon tasarım ilkelerine göre baştan sona revize et. Çıktıyı yalnızca markdown code block olarak ver.',
+      expectMarkdown: true,
+      applyTarget: 'document',
+    },
+    {
+      label: 'Kapak + içindekiler ekle',
+      prompt: 'Mevcut markdown içeriğine Carbon uyumlu kapak ve içindekiler ekle. Çıktıyı tam markdown olarak ver.',
+      expectMarkdown: true,
+      applyTarget: 'document',
+    },
+    {
+      label: 'Tablo/grafik noktalarını öner',
+      prompt: 'Bu dokümanda tablo ve grafik eklenebilecek bölümleri kısa gerekçelerle listele.',
+      expectMarkdown: false,
+    },
+  ];
+
+  if (hasSelection) {
+    suggestions.unshift({
+      label: 'Seçili metni revize et',
+      prompt: 'Seçili metni daha açık, kısa ve profesyonel olacak şekilde revize et. Çıktıyı sadece seçili bölüm markdown olarak ver.',
+      expectMarkdown: true,
+      applyTarget: 'selection',
+    });
+  }
+
+  return suggestions.slice(0, 6);
+}
+
 function insertSnippetAtSelection({ markdown = '', snippet = '', start = 0, end = 0 }) {
   const current = String(markdown || '');
   const normalizedSnippet = String(snippet || '').trim();
@@ -270,6 +320,30 @@ export default function CarbonacAiChat({
       message,
     });
   }, [emitAiCommandResult]);
+
+  const emitAiSuggestions = useCallback((suggestions = []) => {
+    if (typeof window === 'undefined') return;
+
+    const normalized = (Array.isArray(suggestions) ? suggestions : [])
+      .map((item) => ({
+        label: String(item?.label || '').trim(),
+        prompt: String(item?.prompt || '').trim(),
+        expectMarkdown: item?.expectMarkdown === true,
+        applyTarget: item?.applyTarget === 'selection' ? 'selection' : 'document',
+      }))
+      .filter((item) => item.label && item.prompt)
+      .slice(0, 6);
+
+    window.dispatchEvent(new CustomEvent(AI_CHAT_SUGGESTIONS_EVENT, {
+      detail: { suggestions: normalized },
+    }));
+  }, []);
+
+  const publishSuggestionPack = useCallback(() => {
+    const hasMarkdown = Boolean(String(doc.markdownContent || '').trim());
+    const hasSelection = Boolean(String(doc.editorSelection?.text || '').trim());
+    emitAiSuggestions(buildSuggestionPack({ hasMarkdown, hasSelection }));
+  }, [doc.editorSelection?.text, doc.markdownContent, emitAiSuggestions]);
 
   const buildContext = useCallback((question) => {
     const markdown = doc.markdownContent || '';
@@ -399,7 +473,8 @@ export default function CarbonacAiChat({
       instance,
       `Lint düzeltmeleri uygulandı.\n\nUygulananlar:\n${appliedText}${skippedText}`
     );
-  }, [addAssistantText, doc]);
+    publishSuggestionPack();
+  }, [addAssistantText, doc, publishSuggestionPack]);
 
   const applyAiRevision = useCallback(async ({ instruction }) => {
     const instance = instanceRef.current;
@@ -461,6 +536,7 @@ export default function CarbonacAiChat({
         doc.setMarkdown(revised);
       }
       await addAssistantText(instance, 'AI revizyonu uygulandı ve editöre işlendi.');
+      publishSuggestionPack();
     } catch (error) {
       await instance.messaging.addMessage({
         output: {
@@ -468,7 +544,7 @@ export default function CarbonacAiChat({
         },
       });
     }
-  }, [addAssistantText, buildContext, doc, isAuthenticated, onRequestLogin]);
+  }, [addAssistantText, buildContext, doc, isAuthenticated, onRequestLogin, publishSuggestionPack]);
 
   const runAnalyze = useCallback(async () => {
     const instance = instanceRef.current;
@@ -560,10 +636,75 @@ export default function CarbonacAiChat({
       if (instance) {
         await addAssistantText(instance, 'Seçili metin AI bağlamına eklendi.');
       }
+      publishSuggestionPack();
       return {
         ok: true,
         requestId,
         message: 'Seçili metin AI bağlamına eklendi.',
+      };
+    }
+
+    if (kind === 'design-rewrite') {
+      const markdown = String(doc.markdownContent || '');
+      if (!markdown.trim()) {
+        return {
+          ok: false,
+          requestId,
+          message: 'Revize edilecek markdown içeriği bulunamadı.',
+        };
+      }
+
+      if (!isAuthenticated) {
+        if (instance) {
+          await addAssistantText(instance, 'Tasarım revizyonu için giriş yapmanız gerekiyor.');
+        }
+        markAuthRequired(requestId, kind, 'Tasarım revizyonu için giriş yapın.');
+        onRequestLogin?.();
+        return {
+          ok: false,
+          requestId,
+          message: 'Tasarım revizyonu için giriş yapın.',
+        };
+      }
+
+      const wizardSettings = detail?.wizardSettings || doc.reportSettings || {};
+      const layoutProfile = detail?.layoutProfile || doc.selectedLayoutProfile || null;
+      const printProfile = detail?.printProfile || doc.selectedPrintProfile || null;
+
+      const answer = await askAi({
+        question: [
+          'Aşağıdaki markdown metnini IBM Carbon tasarım ilkelerine göre baştan sona revize et.',
+          'Başlık hiyerarşisini güçlendir, okunabilirlik ve içerik akışını iyileştir, gerekli yerde bileşen önerisi göm.',
+          'Anlamı koru ve gereksiz tekrarları temizle.',
+          'Çıktı SADECE tek bir markdown code block olsun.',
+          `Rapor ayarları: ${JSON.stringify(wizardSettings)}`,
+          `Yerleşim profili: ${layoutProfile || '(belirtilmedi)'}`,
+          `Baskı profili: ${printProfile || '(belirtilmedi)'}`,
+        ].join('\n'),
+        context: buildContext('design rewrite'),
+      });
+
+      const revisedMarkdown = tryExtractMarkdownFromResponse(answer);
+      if (!revisedMarkdown) {
+        return {
+          ok: false,
+          requestId,
+          message: 'AI cevabından uygulanabilir markdown çıkarılamadı.',
+        };
+      }
+
+      doc.setMarkdown(revisedMarkdown);
+      if (instance) {
+        await addAssistantText(instance, 'Tüm markdown Carbon tasarım kurallarına göre revize edilip editöre uygulandı.');
+      }
+      pushHistory('user', '[design-rewrite] Carbon tasarım revizyonu');
+      pushHistory('assistant', revisedMarkdown);
+      publishSuggestionPack();
+
+      return {
+        ok: true,
+        requestId,
+        message: 'Tasarım revizyonu tamamlandı.',
       };
     }
 
@@ -590,6 +731,69 @@ export default function CarbonacAiChat({
         };
       }
 
+      const expectMarkdown = detail?.expectMarkdown === true;
+      const applyTarget = detail?.applyTarget === 'selection' ? 'selection' : 'document';
+
+      if (expectMarkdown) {
+        const markdown = String(doc.markdownContent || '');
+        if (!markdown.trim()) {
+          return {
+            ok: false,
+            requestId,
+            message: 'Markdown içeriği olmadan uygulama yapılamaz.',
+          };
+        }
+
+        const answer = await askAi({
+          question: [
+            'Aşağıdaki görevi mevcut markdown dokümanı üzerinde uygula.',
+            applyTarget === 'selection'
+              ? 'Sadece seçili metin aralığını güncelle; diğer tüm kısımlar aynı kalsın.'
+              : 'Tüm dokümanı tutarlı şekilde güncelle.',
+            'Çıktı SADECE güncellenmiş markdown code block olsun.',
+            `Görev: ${prompt}`,
+          ].join('\n'),
+          context: buildContext(prompt),
+        });
+
+        const revisedMarkdown = tryExtractMarkdownFromResponse(answer);
+        if (!revisedMarkdown) {
+          return {
+            ok: false,
+            requestId,
+            message: 'AI yanıtından markdown çıkarılamadı.',
+          };
+        }
+
+        if (applyTarget === 'selection') {
+          const start = Number(doc.editorSelection?.start);
+          const end = Number(doc.editorSelection?.end);
+          if (!(Number.isFinite(start) && Number.isFinite(end) && end > start)) {
+            return {
+              ok: false,
+              requestId,
+              message: 'Seçili metne uygulamak için editörde bir aralık seçin.',
+            };
+          }
+          const nextMarkdown = `${markdown.slice(0, start)}${revisedMarkdown}${markdown.slice(end)}`;
+          doc.setMarkdown(nextMarkdown);
+        } else {
+          doc.setMarkdown(revisedMarkdown);
+        }
+
+        if (instance) {
+          await addAssistantText(instance, 'AI önerisi markdown içeriğine uygulandı.');
+        }
+        pushHistory('user', `[quick-action/apply] ${prompt}`);
+        pushHistory('assistant', revisedMarkdown);
+        publishSuggestionPack();
+        return {
+          ok: true,
+          requestId,
+          message: 'AI önerisi markdown içeriğine uygulandı.',
+        };
+      }
+
       const answer = await askAi({
         question: prompt,
         context: buildContext(prompt),
@@ -600,6 +804,7 @@ export default function CarbonacAiChat({
       }
       pushHistory('user', `[quick-action] ${prompt}`);
       pushHistory('assistant', answerText);
+      publishSuggestionPack();
       return {
         ok: true,
         requestId,
@@ -734,6 +939,7 @@ export default function CarbonacAiChat({
       if (instance) {
         await addAssistantText(instance, 'Sihirbaz tercihleri markdown içeriğine uygulandı.');
       }
+      publishSuggestionPack();
       return {
         ok: true,
         requestId,
@@ -753,6 +959,7 @@ export default function CarbonacAiChat({
     isAuthenticated,
     markAuthRequired,
     onRequestLogin,
+    publishSuggestionPack,
     pushHistory,
     pushPrefillContext,
   ]);
@@ -830,6 +1037,11 @@ export default function CarbonacAiChat({
         : 'Merhaba. AI Danışmanını kullanmak için giriş yapmanız gerekiyor.';
 
       await addAssistantText(instance, welcome);
+      if (isAuthenticated) {
+        publishSuggestionPack();
+      } else {
+        emitAiSuggestions([]);
+      }
       if (!isAuthenticated) {
         onRequestLogin?.();
       }
@@ -905,6 +1117,7 @@ export default function CarbonacAiChat({
       pushHistory('user', question);
       pushHistory('assistant', String(answer || ''));
       await addAssistantText(instance, String(answer || '').trim() || '(bos yanit)');
+      publishSuggestionPack();
     } catch (error) {
       // If the request was aborted by the widget, keep the UI clean.
       if (error?.name === 'AbortError') {
@@ -934,6 +1147,8 @@ export default function CarbonacAiChat({
     buildContext,
     isAuthenticated,
     onRequestLogin,
+    emitAiSuggestions,
+    publishSuggestionPack,
     pushHistory,
     runAnalyze,
   ]);

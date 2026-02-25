@@ -15,6 +15,7 @@ import { WORKFLOW_STEPS } from '../contexts';
 export const AI_APPLY_COMMAND_EVENT = 'CARBONAC_AI_APPLY_COMMAND';
 export const AI_CHAT_PREFILL_EVENT = 'CARBONAC_AI_PREFILL';
 export const AI_COMMAND_RESULT_EVENT = 'CARBONAC_AI_COMMAND_RESULT';
+export const AI_CHAT_SUGGESTIONS_EVENT = 'CARBONAC_AI_SUGGESTIONS';
 
 function getLayoutProfileHint(profileId) {
   switch (profileId) {
@@ -91,6 +92,18 @@ export const printProfileOptions = [
 ];
 
 export const QUICK_ACCESS_ACTIONS = [
+  {
+    id: 'design-rewrite',
+    label: 'Tasarım Revizyonu',
+    icon: MagicWand,
+    prompt: 'Markdown içeriğini Carbon tasarım ilkelerine göre baştan sona revize et. Başlık hiyerarşisi, okunabilirlik ve bileşen dağılımını iyileştir.',
+  },
+  {
+    id: 'feature-pack',
+    label: 'Bileşen Paketi',
+    icon: Template,
+    prompt: 'Bu doküman için wizard aşamasında önerilecek en uygun bileşenleri (tablo, grafik, callout, timeline) kısa gerekçelerle listele.',
+  },
   {
     id: 'palette-advice',
     label: 'Renk Sistemi',
