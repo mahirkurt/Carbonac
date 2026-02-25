@@ -34,9 +34,25 @@
     "colSpan": 12,
     "offset": 2
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "preferably within first 3 pages, near executive summary",
+    "bleedHandling": "no bleed — inset layout"
+  },
+  "accessibilityNotes": [
+    "Use <ol> for the numbered findings list — maintains reading order for screen readers",
+    "Severity tags must have aria-label (e.g., aria-label='High severity') — color alone is insufficient",
+    "HighlightBox expansions should use <details>/<summary> semantics or aria-expanded",
+    "Severity color coding must be paired with text labels — never rely on color alone for meaning"
+  ],
   "references": [
     "ibm-design-for-sustainability",
-    "ibm-engineering-for-sustainability"
+    "ibm-engineering-for-sustainability",
+    "secure-by-design-smarter-with-ai",
+    "5-trends-for-2026",
+    "healthcare-and-life-sciences"
   ],
   "antiPatterns": [
     "Never exceed 7 findings — a long unranked list defeats the purpose of prioritized findings",

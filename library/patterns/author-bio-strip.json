@@ -1,0 +1,68 @@
+{
+  "id": "author-bio-strip",
+  "name": "Author Bio Strip",
+  "description": "Compact author or contributor information block displaying 1-4 team members with optional headshot, name, title, organization, and brief bio. Typically placed at the end of the document before appendices, or on the inside back cover.",
+  "grid": {
+    "columns": "2-15 (13 columns, centered) or full-width 1-16 for multi-author grid",
+    "verticalAlignment": "top",
+    "margins": "$spacing-09 (48px) above the bio section, $spacing-07 (32px) between author entries"
+  },
+  "components": [
+    "PatternBlock(author-bio) as root container",
+    "Section heading: $heading-05 in $text-01, typically 'About the Authors' or 'Contributors'",
+    "Author card (repeated 1-4 times): self-contained bio unit",
+    "Headshot: 64px circular avatar with $ui-03 border, optional placeholder icon if no photo",
+    "Author name: $heading-03 in $text-01",
+    "Title and organization: $body-short-01 in $text-03",
+    "Bio text: $body-short-01 in $text-02, 2-3 sentences maximum",
+    "Optional contact links: $label-01 in $blue-60 for email or LinkedIn"
+  ],
+  "rules": [
+    "Maximum 4 authors per page — more authors should use a compact list format instead of full bio cards",
+    "Author name uses $heading-03 — prominent enough to be scannable but not competing with document headings",
+    "Bio text limited to 2-3 sentences in $body-short-01 — this is a credential summary, not a full CV",
+    "Headshots are 64px circular with $ui-03 border — consistent sizing across all authors",
+    "If headshots are available for some authors but not all, use a Carbon person icon placeholder for consistency",
+    "Section heading 'About the Authors' uses $heading-05 — matching appendix-level hierarchy",
+    "Author cards laid out horizontally (2 per row for 2-4 authors) or vertically stacked for single author",
+    "This section starts on a new page if the previous page has less than 40% remaining vertical space"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-05", "$heading-03", "$body-short-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-02", "$text-03", "$blue-60", "$ui-03"]
+  },
+  "layoutProps": {
+    "colSpan": 13,
+    "offset": 1,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "back-matter — after conclusion, before appendix or on inside back cover",
+    "bleedHandling": "no bleed — standard inset layout"
+  },
+  "accessibilityNotes": [
+    "Each author card should use <article> or <section aria-label='Author: Name'> for navigation",
+    "Headshot images need alt='Photo of [Name]' — placeholder icons need alt='Author photo placeholder'",
+    "Contact links must have descriptive text (not just icons) — e.g., 'Email Jane Doe' not just a mail icon",
+    "Bio text should use <p> elements, not <span> — proper block-level semantics for screen readers"
+  ],
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "ibm-institute-for-business-value",
+    "the-enterprise-in-2030",
+    "healthcare-and-life-sciences"
+  ],
+  "antiPatterns": [
+    "Never include full CVs or lengthy biographies — 2-3 sentences maximum per author",
+    "Never use inconsistent photo sizes or shapes — all headshots must be 64px circular or all must be placeholders",
+    "Never place author bios before the document's conclusion — they belong in back-matter (after conclusion, before appendix)",
+    "Never list more than 4 authors with full bio cards — use a compact name-and-title list for larger teams",
+    "Never omit the author's organizational affiliation — name + title + organization is the minimum for professional credibility"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "research", "annual-report"]
+}

@@ -1,0 +1,68 @@
+{
+  "id": "two-column-narrative",
+  "name": "Two-Column Narrative",
+  "description": "Standard body text layout split into two equal columns for dense narrative sections, reducing line length for improved readability on A4 pages. Used for extended prose sections like methodology descriptions, detailed analysis, or background context.",
+  "grid": {
+    "columns": "1-16 (full-width container), internally split into 1-8 and 9-16 (two 8-column halves)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) column gap, $spacing-05 (16px) above/below paragraphs"
+  },
+  "components": [
+    "PatternBlock(two-col-narrative) as root container with CSS columns or grid",
+    "Section heading: $heading-04 in $text-01, spans full width above both columns",
+    "Body paragraphs: $body-long-02 in $text-01, flowing across two columns",
+    "Drop cap (optional): first letter of first paragraph in $display-01 $blue-60, 3 lines tall",
+    "Inline subheadings: $heading-03 in $text-01, column-spanning or inline",
+    "Column divider: optional 1px $ui-03 vertical rule between columns",
+    "Footnote markers: superscript $label-01 for endnote references"
+  ],
+  "rules": [
+    "Two columns only for body text — never split structured elements (tables, charts, KPIs) across columns",
+    "Column gap must be $spacing-07 (32px) minimum — tighter gaps make columns bleed into each other visually",
+    "Body text uses $body-long-02 (16px/24px) — the larger body scale compensates for narrower column width",
+    "Section headings span full width above both columns — never place a heading inside a single column",
+    "Paragraphs should not break with fewer than 3 lines in either column (orphan/widow control)",
+    "Use column-fill: balance to equalize column heights — uneven columns look like a layout error",
+    "Drop cap, if used, only on the first paragraph of a major section — never on every paragraph",
+    "This pattern works best for 3+ consecutive paragraphs — shorter content doesn't justify the two-column treatment"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-long-02", "$display-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-02", "$blue-60", "$ui-03"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": false,
+    "pagePosition": "flexible — can span multiple pages",
+    "bleedHandling": "no bleed — content stays within column bounds",
+    "orphanWidowControl": "minimum 3 lines per column at page breaks"
+  },
+  "accessibilityNotes": [
+    "CSS columns linearize correctly for screen readers — no special markup needed for reading order",
+    "Drop cap must not be an empty decorative element — keep the letter in the text flow with CSS :first-letter",
+    "Column divider (vertical rule) must have aria-hidden='true' — purely decorative",
+    "Ensure footnote superscripts link to endnotes via <a href='#fn-N'> for keyboard accessibility"
+  ],
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "the-enterprise-in-2030",
+    "the-ceos-guide-to-generative-ai",
+    "its-time-for-the-great-tech-reset"
+  ],
+  "antiPatterns": [
+    "Never split tables, charts, or structured blocks across two columns — these elements need full-width or dedicated column spans",
+    "Never use two-column layout for fewer than 3 paragraphs — it looks forced and wastes the pattern's purpose",
+    "Never use $body-long-01 (14px) in narrow columns — the reduced column width requires the larger $body-long-02 scale",
+    "Never let column heights differ by more than 3 lines — unbalanced columns signal poor layout automation",
+    "Never stack two-column sections back-to-back without a full-width break element (heading, figure, or quote) between them"
+  ],
+  "docTypeAffinity": ["whitepaper", "report", "research", "annual-report"]
+}

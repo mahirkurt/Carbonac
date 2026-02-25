@@ -34,9 +34,25 @@
     "offset": 2,
     "preferredTheme": "g10"
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "page 2 (immediately after cover)",
+    "bleedHandling": "g10 background extends to column edges, not to trim"
+  },
+  "accessibilityNotes": [
+    "Use an <aside> or <section aria-label='Executive Summary'> wrapper for semantic grouping",
+    "Findings list should use <ol> for numbered items — screen readers announce list position",
+    "Inline metrics should use aria-label to provide full context (e.g., aria-label='Revenue: 4.2 billion dollars')",
+    "g10 background must maintain 4.5:1 contrast ratio with $text-01 body text"
+  ],
   "references": [
     "ibm-design-for-sustainability",
-    "ibm-engineering-for-sustainability"
+    "ibm-engineering-for-sustainability",
+    "5-trends-for-2026",
+    "ibm-institute-for-business-value",
+    "the-enterprise-in-2030"
   ],
   "antiPatterns": [
     "Never place executive summary deeper than page 2 — it must follow the cover immediately",

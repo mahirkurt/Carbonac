@@ -1,0 +1,68 @@
+{
+  "id": "table-of-contents",
+  "name": "Table of Contents",
+  "description": "Navigation page listing all document sections with page numbers, using a structured hierarchical layout with dotted leaders connecting titles to page numbers. Placed immediately after the cover page or executive summary.",
+  "grid": {
+    "columns": "3-14 (10 of 16 columns, centered with generous margins)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-09 (48px) top margin, $spacing-07 (32px) bottom margin"
+  },
+  "components": [
+    "PatternBlock(toc) as root container",
+    "TOC heading: $heading-05 in $text-01, typically 'Contents' or 'Table of Contents'",
+    "Level-1 entries: $heading-03 in $text-01, bold, for main chapters/sections",
+    "Level-2 entries: $body-long-01 in $text-02, indented $spacing-07 from left edge",
+    "Page numbers: $body-short-01 in $text-01, right-aligned with dotted leader",
+    "Dotted leader line: $text-05 dots connecting title to page number",
+    "Section dividers: $spacing-05 (16px) gap between major section groups",
+    "Optional section icons or color accents for themed reports"
+  ],
+  "rules": [
+    "TOC always starts on its own page — use page-break-before: always",
+    "Maximum two levels of hierarchy — deeper nesting creates visual clutter on the TOC page",
+    "Level-1 entries use $heading-03 bold, level-2 entries use $body-long-01 regular — clear visual hierarchy",
+    "Page numbers right-aligned with dotted leader lines in $text-05 connecting to the entry text",
+    "Generous left/right margins (3-column inset on each side) — TOC should not feel dense",
+    "Group related sections with $spacing-05 gaps — visual clustering aids navigation",
+    "If TOC exceeds one page, continue on next page without repeating the TOC heading",
+    "Entry text should match the exact section titles used in the document body — no paraphrasing"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-05", "$heading-03", "$body-long-01", "$body-short-01"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-02", "$text-05"]
+  },
+  "layoutProps": {
+    "colSpan": 10,
+    "offset": 3,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": true,
+    "pageBreakAfter": false,
+    "keepTogether": false,
+    "pagePosition": "page 2 or 3, after cover and optionally after executive summary",
+    "bleedHandling": "no bleed — centered inset layout"
+  },
+  "accessibilityNotes": [
+    "Use <nav aria-label='Table of Contents'> wrapper — enables direct navigation to TOC",
+    "Each entry should be a link (<a href='#section-id'>) to the corresponding section heading",
+    "Page numbers are visual aids for print — in digital, the link itself provides navigation",
+    "Dotted leader lines must have aria-hidden='true' — purely decorative visual connector"
+  ],
+  "references": [
+    "the-ceos-guide-to-generative-ai",
+    "the-enterprise-in-2030",
+    "the-essential-guide-to-agentic-ai",
+    "ibm-institute-for-business-value",
+    "its-time-for-the-great-tech-reset"
+  ],
+  "antiPatterns": [
+    "Never include more than two heading levels — deep nesting (3+) makes the TOC harder to scan than the document itself",
+    "Never omit page numbers — a TOC without page numbers is just an outline, not navigation",
+    "Never use the same type scale for all levels — visual hierarchy between levels is mandatory",
+    "Never crowd the TOC with body text margins — it needs generous whitespace to function as a scannable map",
+    "Never auto-generate a TOC that doesn't match actual section titles — mismatched titles destroy reader trust"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "annual-report", "research"]
+}

@@ -1,0 +1,66 @@
+{
+  "id": "pull-quote-spread",
+  "name": "Pull Quote Spread",
+  "description": "Large-format editorial quote spanning a significant portion of the page, with oversized quotation marks, the quote text in display typography, and attribution below. Used to break up long narrative sections and highlight key voices or insights.",
+  "grid": {
+    "columns": "3-14 (centered 10 columns) or asymmetric 4-16 (right-weighted with left margin breathing room)",
+    "verticalAlignment": "center",
+    "margins": "$spacing-09 (48px) above and below the quote block"
+  },
+  "components": [
+    "PatternBlock(pull-quote) as root container",
+    "Opening quotation mark: decorative oversized glyph in $blue-60, $display-02 or larger",
+    "Quote text: $heading-04 or $heading-05 in $text-01, 2-4 sentences maximum",
+    "Attribution line: $body-short-01 in $text-03, format '— Name, Title, Organization'",
+    "Optional left border accent: 4px solid $blue-60 on the left edge of the quote block",
+    "Optional background: g10 panel behind the entire quote for contrast"
+  ],
+  "rules": [
+    "Quote text uses $heading-04 or $heading-05 — large enough to command attention but not overwhelm the page",
+    "Maximum 4 sentences — pull quotes are highlights, not full testimonials. Trim ruthlessly",
+    "Attribution always includes at minimum the speaker's name and title — anonymous quotes lack credibility",
+    "Opening quotation mark is decorative, positioned above or to the left of the quote text in $blue-60",
+    "Generous vertical spacing: $spacing-09 (48px) above and below ensures the quote breathes",
+    "Pull quotes must be centered vertically on their section or have enough surrounding whitespace to feel intentional",
+    "If using left border accent (4px $blue-60), do not also use background fill — choose one visual treatment",
+    "Pull quote text must be an exact excerpt from the document or a direct stakeholder quote — never fabricated"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-05", "$display-02", "$body-short-01"],
+    "spacing": ["$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-03", "$blue-60", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 10,
+    "offset": 3,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — use as visual break between dense narrative sections",
+    "bleedHandling": "no bleed for standard; g10 background extends to column edges if used"
+  },
+  "accessibilityNotes": [
+    "Use <blockquote> with <cite> for attribution — semantic quote markup is mandatory",
+    "Decorative quotation mark glyph must have aria-hidden='true' — it's visual emphasis, not content",
+    "Quote text should not use heading tags — use <p> with appropriate CSS class to avoid polluting document outline",
+    "Ensure $heading-04/$heading-05 text maintains 4.5:1 contrast against any background treatment"
+  ],
+  "references": [
+    "ibm-design-for-sustainability",
+    "the-ceos-guide-to-generative-ai",
+    "its-time-for-the-great-tech-reset",
+    "the-enterprise-in-2030",
+    "ibm-engineering-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never use $body-long-01 or $body-short-01 for pull quote text — it must be larger than surrounding body text to justify its presence",
+    "Never include more than 4 sentences — long pull quotes become regular paragraphs and lose their impact",
+    "Never place two pull quotes on the same page or spread — each one needs dedicated visual real estate",
+    "Never omit attribution — unattributed quotes read as editorial opinion rather than credible testimony",
+    "Never use pull quotes for generic statements — they should surface surprising, provocative, or data-backed insights"
+  ],
+  "docTypeAffinity": ["whitepaper", "report", "annual-report", "case-study"]
+}

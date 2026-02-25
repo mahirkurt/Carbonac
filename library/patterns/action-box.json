@@ -35,9 +35,25 @@
     "offset": 2,
     "preferredTheme": "g10"
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "near document end — after conclusion, before appendix",
+    "bleedHandling": "g10 background extends to column edges, not to trim"
+  },
+  "accessibilityNotes": [
+    "Wrap in <section aria-label='Recommendations'> for screen reader navigation",
+    "Priority labels (Immediate/Short-term/Long-term) should be marked up as <strong> or with aria-label",
+    "HighlightBox tone colors must be paired with text indicators — never rely on color alone",
+    "Recommendation list should use <ol> if prioritized, <ul> if all equal weight"
+  ],
   "references": [
     "the-essential-guide-to-agentic-ai",
-    "ibm-design-for-sustainability"
+    "ibm-design-for-sustainability",
+    "its-time-for-the-great-tech-reset",
+    "secure-by-design-smarter-with-ai",
+    "the-ceos-guide-to-generative-ai"
   ],
   "antiPatterns": [
     "Never exceed 5 recommendations — a long list of actions causes decision paralysis",

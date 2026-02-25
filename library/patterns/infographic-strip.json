@@ -1,0 +1,67 @@
+{
+  "id": "infographic-strip",
+  "name": "Infographic Strip",
+  "description": "Horizontal band displaying 3-5 icon-and-stat pairs in a single row, combining simple iconography with numeric highlights and short labels. Used as a visual break between narrative sections to reinforce key metrics or concepts at a glance.",
+  "grid": {
+    "columns": "1-16 (full-bleed background), content inset to 2-15 (13 columns)",
+    "verticalAlignment": "center",
+    "margins": "$spacing-09 (48px) above/below strip, internal items spaced equally"
+  },
+  "components": [
+    "PatternBlock(infographic-strip) as root container with g10 or $blue-10 background",
+    "Stat items (3-5 repeated): icon + number + label grouping",
+    "Icon: Carbon pictogram (32px) or custom SVG in $blue-60, centered above the stat",
+    "Stat number: $display-01 in $text-01, the primary visual element",
+    "Stat label: $label-01 in $text-03, 2-4 words max below the number",
+    "Divider lines: optional 1px $ui-03 vertical separators between items",
+    "Background: full-width $ui-01 (g10) or $blue-10 band for visual differentiation"
+  ],
+  "rules": [
+    "Minimum 3, maximum 5 items — fewer looks sparse, more becomes a KPI grid (use that pattern instead)",
+    "All items must have the same structure: icon + number + label — no mixing text-only with icon items",
+    "Icons use Carbon pictograms at 32px — consistent size and style across all items in the strip",
+    "Stat numbers use $display-01 — the dominant visual element, numbers should be the first thing scanned",
+    "Labels use $label-01 in $text-03 — secondary information, 2-4 words maximum",
+    "Full-width background band ($ui-01 or $blue-10) differentiates the strip from surrounding white body content",
+    "Equal horizontal spacing between all items — use CSS flexbox with justify-content: space-around",
+    "Strip must not break across pages — entire band is a single visual unit"
+  ],
+  "carbonTokens": {
+    "typography": ["$display-01", "$label-01"],
+    "spacing": ["$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-03", "$blue-60", "$blue-10", "$ui-01", "$ui-03"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "g10"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — visual break between narrative sections",
+    "bleedHandling": "background band extends to page trim edges (full-bleed)"
+  },
+  "accessibilityNotes": [
+    "Each stat item should use aria-label combining icon meaning, number, and label",
+    "Icons must have alt text or aria-label — decorative icons should have aria-hidden='true'",
+    "Use <dl> (definition list) markup for the icon/number/label groups",
+    "Full-width background must maintain WCAG AA contrast with all text within the strip"
+  ],
+  "references": [
+    "5-trends-for-2026",
+    "ibm-institute-for-business-value",
+    "the-enterprise-in-2030",
+    "healthcare-and-life-sciences",
+    "the-ceos-guide-to-generative-ai"
+  ],
+  "antiPatterns": [
+    "Never exceed 5 items — at 6+ items, switch to the KPI grid pattern which handles density better",
+    "Never mix items with and without icons — visual inconsistency breaks the strip's rhythm",
+    "Never use body typography for stat numbers — $display-01 scale is required to justify the infographic treatment",
+    "Never place an infographic strip adjacent to a KPI grid — they serve similar purposes and compete visually",
+    "Never use the strip for complex data that requires explanation — strips are for simple, pre-digested metrics only"
+  ],
+  "docTypeAffinity": ["report", "annual-report", "whitepaper", "dashboard"]
+}

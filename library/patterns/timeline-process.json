@@ -1,0 +1,68 @@
+{
+  "id": "timeline-process",
+  "name": "Timeline / Process Flow",
+  "description": "Horizontal or vertical sequence of 3-7 numbered steps or milestones connected by lines or arrows, used to illustrate chronological events, implementation phases, or sequential processes. Each node has a label and optional description.",
+  "grid": {
+    "columns": "1-16 (full-width for horizontal layout) or 3-14 (centered for vertical layout)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-09 (48px) above/below timeline block, $spacing-07 (32px) between nodes"
+  },
+  "components": [
+    "PatternBlock(timeline) as root container",
+    "Timeline heading: $heading-04 above the timeline, describing the process name",
+    "Step nodes: numbered circles (40px diameter) in $blue-60 with white number text",
+    "Connector lines: 2px solid $ui-03 between nodes (horizontal or vertical)",
+    "Step label: $heading-03 or $body-short-01 bold in $text-01, adjacent to node",
+    "Step description: $body-short-01 in $text-02, 1-2 sentences max per step",
+    "Optional date/phase label: $label-01 in $text-03 below the node",
+    "Optional completion indicator: filled $green-60 node for completed steps, $ui-03 for future"
+  ],
+  "rules": [
+    "Minimum 3, maximum 7 steps — fewer than 3 doesn't justify a timeline; more than 7 exceeds page width/readability",
+    "Horizontal layout preferred for 3-5 steps on A4 landscape or full-width blocks; vertical for 5-7 steps or portrait",
+    "Each step node is numbered sequentially — numbers inside $blue-60 circles with $inverse-01 text",
+    "Connector lines use 2px $ui-03 — subtle enough to guide the eye without competing with node labels",
+    "Step labels use $heading-03 bold — the primary scannable content of the timeline",
+    "Step descriptions are optional but limited to 2 sentences max in $body-short-01 — detail belongs in body text",
+    "Equal spacing between all nodes — irregular spacing implies uneven importance or duration",
+    "Timeline block must not break across pages — use page-break-inside: avoid"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-short-01", "$label-01"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$blue-60", "$text-01", "$text-02", "$text-03", "$ui-03", "$inverse-01", "$green-60"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — timeline must stay on a single page",
+    "bleedHandling": "no bleed — timeline stays within column bounds"
+  },
+  "accessibilityNotes": [
+    "Use <ol> markup for sequential steps — screen readers need list semantics to convey order",
+    "Each step node number must be in the DOM (not just CSS-generated) for screen reader access",
+    "Connector lines between nodes must have aria-hidden='true' — decorative visual guides",
+    "Completion indicators ($green-60 vs $ui-03) must have text alternatives (e.g., 'Completed' / 'Upcoming')"
+  ],
+  "references": [
+    "the-essential-guide-to-agentic-ai",
+    "the-enterprise-in-2030",
+    "the-ceos-guide-to-generative-ai",
+    "its-time-for-the-great-tech-reset",
+    "ibm-institute-for-business-value"
+  ],
+  "antiPatterns": [
+    "Never exceed 7 steps — a process with more steps should be grouped into phases with sub-steps in body text",
+    "Never use irregular spacing between nodes — it implies duration or importance differences that may not exist",
+    "Never omit step numbers — unlabeled nodes force readers to count, breaking the scannable sequence",
+    "Never add paragraphs of text to individual steps — each step gets 2 sentences max; use surrounding body text for detail",
+    "Never use decorative arrows or complex connector shapes — simple straight lines in $ui-03 are the Carbon standard"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "case-study", "research"]
+}

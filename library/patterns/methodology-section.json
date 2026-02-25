@@ -1,0 +1,68 @@
+{
+  "id": "methodology-section",
+  "name": "Methodology Section",
+  "description": "Structured research methodology block describing data collection approach, sample characteristics, analysis methods, and study limitations. Uses a combination of prose, inline stats, and optional methodology diagram to establish research credibility.",
+  "grid": {
+    "columns": "2-15 (13 columns, centered) for body text, full-width 1-16 for methodology diagrams",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) above/below section, $spacing-05 (16px) between sub-sections"
+  },
+  "components": [
+    "PatternBlock(methodology) as root container",
+    "Section heading: $heading-04 in $text-01, typically 'Methodology' or 'Research Approach'",
+    "Prose description: $body-long-01 in $text-01, explaining data collection and analysis",
+    "Inline stat callouts: $heading-03 bold in $blue-60 for key numbers (sample size, time period, etc.)",
+    "Sub-section labels: $heading-03 in $text-01 for 'Sample', 'Analysis', 'Limitations' etc.",
+    "Methodology diagram: optional flow chart or process illustration (see timeline-process pattern)",
+    "Limitation disclaimers: $body-short-01 in $text-03, italic, listing study constraints",
+    "Optional bordered sidebar: g10 background with $body-short-01 summarizing key methodology facts"
+  ],
+  "rules": [
+    "Methodology section should appear early in the document (after executive summary) or in the appendix — never buried mid-report",
+    "Lead with the approach summary in 1-2 paragraphs of $body-long-01, then break into sub-sections",
+    "Key methodology numbers (sample size, response rate, time period) use $heading-03 bold in $blue-60 inline",
+    "Sub-sections use $heading-03 — 'Data Collection', 'Sample Profile', 'Analysis Method', 'Limitations'",
+    "Limitations are mandatory for credible research — use $body-short-01 in $text-03 italic to de-emphasize",
+    "If including a methodology diagram, use the timeline-process pattern rules for visual consistency",
+    "Keep methodology concise in main body (1-2 pages max) — extended details belong in appendix",
+    "Optional fact sidebar on g10 background summarizes: n=, time period, geography, confidence interval"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-long-01", "$body-short-01"],
+    "spacing": ["$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-03", "$blue-60", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 13,
+    "offset": 1,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": false,
+    "pagePosition": "early in document (after exec summary) or in appendix",
+    "bleedHandling": "no bleed — standard inset layout; g10 sidebar stays within columns"
+  },
+  "accessibilityNotes": [
+    "Use <section aria-label='Methodology'> wrapper for screen reader navigation",
+    "Inline stat callouts ($heading-03 in $blue-60) need aria-label with full context (e.g., 'Sample size: 1,200 respondents')",
+    "Limitation disclaimers should be in a clearly labeled sub-section, not just italicized text — use <h3>Limitations</h3>",
+    "Methodology fact sidebar should use <aside> with aria-label for semantic association"
+  ],
+  "references": [
+    "healthcare-and-life-sciences",
+    "healthcare-in-the-ai-era",
+    "ibm-institute-for-business-value",
+    "5-trends-for-2026",
+    "secure-by-design-smarter-with-ai"
+  ],
+  "antiPatterns": [
+    "Never omit limitations — research without stated limitations appears naive or dishonest",
+    "Never bury methodology in the middle of findings — it should be a clearly demarcated section",
+    "Never use vague descriptions like 'we analyzed data' — specify the method (regression, survey, interviews, etc.)",
+    "Never present methodology numbers in body text size — key figures (sample size, response rate) need $heading-03 emphasis",
+    "Never exceed 2 pages for main-body methodology — move extended details to Appendix (see appendix-page pattern)"
+  ],
+  "docTypeAffinity": ["research", "report", "whitepaper"]
+}

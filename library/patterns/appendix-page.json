@@ -1,0 +1,67 @@
+{
+  "id": "appendix-page",
+  "name": "Appendix Page",
+  "description": "Back-matter section containing supplementary material such as methodology notes, data sources, extended tables, glossary items, or endnotes. Visually de-emphasized compared to main body, using compact typography and optional g10 background.",
+  "grid": {
+    "columns": "1-16 (full-width container), content inset to 2-15 (13 columns)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) top margin below appendix header, $spacing-05 (16px) between items"
+  },
+  "components": [
+    "PatternBlock(appendix) as root container",
+    "Appendix header: $heading-05 with appendix letter/number (e.g., 'Appendix A: Methodology')",
+    "Body text: $body-long-01 for prose descriptions, $body-short-01 for list items",
+    "Reference list: ordered or unordered list with $body-short-01 in $text-02",
+    "Optional data table: compact DataTable variant with smaller $label-01 cells",
+    "Section dividers: $ui-03 horizontal rules between appendix sub-sections",
+    "Optional footnote markers: superscript $label-01 linking to endnotes"
+  ],
+  "rules": [
+    "Appendix pages always start on a new page — use page-break-before: always",
+    "Appendix header uses $heading-05 — one level below chapter-opener to signal supplementary status",
+    "Body text uses $body-long-01 — same as main body but appendix content may use a slightly smaller type scale if space is tight",
+    "Reference lists use hanging indent (first line flush, continuation indented $spacing-05) for readability",
+    "Tables in appendix use compact variant: $label-01 cell text, reduced $spacing-03 cell padding",
+    "Each appendix section separated by a $ui-03 horizontal rule with $spacing-07 above and below",
+    "Appendix numbering continues from main document (if main has 5 chapters, appendix starts with Appendix A)",
+    "Maximum density: appendix may use 2-column layout for reference lists to save page count"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-05", "$body-long-01", "$body-short-01", "$label-01"],
+    "spacing": ["$spacing-03", "$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-02", "$text-03", "$ui-03", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 13,
+    "offset": 1,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": true,
+    "pageBreakAfter": false,
+    "keepTogether": false,
+    "pagePosition": "after main body, before back cover",
+    "bleedHandling": "no bleed — standard column layout"
+  },
+  "accessibilityNotes": [
+    "Each appendix section should use <section aria-label='Appendix A: ...'> for navigation",
+    "Footnote references must use <a href='#fn-N'> linking to the corresponding endnote for keyboard navigation",
+    "Compact tables must maintain the same <thead>/<th> structure as full-size tables — never simplify semantics",
+    "Horizontal rules between sections should use <hr> with role='separator' for correct screen reader behavior"
+  ],
+  "references": [
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "the-enterprise-in-2030",
+    "healthcare-in-the-ai-era",
+    "ibm-institute-for-business-value"
+  ],
+  "antiPatterns": [
+    "Never style appendix content with the same visual weight as main body — it must be visually subordinate",
+    "Never omit page-break-before on appendix sections — they must not run into the final body chapter",
+    "Never use $display-* or $heading-06+ for appendix headers — reserve large type scales for main content",
+    "Never include critical findings or conclusions only in the appendix — essential information belongs in the main body",
+    "Never let appendix tables exceed page width — use compact column widths and abbreviations rather than horizontal overflow"
+  ],
+  "docTypeAffinity": ["report", "research", "whitepaper", "annual-report"]
+}

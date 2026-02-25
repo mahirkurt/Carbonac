@@ -35,10 +35,25 @@
     "colSpan": 16,
     "offset": 0
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — chart + insight must remain on same page",
+    "bleedHandling": "no bleed — chart stays within column bounds"
+  },
+  "accessibilityNotes": [
+    "Every chart must have a text alternative: the adjacent insight text serves this purpose — ensure it fully describes the data trend",
+    "Chart SVG elements should have role='img' and aria-label summarizing the key data point",
+    "Data source attribution must be programmatically associated with the chart (aria-describedby)",
+    "Color-coded chart series must have pattern fills or labels as secondary differentiators for color-blind readers"
+  ],
   "references": [
     "ibm-design-for-sustainability",
     "ibm-engineering-for-sustainability",
-    "the-enterprise-in-2030"
+    "the-enterprise-in-2030",
+    "healthcare-and-life-sciences",
+    "5-trends-for-2026"
   ],
   "antiPatterns": [
     "Never place a CarbonChart without a dataHint — the renderer cannot select the correct chart type without it",

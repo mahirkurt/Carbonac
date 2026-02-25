@@ -35,9 +35,24 @@
     "colSpan": 14,
     "offset": 1
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — typically in analysis/evidence sections",
+    "bleedHandling": "left border accent does not extend to bleed"
+  },
+  "accessibilityNotes": [
+    "Use <article> wrapper with aria-label for each case study — enables skip-navigation",
+    "Challenge/Solution/Result sections should use <h3> or <h4> headings within the article",
+    "Left border accent must have aria-hidden='true' — decorative, not semantic",
+    "Result metric should have aria-label providing full context (e.g., aria-label='40 percent cost reduction')"
+  ],
   "references": [
     "healthcare-and-life-sciences",
-    "healthcare-in-the-ai-era"
+    "healthcare-in-the-ai-era",
+    "the-essential-guide-to-agentic-ai",
+    "secure-by-design-smarter-with-ai"
   ],
   "antiPatterns": [
     "Never omit one of the three sections (challenge/solution/result) — incomplete case studies undermine credibility",

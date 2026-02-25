@@ -34,10 +34,25 @@
     "offset": 0,
     "forceBreakBefore": true
   },
+  "printBehavior": {
+    "pageBreakBefore": true,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "start of new recto (right) page when possible",
+    "bleedHandling": "decorative rule does not extend to bleed"
+  },
+  "accessibilityNotes": [
+    "Chapter title must use the appropriate heading level (<h2> for main chapters) — maintain document outline",
+    "Part number label should be visually present but can be combined with heading via aria-label",
+    "Decorative horizontal rule must have role='presentation' — it's visual rhythm, not content separation",
+    "Ensure the chapter opener is navigable via bookmark/outline in the generated PDF"
+  ],
   "references": [
     "its-time-for-the-great-tech-reset",
     "ibm-think-summit-guidelines",
-    "the-enterprise-in-2030"
+    "the-enterprise-in-2030",
+    "the-ceos-guide-to-generative-ai",
+    "the-essential-guide-to-agentic-ai"
   ],
   "antiPatterns": [
     "Never use chapter openers in documents with fewer than 3 sections — it fragments short content",

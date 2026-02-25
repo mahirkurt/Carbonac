@@ -34,9 +34,25 @@
     "offset": 0,
     "forceBreakAfter": true
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": true,
+    "keepTogether": true,
+    "pagePosition": "always page 1",
+    "bleedHandling": "extend background color to trim edge on all sides"
+  },
+  "accessibilityNotes": [
+    "Title must be the first <h1> in the document — screen readers use heading hierarchy for navigation",
+    "Date and author metadata should use <time> and <address> semantic elements",
+    "Decorative accent bars must have aria-hidden='true' — they carry no content meaning",
+    "Ensure sufficient color contrast (4.5:1 minimum) between title text and background"
+  ],
   "references": [
     "the-ceos-guide-to-generative-ai",
-    "ibm-think-summit-guidelines"
+    "ibm-think-summit-guidelines",
+    "5-trends-for-2026",
+    "its-time-for-the-great-tech-reset",
+    "the-essential-guide-to-agentic-ai"
   ],
   "antiPatterns": [
     "Never place CarbonChart, DataTable, or any data visualization on the cover page",

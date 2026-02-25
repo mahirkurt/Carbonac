@@ -1,0 +1,67 @@
+{
+  "id": "figure-with-caption",
+  "name": "Figure with Caption",
+  "description": "Structured image or diagram block with a numbered figure label, descriptive caption, and optional source attribution. Used for charts, photos, diagrams, and illustrations that require formal referencing within the document narrative.",
+  "grid": {
+    "columns": "2-14 (centered, 12 of 16 columns) or 1-16 (full-bleed for hero images)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) above/below figure block, $spacing-05 (16px) between image and caption"
+  },
+  "components": [
+    "PatternBlock(figure) as root container",
+    "Image container: constrained to max-width 100%, centered horizontally",
+    "Figure number: $label-02 in $text-03, format 'Figure N.' prefix",
+    "Caption text: $body-short-01 in $text-02, 1-3 sentences max",
+    "Optional source line: $label-01 in $text-05, italic, prefixed 'Source:'",
+    "Optional border: 1px $ui-03 around image for screenshots or low-contrast visuals",
+    "Optional alt-text attribute for accessibility"
+  ],
+  "rules": [
+    "Every figure MUST have a numbered label (Figure 1, Figure 2...) — sequential throughout the document",
+    "Caption goes below the image, never above — separated by $spacing-05 (16px)",
+    "Figure block uses 12 of 16 columns (centered) for standard figures; full-bleed only for hero/decorative images",
+    "Caption text uses $body-short-01 — concise and descriptive, never exceeding 3 sentences",
+    "Source attribution (when present) uses $label-01 in $text-05 italic, placed on its own line below caption",
+    "Add 1px $ui-03 border around screenshots, UI mockups, or images that lack strong edge contrast",
+    "Minimum $spacing-07 (32px) vertical clearance from surrounding body text to prevent visual collision",
+    "Figures must not break across pages — use page-break-inside: avoid on the entire figure block"
+  ],
+  "carbonTokens": {
+    "typography": ["$body-short-01", "$label-01", "$label-02"],
+    "spacing": ["$spacing-05", "$spacing-07"],
+    "colors": ["$text-02", "$text-03", "$text-05", "$ui-03"]
+  },
+  "layoutProps": {
+    "colSpan": 12,
+    "offset": 2,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — inline with body content",
+    "bleedHandling": "no bleed for standard figures; full-bleed optional for hero images only"
+  },
+  "accessibilityNotes": [
+    "Use <figure> and <figcaption> semantic HTML — mandatory for all figure blocks",
+    "Every image must have a meaningful alt attribute — not just 'Figure 3' but a description of what is shown",
+    "Source attribution should be inside <figcaption> for programmatic association with the figure",
+    "Decorative borders ($ui-03) must have aria-hidden='true' — they are visual aids, not content"
+  ],
+  "references": [
+    "ibm-think-summit-guidelines",
+    "ibm-design-for-sustainability",
+    "ibm-engineering-for-sustainability",
+    "the-enterprise-in-2030",
+    "healthcare-and-life-sciences"
+  ],
+  "antiPatterns": [
+    "Never place a figure without a caption — unlabeled images break document flow and prevent cross-referencing",
+    "Never use $heading-* tokens for captions — captions are descriptive metadata, not section headers",
+    "Never allow figures to break across page boundaries — the entire block (image + caption + source) must stay together",
+    "Never stretch low-resolution images to fill the column — maintain aspect ratio, center with whitespace instead",
+    "Never stack multiple figures consecutively without intervening narrative text — each figure needs contextual reference in the body"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "research", "case-study"]
+}

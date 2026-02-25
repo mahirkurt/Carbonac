@@ -36,10 +36,25 @@
     "offset": 0,
     "preferredTheme": "g10"
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — often near executive summary or dashboard sections",
+    "bleedHandling": "g10 background extends to column edges, not to trim"
+  },
+  "accessibilityNotes": [
+    "Each KPI card should use aria-label combining the metric value and caption (e.g., aria-label='Revenue: 4.2 billion dollars')",
+    "Trend indicators must include text alternatives — arrow direction + color is not enough for screen readers",
+    "Use <dl> (definition list) markup: <dt> for caption, <dd> for value — semantically correct for key-value pairs",
+    "g10 background must maintain WCAG AA contrast (4.5:1) with all text tokens used within"
+  ],
   "references": [
     "ibm-design-for-sustainability",
     "ibm-engineering-for-sustainability",
-    "ibm-institute-for-business-value"
+    "ibm-institute-for-business-value",
+    "5-trends-for-2026",
+    "the-enterprise-in-2030"
   ],
   "antiPatterns": [
     "Never exceed 6 KPIs in a single grid — cognitive overload makes metrics unreadable at a glance",

@@ -1,0 +1,68 @@
+{
+  "id": "sidebar-callout",
+  "name": "Sidebar Callout",
+  "description": "Narrow supplementary content block positioned alongside main body text, containing definitions, context notes, related statistics, or cross-references. Occupies 4-5 columns adjacent to the main text column, visually differentiated with g10 background or left border accent.",
+  "grid": {
+    "columns": "Main text: 1-11 (11 columns), Sidebar: 12-16 (5 columns) — or mirrored: sidebar 1-5, text 6-16",
+    "verticalAlignment": "top",
+    "margins": "$spacing-05 (16px) gap between main text and sidebar, $spacing-05 internal padding in sidebar"
+  },
+  "components": [
+    "PatternBlock(sidebar-callout) as container wrapping both text and sidebar",
+    "Main body text: $body-long-01 in $text-01, occupying 11 columns",
+    "Sidebar container: 5 columns wide, $ui-01 (g10) background with $spacing-05 padding",
+    "Sidebar heading: $heading-03 in $text-01 or $label-02 bold in $blue-60",
+    "Sidebar body: $body-short-01 in $text-02, concise supplementary content",
+    "Optional icon: Carbon icon (20px) in $blue-60 next to sidebar heading",
+    "Optional left border: 3px solid $blue-60 instead of full g10 background",
+    "Optional 'See also' link: $label-01 in $blue-60 for cross-reference"
+  ],
+  "rules": [
+    "Sidebar occupies exactly 4-5 of 16 columns — narrower than that is unreadable, wider competes with main text",
+    "Sidebar content must be supplementary — readers should understand the main narrative without reading sidebars",
+    "Use g10 background OR left border accent, never both — choose one differentiation method",
+    "Sidebar text uses $body-short-01 — one scale smaller than main body to reinforce visual hierarchy",
+    "Maximum 150 words per sidebar — it's a callout, not a parallel narrative. Longer content belongs in main body",
+    "Sidebar heading uses $heading-03 or $label-02 bold — clearly labels what the supplementary content covers",
+    "Sidebar vertically aligns with the paragraph it supplements — anchored to the relevant main text passage",
+    "Maximum one sidebar per page — multiple sidebars fragment the reader's attention"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-03", "$body-long-01", "$body-short-01", "$label-01", "$label-02"],
+    "spacing": ["$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-02", "$blue-60", "$ui-01"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — inline alongside body text",
+    "bleedHandling": "no bleed — sidebar stays within assigned columns"
+  },
+  "accessibilityNotes": [
+    "Use <aside aria-label='...'> for sidebar container — signals supplementary content to screen readers",
+    "Sidebar must linearize correctly in reading order — in the DOM, place it after the paragraph it supplements",
+    "Icons next to sidebar headings must have aria-hidden='true' if decorative, or alt text if meaningful",
+    "'See also' links must have descriptive link text — not just 'See also' but 'See also: Section 3 on Data Privacy'"
+  ],
+  "references": [
+    "the-ceos-guide-to-generative-ai",
+    "its-time-for-the-great-tech-reset",
+    "secure-by-design-smarter-with-ai",
+    "the-enterprise-in-2030",
+    "ibm-design-for-sustainability"
+  ],
+  "antiPatterns": [
+    "Never place essential information only in a sidebar — it's supplementary content that can be skipped",
+    "Never exceed 150 words — long sidebars become parallel columns competing with main text for attention",
+    "Never use more than one sidebar per page — multiple sidebars fragment the reading experience",
+    "Never float a sidebar without anchoring it to a specific paragraph — unanchored sidebars feel disconnected",
+    "Never use the same typography scale as main body text — sidebar text must be visually subordinate ($body-short-01 vs $body-long-01)"
+  ],
+  "docTypeAffinity": ["whitepaper", "report", "research", "annual-report"]
+}

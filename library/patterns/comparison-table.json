@@ -1,0 +1,68 @@
+{
+  "id": "comparison-table",
+  "name": "Comparison Table",
+  "description": "Structured side-by-side table comparing 2-4 options, products, approaches, or scenarios across multiple criteria rows. Uses column headers for each option and row headers for criteria, with optional checkmarks, icons, or rating indicators.",
+  "grid": {
+    "columns": "1-16 (full-width) or 2-15 (inset for visual breathing room)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) above/below table, $spacing-03 (8px) cell padding"
+  },
+  "components": [
+    "PatternBlock(comparison-table) as root container",
+    "Table heading: $heading-04 above the table describing the comparison context",
+    "Column headers: $heading-03 in $text-01, one per option being compared, with optional $blue-60 highlight for recommended option",
+    "Row headers (criteria): $body-short-01 bold in $text-01, leftmost column",
+    "Cell content: $body-short-01 in $text-02, or icon/checkmark indicators",
+    "Checkmark indicator: Carbon checkmark icon in $green-60 for supported, dash in $text-05 for unsupported",
+    "Recommended column highlight: $blue-10 background on the entire column, $blue-60 header accent",
+    "Zebra striping: alternating $ui-01 and $ui-background row backgrounds"
+  ],
+  "rules": [
+    "Maximum 4 comparison columns — more columns compress cell width below readability thresholds on A4",
+    "Criteria rows (row headers) use $body-short-01 bold — scan-friendly left column anchors the comparison",
+    "Cell content should be concise: single values, checkmarks, or 1-line descriptions — not paragraphs",
+    "If one option is recommended, highlight its column with $blue-10 background and $blue-60 header bottom border",
+    "Use zebra striping ($ui-01 alternating with $ui-background) for tables with more than 5 criteria rows",
+    "Column widths should be equal for compared options; criteria column (leftmost) can be wider",
+    "Table must have a descriptive heading ($heading-04) providing context for what is being compared",
+    "Use Carbon checkmark/close icons instead of text 'Yes'/'No' for binary criteria — faster to scan"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-04", "$heading-03", "$body-short-01"],
+    "spacing": ["$spacing-03", "$spacing-05", "$spacing-07"],
+    "colors": ["$text-01", "$text-02", "$text-05", "$blue-60", "$blue-10", "$green-60", "$ui-01", "$ui-background"]
+  },
+  "layoutProps": {
+    "colSpan": 14,
+    "offset": 1,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — comparison table should not break across pages",
+    "bleedHandling": "no bleed — table stays within column bounds"
+  },
+  "accessibilityNotes": [
+    "Use <th scope='col'> for option headers and <th scope='row'> for criteria — both dimensions need header association",
+    "Checkmark/dash icons must have aria-label (e.g., 'Supported' / 'Not supported') — icons alone are inaccessible",
+    "Recommended column highlight ($blue-10) must not rely on color alone — add text like 'Recommended' in the header",
+    "Add <caption> element summarizing the comparison context for screen readers"
+  ],
+  "references": [
+    "secure-by-design-smarter-with-ai",
+    "the-essential-guide-to-agentic-ai",
+    "healthcare-in-the-ai-era",
+    "the-ceos-guide-to-generative-ai",
+    "ibm-institute-for-business-value"
+  ],
+  "antiPatterns": [
+    "Never exceed 4 comparison columns — narrow columns with wrapped text become unreadable on print",
+    "Never use paragraph-length cell content — comparison tables are for at-a-glance scanning, not detailed prose",
+    "Never omit row headers — without criteria labels, the table is just a grid of disconnected values",
+    "Never highlight multiple columns as 'recommended' — the purpose of highlighting is singular emphasis",
+    "Never mix icon-based and text-based indicators in the same table — choose one style (checkmarks or text) and use it consistently"
+  ],
+  "docTypeAffinity": ["report", "whitepaper", "research", "case-study"]
+}

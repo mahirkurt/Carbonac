@@ -34,8 +34,25 @@
     "colSpan": 16,
     "offset": 0
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": false,
+    "pagePosition": "flexible — may span pages for long tables",
+    "bleedHandling": "no bleed — table stays within column bounds",
+    "repeatingHeaders": "repeat column headers on each page for multi-page tables"
+  },
+  "accessibilityNotes": [
+    "Use proper <table>, <thead>, <tbody>, <th scope='col'> markup — never divs styled as tables",
+    "Add <caption> element matching the visible table title for screen reader context",
+    "Row highlight ($blue-10) must not rely on color alone — use aria-selected or bold text as secondary indicator",
+    "Ensure numeric data cells use aria-label with units when units aren't visible in the cell"
+  ],
   "references": [
-    "healthcare-and-life-sciences"
+    "healthcare-and-life-sciences",
+    "healthcare-in-the-ai-era",
+    "secure-by-design-smarter-with-ai",
+    "ibm-institute-for-business-value"
   ],
   "antiPatterns": [
     "Never use wide grid gutters (32px) for tables — condensed (1px) is required for data density",

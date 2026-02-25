@@ -34,9 +34,25 @@
     "colSpan": 16,
     "offset": 0
   },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — works on any page within body content",
+    "bleedHandling": "no bleed — internal layout element"
+  },
+  "accessibilityNotes": [
+    "Hero statistic must have aria-label providing full context (e.g., aria-label='73 percent of executives agree')",
+    "Quote text should use <blockquote> with <cite> for attribution — semantic quote markup",
+    "The split layout must linearize correctly for screen readers: stat first, then quote",
+    "Ensure $blue-60 stat number meets contrast requirements against the background"
+  ],
   "references": [
     "ibm-design-for-sustainability",
-    "ibm-engineering-for-sustainability"
+    "ibm-engineering-for-sustainability",
+    "ibm-institute-for-business-value",
+    "the-ceos-guide-to-generative-ai",
+    "healthcare-in-the-ai-era"
   ],
   "antiPatterns": [
     "Never use $heading-07 or $display-01 for the statistic — $display-02 is the correct scale for inline stats",

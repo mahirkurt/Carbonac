@@ -1,0 +1,68 @@
+{
+  "id": "survey-chart-page",
+  "name": "Survey Chart Page",
+  "description": "Full-page or half-page layout presenting survey or poll results through bar charts, pie/donut charts, or stacked charts with response percentages. Includes question text as heading, chart visualization, and optional respondent-count footnote.",
+  "grid": {
+    "columns": "1-16 (full-width), chart area 2-11 (10 columns), legend/annotation area 12-15 (4 columns)",
+    "verticalAlignment": "top",
+    "margins": "$spacing-07 (32px) above/below chart block, $spacing-05 (16px) between chart and legend"
+  },
+  "components": [
+    "PatternBlock(survey-chart) as root container",
+    "Survey question heading: $heading-03 in $text-01, displaying the exact survey question",
+    "Chart container: CarbonChart (horizontal-bar, donut, or stacked-bar), 10 columns wide",
+    "Response labels: $body-short-01 in $text-02 on chart axis or legend",
+    "Percentage values: $heading-04 or $label-02 bold in $text-01 displayed on/near bars",
+    "Legend panel: right-aligned 4-column area with color swatches + labels in $label-01",
+    "Sample size footnote: $label-01 in $text-05, format 'n = X respondents'",
+    "Optional comparison line/marker for benchmark or prior-year data"
+  ],
+  "rules": [
+    "Survey question is displayed verbatim as $heading-03 — never paraphrase or abbreviate the actual question",
+    "Horizontal bar charts are preferred for single-select questions — easier to read than vertical bars for text labels",
+    "Donut charts only for questions with 2-4 response options — more segments make donut unreadable",
+    "Percentage values must be displayed directly on or adjacent to each bar/segment — never force readers to estimate from axis",
+    "Color palette follows Carbon categorical sequence: $blue-60, $teal-50, $purple-60, $magenta-50, $cyan-50",
+    "Sample size (n=) footnote is mandatory — placed bottom-left of chart in $label-01 $text-05",
+    "Maximum one survey chart per half-page — two charts per page only if vertically stacked with clear separation",
+    "Legend uses $label-01 with color swatches aligned in a single column on the right or below the chart"
+  ],
+  "carbonTokens": {
+    "typography": ["$heading-03", "$heading-04", "$body-short-01", "$label-01", "$label-02"],
+    "spacing": ["$spacing-05", "$spacing-07", "$spacing-09"],
+    "colors": ["$text-01", "$text-02", "$text-05", "$blue-60", "$teal-50", "$purple-60", "$magenta-50", "$cyan-50"]
+  },
+  "layoutProps": {
+    "colSpan": 16,
+    "offset": 0,
+    "preferredTheme": "white"
+  },
+  "printBehavior": {
+    "pageBreakBefore": false,
+    "pageBreakAfter": false,
+    "keepTogether": true,
+    "pagePosition": "flexible — within findings/analysis sections",
+    "bleedHandling": "no bleed — chart stays within column bounds"
+  },
+  "accessibilityNotes": [
+    "Chart SVG must have role='img' with aria-label summarizing the survey result",
+    "Provide a visually hidden data table (<table class='sr-only'>) as text alternative to the chart",
+    "Color-coded segments must use pattern fills or direct labels — not color alone",
+    "Sample size footnote (n=) should be programmatically associated with chart via aria-describedby"
+  ],
+  "references": [
+    "ibm-institute-for-business-value",
+    "healthcare-and-life-sciences",
+    "healthcare-in-the-ai-era",
+    "5-trends-for-2026",
+    "the-ceos-guide-to-generative-ai"
+  ],
+  "antiPatterns": [
+    "Never use 3D chart effects — flat 2D rendering only, following Carbon chart standards",
+    "Never use pie charts for more than 4 segments — switch to horizontal bar for 5+ options",
+    "Never omit the sample size footnote — survey data without n= lacks statistical context",
+    "Never paraphrase or shorten the survey question in the heading — display it exactly as asked",
+    "Never mix chart types on the same page (e.g., bar + donut side by side) — each survey result gets its own chart type"
+  ],
+  "docTypeAffinity": ["research", "report", "annual-report"]
+}

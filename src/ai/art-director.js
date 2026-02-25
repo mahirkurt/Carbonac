@@ -555,35 +555,71 @@ async function loadPatternCards() {
 function analyzeDocumentIntent(metadata, content, toc) {
   const docType = (metadata.docType || metadata.documentType || 'report').toLowerCase();
   const audience = (metadata.audience || 'general').toLowerCase();
-  const hasTables = /\|.*\|/.test(content || '');
-  const hasCharts = /chart|grafik|figure|diagram/i.test(content || '');
-  const hasQuotes = /["\u201C\u201D]|alinti|quote/i.test(content || '');
+  const contentStr = content || '';
+  const hasTables = /\|.*\|/.test(contentStr);
+  const hasCharts = /chart|grafik|figure|diagram/i.test(contentStr);
+  const hasQuotes = /["\u201C\u201D]|alinti|quote/i.test(contentStr);
+  const hasSurvey = /survey|anket|poll|respondent|n\s*=\s*\d/i.test(contentStr);
+  const hasTimeline = /timeline|phase|step\s+\d|stage\s+\d|süreç|aşama|adım/i.test(contentStr);
+  const hasComparison = /compar|karşılaştır|versus|vs\.|option\s+[a-d]/i.test(contentStr);
+  const hasMethodology = /methodolog|yöntem|araştırma|sample\s+size|örneklem/i.test(contentStr);
+  const hasFigures = /figure\s+\d|şekil\s+\d|:::figure/i.test(contentStr);
+  const hasAuthors = /author|yazar|contributor|katkıda/i.test(contentStr);
   const sectionCount = (toc || []).filter((t) => t.level === 1 || t.level === 2).length;
   const isDataHeavy = hasTables && sectionCount >= 3;
-  return { docType, audience, hasTables, hasCharts, hasQuotes, sectionCount, isDataHeavy };
+  const isLongForm = sectionCount >= 5;
+  return {
+    docType, audience, hasTables, hasCharts, hasQuotes,
+    hasSurvey, hasTimeline, hasComparison, hasMethodology,
+    hasFigures, hasAuthors, sectionCount, isDataHeavy, isLongForm,
+  };
 }
 
 function selectRelevantPatterns(allCards, intent) {
   if (!allCards.length) return [];
   const scored = allCards.map((card) => {
     let score = 0;
+    // DocType affinity match
     if (Array.isArray(card.docTypeAffinity)) {
       if (card.docTypeAffinity.some((t) => intent.docType.includes(t))) {
         score += 3;
       }
     }
-    if (intent.hasTables && ['data-table-spread', 'chart-composition', 'kpi-grid'].includes(card.id)) {
+    // Content signal boosts
+    if (intent.hasTables && ['data-table-spread', 'chart-composition', 'kpi-grid', 'comparison-table'].includes(card.id)) {
       score += 2;
     }
-    if (intent.hasQuotes && card.id === 'hero-stat-with-quote') {
+    if (intent.hasQuotes && ['hero-stat-with-quote', 'pull-quote-spread'].includes(card.id)) {
+      score += 2;
+    }
+    if (intent.hasSurvey && card.id === 'survey-chart-page') {
+      score += 3;
+    }
+    if (intent.hasTimeline && card.id === 'timeline-process') {
+      score += 3;
+    }
+    if (intent.hasComparison && card.id === 'comparison-table') {
+      score += 3;
+    }
+    if (intent.hasMethodology && card.id === 'methodology-section') {
+      score += 3;
+    }
+    if (intent.hasFigures && card.id === 'figure-with-caption') {
+      score += 2;
+    }
+    if (intent.hasAuthors && card.id === 'author-bio-strip') {
       score += 2;
     }
     if (intent.sectionCount >= 3 && card.id === 'chapter-opener') {
       score += 2;
     }
-    if (intent.isDataHeavy && ['kpi-grid', 'chart-composition'].includes(card.id)) {
+    if (intent.isLongForm && ['table-of-contents', 'appendix-page'].includes(card.id)) {
+      score += 2;
+    }
+    if (intent.isDataHeavy && ['kpi-grid', 'chart-composition', 'infographic-strip'].includes(card.id)) {
       score += 1;
     }
+    // Universal patterns (always somewhat relevant)
     if (['cover-page-hero', 'executive-summary'].includes(card.id)) {
       score += 1;
     }
@@ -591,7 +627,7 @@ function selectRelevantPatterns(allCards, intent) {
   });
   return scored
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
+    .slice(0, 7)
     .map((s) => s.card);
 }
 
@@ -603,7 +639,13 @@ function formatPatternsForPrompt(patterns) {
     const tokens = p.carbonTokens
       ? `  Tokens: ${Object.entries(p.carbonTokens).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(', ') : v}`).join('; ')}`
       : '';
-    return `### ${p.name} (${p.id})\n${p.description}\nGrid: ${p.grid?.columns || 'full-width'}\nRules:\n${rules}\n${anti}\n${tokens}`;
+    const print = p.printBehavior
+      ? `  Print: keepTogether=${p.printBehavior.keepTogether}, breakBefore=${p.printBehavior.pageBreakBefore || false}`
+      : '';
+    const a11y = (p.accessibilityNotes || []).length
+      ? `  A11y: ${p.accessibilityNotes[0]}`
+      : '';
+    return `### ${p.name} (${p.id})\n${p.description}\nGrid: ${p.grid?.columns || 'full-width'}\nRules:\n${rules}\n${anti}\n${tokens}\n${print}\n${a11y}`;
   });
   return `\n## Design Pattern Reference (apply these rules):\n\n${lines.join('\n\n')}`;
 }
