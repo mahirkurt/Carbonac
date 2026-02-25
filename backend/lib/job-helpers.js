@@ -254,6 +254,12 @@ export function generateFrontmatter(settings) {
   if (settings.includeCover !== undefined) {
     lines.push(`includeCover: ${settings.includeCover === true ? 'true' : 'false'}`);
   }
+  if (settings.includeToc !== undefined) {
+    lines.push(`includeToc: ${settings.includeToc === true ? 'true' : 'false'}`);
+  }
+  if (settings.includeBackCover !== undefined) {
+    lines.push(`includeBackCover: ${settings.includeBackCover === true ? 'true' : 'false'}`);
+  }
   if (settings.showPageNumbers !== undefined) {
     lines.push(`showPageNumbers: ${settings.showPageNumbers === true ? 'true' : 'false'}`);
   }

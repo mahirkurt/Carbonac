@@ -227,6 +227,19 @@ export function resolveDocumentMetadata({
     true
   );
 
+  const includeToc = normalizeBoolean(
+    settings.includeToc ?? settings.toc ?? metadata.includeToc ?? metadata.toc,
+    true
+  );
+
+  const includeBackCover = normalizeBoolean(
+    settings.includeBackCover
+    ?? settings.backCover
+    ?? metadata.includeBackCover
+    ?? metadata.backCover,
+    true
+  );
+
   const showPageNumbers = normalizeBoolean(
     settings.showPageNumbers ?? settings.pageNumbers ?? metadata.showPageNumbers ?? metadata.pageNumbers,
     true
@@ -251,6 +264,8 @@ export function resolveDocumentMetadata({
     locale: normalizeWhitespace(settings.locale || metadata.locale || language),
     colorMode,
     includeCover,
+    includeToc,
+    includeBackCover,
     showPageNumbers,
     printBackground,
   };

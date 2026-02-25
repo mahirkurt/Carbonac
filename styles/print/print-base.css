@@ -43,6 +43,19 @@ body {
   margin: 0 auto;
   padding: var(--space-5) 0 var(--space-4);
   border-bottom: var(--border-thin) solid var(--cds-border-subtle);
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  page-break-after: always;
+}
+
+.report-cover__eyebrow {
+  font-size: var(--font-size-meta);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cds-text-secondary);
+  margin: 0 0 var(--space-3);
 }
 
 .report-title {
@@ -72,6 +85,84 @@ body {
   font-size: var(--font-size-body);
   hyphens: auto;
   -webkit-hyphens: auto;
+}
+
+.report-toc {
+  max-width: var(--report-max-width);
+  margin: 0 auto;
+  padding: var(--space-5) 0 var(--space-4);
+  border-bottom: var(--border-thin) solid var(--cds-border-subtle);
+  page-break-after: always;
+}
+
+.report-toc__title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-serif);
+  font-size: calc(var(--font-size-heading) * 1.15);
+}
+
+.report-toc__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.report-toc__item {
+  position: relative;
+  padding-left: var(--space-3);
+  font-size: var(--font-size-body);
+}
+
+.report-toc__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 8px;
+  border-top: var(--border-thin) solid var(--cds-border-subtle);
+}
+
+.report-toc__item.level-2 {
+  padding-left: calc(var(--space-3) + var(--space-3));
+}
+
+.report-toc__item.level-3 {
+  padding-left: calc(var(--space-3) + var(--space-5));
+  color: var(--cds-text-secondary);
+}
+
+.report-back-cover {
+  max-width: var(--report-max-width);
+  min-height: 50vh;
+  margin: 0 auto;
+  padding: var(--space-6) 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-top: var(--border-thin) solid var(--cds-border-subtle);
+  page-break-before: always;
+}
+
+.report-back-cover__brand {
+  font-size: var(--font-size-meta);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cds-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.report-back-cover__title {
+  margin: 0;
+  font-size: var(--font-size-subtitle);
+  font-family: var(--font-serif);
+}
+
+.report-back-cover__thanks {
+  margin: var(--space-2) 0 0;
+  color: var(--cds-text-secondary);
 }
 
 .report-content h1,
