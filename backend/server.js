@@ -6,10 +6,12 @@
 import './env.js';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 
 // Middleware
 import { requestIdMiddleware } from './middleware/request-id.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { apiRateLimitMiddleware } from './middleware/rate-limit.js';
 
 // Route modules
 import convertRoutes from './routes/convert.js';
@@ -51,11 +53,21 @@ app.use(
   }),
 );
 
+// --- Security headers ---
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+}));
+
 // --- Body parsing ---
 app.use(express.json({ limit: '5mb' }));
 
 // --- Request ID + metrics logging ---
 app.use(requestIdMiddleware);
+
+// --- Global API rate limit (60 req / 5 min per IP) ---
+app.use('/api', apiRateLimitMiddleware);
 
 // --- Route mounting ---
 app.use('/api/convert', convertRoutes);

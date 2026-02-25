@@ -2,6 +2,8 @@
  * Rate limiting middleware (API + AI endpoints)
  */
 
+import { sendError } from '../lib/helpers.js';
+
 const AI_RATE_LIMIT_WINDOW_MS = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const AI_RATE_LIMIT_MAX = Number(process.env.AI_RATE_LIMIT_MAX || 20);
 const API_RATE_LIMIT_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 5 * 60 * 1000);
@@ -27,6 +29,19 @@ export function checkApiRateLimit(key) {
   }
   current.count += 1;
   return { allowed: true, retryAfter: 0 };
+}
+
+/**
+ * Express middleware — global API rate limit per IP (60 req / 5 min).
+ */
+export function apiRateLimitMiddleware(req, res, next) {
+  const key = `ip:${req.ip || 'unknown'}`;
+  const result = checkApiRateLimit(key);
+  if (!result.allowed) {
+    res.setHeader('Retry-After', Math.ceil(result.retryAfter / 1000));
+    return sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded.', null, req.requestId);
+  }
+  next();
 }
 
 export function checkAiRateLimit(key) {
