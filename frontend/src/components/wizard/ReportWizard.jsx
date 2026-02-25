@@ -1258,6 +1258,19 @@ function ReportWizard() {
             ))}
           </div>
 
+          {enabledPatterns.length > 0 ? (
+            <div className="report-wizard__summary-patterns">
+              <span className="report-wizard__summary-label">Etkin Pattern'lar</span>
+              <div className="report-wizard__summary-pattern-tags">
+                {patternSuggestions.filter(p => p.enabled).map((p) => (
+                  <span key={p.id} className="report-wizard__summary-pattern-tag">
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="report-wizard__summary-recommendation">
             <span>Tasarım profili durumu:</span>
 
@@ -1353,7 +1366,7 @@ function ReportWizard() {
                   || profileApplyState.status === 'loading'
                 }
               >
-                {isFinalizing ? 'Hazırlanıyor...' : 'Editöre Geç'}
+                {isFinalizing ? 'Hazırlanıyor...' : 'AI Canvas\'a Devam Et'}
               </Button>
             </>
           )}
