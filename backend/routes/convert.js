@@ -9,6 +9,8 @@ import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { spawn } from 'child_process';
 import mammoth from 'mammoth';
+import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
 import { upload, validateFileMagicBytes, downloadRemoteFile } from '../lib/upload.js';
 import { sendError, safeUnlink, safeRemoveDir, runPythonConversion } from '../lib/helpers.js';
 import { logEvent } from '../lib/logger.js';
@@ -26,6 +28,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = Router();
+
+/**
+ * Turndown instance configured for GFM output (tables, strikethrough, task lists).
+ * mammoth.convertToHtml() → turndown → clean GFM markdown.
+ */
+const turndown = new TurndownService({
+  headingStyle: 'atx',
+  codeBlockStyle: 'fenced',
+  bulletListMarker: '-',
+  emDelimiter: '*',
+});
+turndown.use(gfm);
 
 /**
  * Mammoth style-to-markdown mapping.
@@ -190,16 +204,17 @@ router.post('/to-markdown', upload.single('file'), async (req, res) => {
       });
     }
 
-    // DOCX/DOC: use mammoth with comprehensive style mapping
+    // DOCX/DOC: mammoth → HTML (preserves tables, headings, structure) → turndown → GFM markdown
     if (ext === '.docx' || ext === '.doc') {
-      const result = await mammoth.convertToMarkdown({
+      const result = await mammoth.convertToHtml({
         path: inputPath,
         styleMap: MAMMOTH_STYLE_MAP,
       });
       if (result.messages?.length) {
         logEvent('warn', { requestId: req.requestId, mammothWarnings: result.messages });
       }
-      const cleanupResult = sanitizeMarkdownContent(result.value, {
+      const markdown = turndown.turndown(result.value || '');
+      const cleanupResult = sanitizeMarkdownContent(markdown, {
         keepSoftHyphen: req.body?.keepSoftHyphen === true,
       });
       return res.json({
