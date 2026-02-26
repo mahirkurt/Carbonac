@@ -28,6 +28,67 @@ const __dirname = path.dirname(__filename);
 const router = Router();
 
 /**
+ * Mammoth style-to-markdown mapping.
+ * Maps Word/Pandoc/LibreOffice paragraph styles to semantic markdown elements.
+ * Mammoth's default only recognizes Heading1-6; everything else becomes plain text.
+ */
+const MAMMOTH_STYLE_MAP = [
+  // --- Document metadata styles ---
+  "p[style-name='Title'] => h1:fresh",
+  "p[style-name='Subtitle'] => h2:fresh",
+  "p[style-name='Author'] => p:fresh",
+  "p[style-name='Date'] => p:fresh",
+  "p[style-name='Abstract'] => blockquote:fresh",
+
+  // --- Heading styles (explicit, ensures all variants) ---
+  "p[style-name='Heading 1'] => h1:fresh",
+  "p[style-name='Heading 2'] => h2:fresh",
+  "p[style-name='Heading 3'] => h3:fresh",
+  "p[style-name='Heading 4'] => h4:fresh",
+  "p[style-name='Heading 5'] => h5:fresh",
+  "p[style-name='Heading 6'] => h6:fresh",
+  "p[style-name='TOC Heading'] => h2:fresh",
+
+  // --- Body text styles ---
+  "p[style-name='First Paragraph'] => p:fresh",
+  "p[style-name='Body Text'] => p:fresh",
+  "p[style-name='Body Text 2'] => p:fresh",
+  "p[style-name='Body Text 3'] => p:fresh",
+  "p[style-name='Compact'] => p:fresh",
+  "p[style-name='Normal'] => p:fresh",
+  "p[style-name='No Spacing'] => p:fresh",
+
+  // --- Block styles ---
+  "p[style-name='Block Text'] => blockquote:fresh",
+  "p[style-name='Quote'] => blockquote:fresh",
+  "p[style-name='Intense Quote'] => blockquote:fresh",
+
+  // --- List styles ---
+  "p[style-name='List Paragraph'] => p:fresh",
+  "p[style-name='List Bullet'] => ul > li:fresh",
+  "p[style-name='List Number'] => ol > li:fresh",
+
+  // --- Caption / Figure / Footnote ---
+  "p[style-name='Caption'] => p:fresh",
+  "p[style-name='Table Caption'] => p:fresh",
+  "p[style-name='Image Caption'] => p:fresh",
+  "p[style-name='Figure'] => p:fresh",
+  "p[style-name='Footnote Text'] => p:fresh",
+
+  // --- Academic / Reference ---
+  "p[style-name='Bibliography'] => p:fresh",
+  "p[style-name='Definition Term'] => p:fresh",
+  "p[style-name='Definition'] => p:fresh",
+
+  // --- Character styles ---
+  "r[style-name='Strong'] => strong",
+  "r[style-name='Emphasis'] => em",
+  "r[style-name='Intense Emphasis'] => strong > em",
+  "r[style-name='Verbatim Char'] => code",
+  "r[style-name='Source Code'] => code",
+];
+
+/**
  * Run marker_single CLI for non-DOCX formats (PDF, RTF, ODT)
  */
 async function runMarkerConversion(inputPath, outputDir, ext) {
@@ -129,9 +190,12 @@ router.post('/to-markdown', upload.single('file'), async (req, res) => {
       });
     }
 
-    // DOCX/DOC: use mammoth (Node.js, no external deps)
+    // DOCX/DOC: use mammoth with comprehensive style mapping
     if (ext === '.docx' || ext === '.doc') {
-      const result = await mammoth.convertToMarkdown({ path: inputPath });
+      const result = await mammoth.convertToMarkdown({
+        path: inputPath,
+        styleMap: MAMMOTH_STYLE_MAP,
+      });
       if (result.messages?.length) {
         logEvent('warn', { requestId: req.requestId, mammothWarnings: result.messages });
       }
