@@ -1023,9 +1023,14 @@ process.on('uncaughtException', (error) => {
 
 async function gracefulShutdown(signal) {
   console.log(`[worker] ${signal} received, draining…`);
+  const timeout = setTimeout(() => {
+    console.error('[worker] Shutdown timeout, forcing exit');
+    process.exit(1);
+  }, 30000);
   await worker.close();
   await jobQueue.close();
   await connection.quit();
+  clearTimeout(timeout);
   process.exit(0);
 }
 

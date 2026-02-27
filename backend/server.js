@@ -95,9 +95,11 @@ const server = app.listen(PORT, () => {
 
 async function gracefulShutdown(signal) {
   console.log(`[server] ${signal} received, shutting down…`);
-  server.close();
-  try { await connection.quit(); } catch { /* best-effort */ }
-  process.exit(0);
+  server.close(async () => {
+    try { await connection.quit(); } catch { /* best-effort */ }
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000);
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
