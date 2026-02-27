@@ -60,7 +60,7 @@ services:
           memory: ${API_MEMORY_LIMIT:-512m}
           cpus: '1.0'
     healthcheck:
-      test: ["CMD", "node", "backend/scripts/redis-healthcheck.js"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -80,9 +80,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
-      args:
-        INSTALL_TYPST: "0"
-        INSTALL_QUARTO: "0"
     container_name: carbonac-worker
     env_file:
       - .env
