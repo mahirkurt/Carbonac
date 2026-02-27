@@ -125,7 +125,7 @@ router.post('/analyze', async (req, res) => {
     }
 
     const rateKey = getRateKey(req, auth);
-    const rate = checkAiRateLimit(rateKey);
+    const rate = await checkAiRateLimit(rateKey);
     if (!rate.allowed) {
       res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
       return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);
@@ -198,7 +198,7 @@ router.post('/ask', async (req, res) => {
     }
 
     const rateKey = getRateKey(req, auth);
-    const rate = checkAiRateLimit(rateKey);
+    const rate = await checkAiRateLimit(rateKey);
     if (!rate.allowed) {
       res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
       return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);
@@ -277,7 +277,7 @@ router.post('/markdown-to-carbon-html', async (req, res) => {
     }
 
     const rateKey = getRateKey(req, auth);
-    const rate = checkAiRateLimit(rateKey);
+    const rate = await checkAiRateLimit(rateKey);
     if (!rate.allowed) {
       res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
       return sendError(res, 429, 'RATE_LIMITED', 'AI rate limit exceeded.', null, req.requestId);

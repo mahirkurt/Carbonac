@@ -162,7 +162,7 @@ router.post('/to-markdown', upload.single('file'), async (req, res) => {
     }
 
     const rateKey = getRateKey(req, auth);
-    const rate = checkApiRateLimit(rateKey);
+    const rate = await checkApiRateLimit(rateKey);
     if (!rate.allowed) {
       res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
       return sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded.', null, req.requestId);
@@ -324,7 +324,7 @@ router.post('/to-pdf', async (req, res) => {
     }
 
     const rateKey = getRateKey(req, auth);
-    const rate = checkApiRateLimit(rateKey);
+    const rate = await checkApiRateLimit(rateKey);
     if (!rate.allowed) {
       res.setHeader('Retry-After', Math.ceil(rate.retryAfter / 1000));
       return sendError(res, 429, 'RATE_LIMITED', 'Rate limit exceeded.', null, req.requestId);
