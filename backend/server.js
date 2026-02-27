@@ -13,6 +13,9 @@ import { requestIdMiddleware } from './middleware/request-id.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { apiRateLimitMiddleware } from './middleware/rate-limit.js';
 
+// Redis connection (for graceful shutdown)
+import { connection } from './queue.js';
+
 // Route modules
 import convertRoutes from './routes/convert.js';
 import jobRoutes from './routes/jobs.js';
@@ -85,10 +88,20 @@ app.use('/api', metricsRoutes);
 app.use(errorHandler);
 
 // --- Start ---
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Backend API server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
+
+async function gracefulShutdown(signal) {
+  console.log(`[server] ${signal} received, shutting down…`);
+  server.close();
+  try { await connection.quit(); } catch { /* best-effort */ }
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 process.on('unhandledRejection', (reason) => {
   console.error(
