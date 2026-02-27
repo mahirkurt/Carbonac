@@ -1021,9 +1021,13 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-process.on('SIGINT', async () => {
+async function gracefulShutdown(signal) {
+  console.log(`[worker] ${signal} received, draining…`);
   await worker.close();
   await jobQueue.close();
   await connection.quit();
   process.exit(0);
-});
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
