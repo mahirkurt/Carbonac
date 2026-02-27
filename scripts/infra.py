@@ -42,9 +42,9 @@ class CarbonacInfra:
 
     # Actual topology (matches deployed state)
     PI_COMPOSE_DIR = os.getenv("CARBONAC_PI_PATH", "~/carbonac")
-    PI_COMPOSE_FILE = "docker-compose.raspberry.yml"
-    PI_PROFILE = "api"
-    PI_ENV_FILES = "--env-file .env"
+    PI_COMPOSE_FILE = "docker-compose.yml"
+    PI_PROFILE = "pi"
+    PI_ENV_FILES = "--env-file .env --env-file .env.pi"
 
     HP_COMPOSE_DIR = os.getenv("CARBONAC_HP_PATH", "~/projects/Carbonac")
     HP_COMPOSE_FILE = "docker-compose.yml"
