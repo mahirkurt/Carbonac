@@ -103,9 +103,13 @@ const reviewerIds = parseIdList(
     process.env.PRESS_PACK_REVIEWER_IDS
 );
 
+if (!reviewerIds.length) {
+  console.warn('[auth] REVIEWER_USER_IDS not set — reviewer actions disabled');
+}
+
 export function isReviewer(userId) {
   if (!reviewerIds.length) {
-    return true;
+    return false;
   }
   if (!userId) {
     return false;
