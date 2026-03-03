@@ -103,7 +103,7 @@ services:
     volumes:
       - output-data:/app/output
       - temp-data:/app/temp
-    restart: unless-stopped
+    restart: on-failure:10
     profiles:
       - worker
       - hp-worker
